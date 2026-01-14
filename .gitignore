@@ -1,0 +1,25 @@
+node_modules/
+.pnpm-store/
+.pnp.*
+
+# builds
+build/
+dist/
+
+# env
+.env
+.env.*
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# misc
+.DS_Store
+.vscode/
+.idea/
+
+# local tooling
+*.tsbuildinfo
