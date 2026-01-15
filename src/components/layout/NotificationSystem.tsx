@@ -6,8 +6,9 @@ import {
   LogOut,
   UserCircle,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth/AuthProvider";
+import { getSupabaseClient } from "../../lib/supabaseClient";
 
 interface Notification {
   id: string;
@@ -55,80 +56,255 @@ export function NotificationDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
-  // Mock data - replace with Supabase query
-  const notifications: Notification[] = [
-    {
-      id: "1",
-      type: "assignment",
-      message: "New ticket I 2024 045 assigned to you",
-      time: "5 mins ago",
-      read: false,
-      ticket_id: "I-2024-045",
-      created_at: "2024-01-11T14:55:00Z",
-    },
-    {
-      id: "2",
-      type: "escalation",
-      message: "Ticket I 2024 042 escalated to your team",
-      time: "15 mins ago",
-      read: false,
-      ticket_id: "I-2024-042",
-      created_at: "2024-01-11T14:45:00Z",
-    },
-    {
-      id: "3",
-      type: "update",
-      message: "Ticket I 2024 038 updated by caller",
-      time: "1 hour ago",
-      read: true,
-      ticket_id: "I-2024-038",
-      created_at: "2024-01-11T13:00:00Z",
-    },
-    {
-      id: "4",
-      type: "sla",
-      message: "SLA breach warning for I 2024 035",
-      time: "2 hours ago",
-      read: true,
-      ticket_id: "I-2024-035",
-      created_at: "2024-01-11T12:00:00Z",
-    },
-    {
-      id: "5",
-      type: "mention",
-      message: "You were mentioned in ticket I 2024 030",
-      time: "3 hours ago",
-      read: true,
-      ticket_id: "I-2024-030",
-      created_at: "2024-01-11T11:00:00Z",
-    },
-  ];
+  const { user, operatorGroups } = useAuth();
+  const supabase = useMemo(() => getSupabaseClient(), []);
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+
+  const readKey = user?.id ? `pdsdesk.notifications_read.${user.id}` : "pdsdesk.notifications_read";
+
+  const formatRelativeTime = (iso: string) => {
+    const ts = new Date(iso).getTime();
+    if (!Number.isFinite(ts)) return "";
+    const diffMs = Date.now() - ts;
+    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+    if (diffSec < 60) return "Just now";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min${diffMin === 1 ? "" : "s"} ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+  };
+
+  const loadReadSet = (): Set<string> => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem(readKey);
+      const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+      const ids = Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+      return new Set(ids);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const saveReadSet = (set: Set<string>) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+    } catch {
+      // ignore
+    }
+  };
+
+  const loadNotifications = async () => {
+    if (!user) return;
+    setNotificationsLoading(true);
+
+    try {
+      const readSet = loadReadSet();
+
+      const prefs = (() => {
+        const defaults = {
+          ticketAssigned: true,
+          ticketEscalated: true,
+          ticketUpdated: true,
+          slaWarnings: true,
+        };
+
+        if (typeof window === "undefined") return defaults;
+        try {
+          const settingsKey = user?.id?.trim()
+            ? `pdsdesk.settings.${user.id}`
+            : "pdsdesk.settings";
+          const raw = localStorage.getItem(settingsKey);
+          const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+          if (!parsed || typeof parsed !== "object") return defaults;
+          const obj = parsed as Record<string, unknown>;
+          return {
+            ticketAssigned: obj.ticketAssigned !== false,
+            ticketEscalated: obj.ticketEscalated !== false,
+            ticketUpdated: obj.ticketUpdated !== false,
+            slaWarnings: obj.slaWarnings !== false,
+          };
+        } catch {
+          return defaults;
+        }
+      })();
+
+      const eventTypes = [
+        "ticket_status_changed",
+        "escalation",
+        "follow_up_created",
+        "ticket_updated",
+        "ticket_auto_closed",
+        "escalation_notification_sent",
+      ];
+
+      const groupKeys = operatorGroups ?? [];
+      let groupIds: string[] = [];
+      if (groupKeys.length) {
+        const grpRes = await supabase
+          .from("operator_groups")
+          .select("id")
+          .in("group_key", groupKeys)
+          .limit(10);
+        if (!grpRes.error) {
+          groupIds = (grpRes.data ?? []).map((r: any) => r.id).filter(Boolean);
+        }
+      }
+
+      const ticketIds = new Set<string>();
+
+      const mineRes = await supabase
+        .from("tickets")
+        .select("id")
+        .eq("assignee_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (!mineRes.error) {
+        for (const t of (mineRes.data ?? []) as any[]) ticketIds.add(t.id);
+      }
+
+      if (groupIds.length) {
+        const queueRes = await supabase
+          .from("tickets")
+          .select("id")
+          .in("assignment_group_id", groupIds)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (!queueRes.error) {
+          for (const t of (queueRes.data ?? []) as any[]) ticketIds.add(t.id);
+        }
+      }
+
+      const idsArr = Array.from(ticketIds);
+      if (!idsArr.length) {
+        setNotifications([]);
+        setNotificationsLoading(false);
+        return;
+      }
+
+      const evRes = await supabase
+        .from("ticket_events")
+        .select("id,ticket_id,event_type,created_at,payload,ticket:tickets!ticket_events_ticket_id_fkey(ticket_number,title)")
+        .in("ticket_id", idsArr)
+        .in("event_type", eventTypes)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (evRes.error) {
+        setNotifications([]);
+        setNotificationsLoading(false);
+        return;
+      }
+
+      const rows = (evRes.data ?? []) as any[];
+      const next: Notification[] = rows
+        .filter((r) => {
+          const et = String(r?.event_type ?? "");
+          if (et === "escalation" || et === "escalation_notification_sent") return prefs.ticketEscalated;
+          if (et === "ticket_auto_closed") return prefs.slaWarnings;
+          if (et === "ticket_status_changed" || et === "follow_up_created") return prefs.ticketUpdated;
+
+          if (et === "ticket_updated") {
+            const changes = (r?.payload as any)?.changes as Array<{ field?: unknown }> | undefined;
+            const hasAssignmentChange =
+              Array.isArray(changes) &&
+              changes.some((c) => {
+                const f = String((c as any)?.field ?? "");
+                return f === "assignee_id" || f === "assignment_group_id";
+              });
+            return hasAssignmentChange ? prefs.ticketAssigned : prefs.ticketUpdated;
+          }
+
+          return true;
+        })
+        .map((r) => {
+        const ticketNumber = r?.ticket?.ticket_number ?? "";
+        const ticketTitle = r?.ticket?.title ?? "";
+        const createdAt = r?.created_at ?? new Date().toISOString();
+
+        const changes = (r?.payload as any)?.changes as Array<{ field?: unknown }> | undefined;
+        const hasAssignmentChange =
+          r.event_type === "ticket_updated" &&
+          Array.isArray(changes) &&
+          changes.some((c) => {
+            const f = String((c as any)?.field ?? "");
+            return f === "assignee_id" || f === "assignment_group_id";
+          });
+
+        const type: Notification["type"] =
+          hasAssignmentChange
+            ? "assignment"
+            : r.event_type === "escalation"
+              ? "escalation"
+              : r.event_type === "ticket_auto_closed"
+                ? "sla"
+                : "update";
+
+        const message =
+          r.event_type === "ticket_status_changed"
+            ? `Ticket ${ticketNumber || ""} status changed`
+            : r.event_type === "follow_up_created"
+              ? `Follow-up created for ${ticketNumber || "a ticket"}`
+              : r.event_type === "ticket_auto_closed"
+                ? `Ticket ${ticketNumber || ""} auto-closed`
+                : r.event_type === "escalation_notification_sent"
+                  ? `Escalation notification sent for ${ticketNumber || "a ticket"}`
+                  : r.event_type === "escalation"
+                    ? `Ticket ${ticketNumber || ""} escalated`
+                    : `Ticket ${ticketNumber || ""} updated`;
+
+        return {
+          id: r.id,
+          type,
+          message: ticketTitle ? `${message}: ${ticketTitle}` : message,
+          time: formatRelativeTime(createdAt),
+          read: readSet.has(r.id),
+          ticket_id: r.ticket_id,
+          created_at: createdAt,
+        };
+      });
+
+      setNotifications(next);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
 
   const unreadCount = notifications.filter(
     (n) => !n.read,
   ).length;
 
   const markAllAsRead = async () => {
-    // TODO: Update all notifications as read in Supabase
-    // await supabase
-    //   .from('notifications')
-    //   .update({ read: true })
-    //   .eq('user_id', currentUser.id)
-    //   .eq('read', false);
-    console.log("Marking all as read...");
+    const set = loadReadSet();
+    for (const n of notifications) set.add(n.id);
+    saveReadSet(set);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   const markAsRead = async (notificationId: string) => {
-    // TODO: Mark single notification as read in Supabase
-    // await supabase
-    //   .from('notifications')
-    //   .update({ read: true })
-    //   .eq('id', notificationId);
-    console.log(
-      "Marking notification as read:",
-      notificationId,
-    );
+    const set = loadReadSet();
+    set.add(notificationId);
+    saveReadSet(set);
+    setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)));
   };
+
+  useEffect(() => {
+    if (!user) return;
+    void loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!user) return;
+    void loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -187,7 +363,11 @@ export function NotificationDropdown({
 
             {/* Notifications List */}
             <div className="max-h-96 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {notificationsLoading ? (
+                <div className="p-6 text-center text-gray-500">
+                  <p className="text-sm">Loading...</p>
+                </div>
+              ) : notifications.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <Bell
                     size={32}
@@ -202,7 +382,9 @@ export function NotificationDropdown({
                     onClick={() => {
                       markAsRead(notification.id);
                       setIsOpen(false);
-                      // TODO: Navigate to ticket if ticket_id exists
+                      if (notification.ticket_id) {
+                        window.location.hash = `#/call-management?ticketId=${encodeURIComponent(notification.ticket_id)}`;
+                      }
                     }}
                     className={`px-4 py-3 border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer transition-colors ${
                       !notification.read ? "bg-blue-50" : ""
@@ -238,7 +420,7 @@ export function NotificationDropdown({
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
-                  // TODO: Open notifications page
+                  window.location.hash = "#/notifications";
                 }}
                 className="text-xs text-[#4a9eff] hover:underline w-full text-center"
               >

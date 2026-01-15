@@ -19,6 +19,8 @@ export function CustomerSupportQueueView() {
   const { user } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
+  const customerSupportMailbox = (import.meta.env.VITE_CUSTOMER_SUPPORT_MAILBOX ?? "").trim();
+
   const [view, setView] = useState<"list" | "create" | "detail">("list");
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [detailNotice, setDetailNotice] = useState<string | undefined>(undefined);
@@ -65,6 +67,31 @@ export function CustomerSupportQueueView() {
 
   const [tickets, setTickets] = useState<QueueTicket[]>([]);
 
+  const downloadCsv = (filename: string, rows: Array<Record<string, unknown>>) => {
+    const esc = (value: unknown) => {
+      const s = String(value ?? "");
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const headers = Array.from(
+      rows.reduce((set, row) => {
+        Object.keys(row).forEach((k) => set.add(k));
+        return set;
+      }, new Set<string>()),
+    );
+
+    const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => esc((r as any)[h])).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const loadTickets = useCallback(async () => {
     if (!user) return;
 
@@ -104,12 +131,33 @@ export function CustomerSupportQueueView() {
     });
 
     setTickets(normalized);
+    setSelectedTickets([]);
     setLoading(false);
   }, [supabase, user]);
 
   useEffect(() => {
     void loadTickets();
   }, [loadTickets]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncFromHash = () => {
+      const raw = window.location.hash || "";
+      const [path, query] = raw.replace(/^#\/?/, "").split("?");
+      if ((path ?? "").split("/")[0] !== "customer-support-queue") return;
+      const params = new URLSearchParams(query ?? "");
+      const id = params.get("ticketId") ?? "";
+      if (!id.trim()) return;
+      setActiveTicketId(id.trim());
+      setDetailNotice(undefined);
+      setView("detail");
+    };
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -170,6 +218,31 @@ export function CustomerSupportQueueView() {
 
   const archiveCount = useMemo(() => tickets.filter((t) => !!t.archived_at).length, [tickets]);
 
+  const exportTickets = () => {
+    const ids = new Set(selectedTickets);
+    const source = selectedTickets.length > 0
+      ? tickets.filter((t) => ids.has(t.id))
+      : filteredTickets;
+
+    downloadCsv(
+      `customer-support-queue-${new Date().toISOString().slice(0, 10)}.csv`,
+      source.map((t) => ({
+        ticket_number: t.ticket_number,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        category: t.category,
+        channel: t.channel,
+        mailbox: t.mailbox ?? "",
+        requester: t.requester_name ?? t.requester?.full_name ?? "",
+        requester_email: t.requester_email ?? t.requester?.email ?? "",
+        assignee: t.assignee?.full_name ?? t.assignee?.email ?? "",
+        created_at: t.created_at,
+        archived_at: t.archived_at ?? "",
+      })),
+    );
+  };
+
   const stats = useMemo(() => {
     const newCount = tickets.filter((t) => t.status === "new").length;
     const openCount = tickets.filter((t) => t.status === "open").length;
@@ -192,11 +265,11 @@ export function CustomerSupportQueueView() {
     return (
       <TicketCreateViewV1
         onBack={() => setView("list")}
-        defaults={{
-          ticket_type: "customer_service",
-          channel: "email",
-          mailbox: "support@promptandpause.com",
-        }}
+        defaults={
+          customerSupportMailbox
+            ? { ticket_type: "customer_service", channel: "email", mailbox: customerSupportMailbox }
+            : { ticket_type: "customer_service", channel: "email" }
+        }
         onCreated={(ticketId) => {
           setActiveTicketId(ticketId);
           setDetailNotice("Created.");
@@ -215,6 +288,10 @@ export function CustomerSupportQueueView() {
           setActiveTicketId(null);
           setDetailNotice(undefined);
           setView("list");
+          if (typeof window !== "undefined") {
+            const next = "#/customer-support-queue";
+            if (window.location.hash !== next) window.location.hash = next;
+          }
         }}
       />
     );
@@ -244,11 +321,21 @@ export function CustomerSupportQueueView() {
           >
             Refresh
           </button>
-          <button className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+          <button
+            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+            onClick={exportTickets}
+            disabled={loading}
+          >
             <Download size={14} />
             Export
           </button>
-          <button className="p-1.5 hover:bg-gray-200 rounded transition-colors">
+          <button
+            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            onClick={() => {
+              if (typeof window !== "undefined") window.location.hash = "#/settings";
+            }}
+            title="Settings"
+          >
             <Settings size={16} className="text-[#2d3e50]" />
           </button>
         </div>
@@ -259,8 +346,14 @@ export function CustomerSupportQueueView() {
         <Mail size={16} className="text-blue-600" />
         <span className="text-sm text-blue-900">
           This queue manages customer inquiries from email.
-          Tickets are automatically created from{" "}
-          <strong>support@promptandpause.com</strong>
+          {customerSupportMailbox
+            ? (
+                <>
+                  Tickets are automatically created from{" "}
+                  <strong>{customerSupportMailbox}</strong>
+                </>
+              )
+            : " Tickets are automatically created from the configured support mailbox."}
         </span>
       </div>
 
@@ -348,7 +441,11 @@ export function CustomerSupportQueueView() {
             Archive ({archiveCount})
           </button>
         </div>
-        <button className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+        <button
+          type="button"
+          className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          onClick={() => setError("More filters are not implemented yet. Use the search and dropdowns for now.")}
+        >
           <Filter size={14} />
           More Filters
         </button>

@@ -133,8 +133,11 @@ export function TicketDetailView({
   const [escalateOpen, setEscalateOpen] = useState(false);
   const [escalateGroupId, setEscalateGroupId] = useState<string>("");
   const [escalateNote, setEscalateNote] = useState("");
+  const [escalateAssigneeId, setEscalateAssigneeId] = useState<string>("__keep__");
   const [escalateMakeUrgent, setEscalateMakeUrgent] = useState(true);
   const [escalateAddInternalNote, setEscalateAddInternalNote] = useState(true);
+  const [escalateNotifyAssignee, setEscalateNotifyAssignee] = useState(true);
+  const [escalateNotifyGroup, setEscalateNotifyGroup] = useState(false);
   const [escalateSubmitting, setEscalateSubmitting] = useState(false);
   const [escalateError, setEscalateError] = useState<string | null>(null);
 
@@ -162,9 +165,16 @@ export function TicketDetailView({
     setEscalateSubmitting(false);
     setEscalateGroupId(editAssignmentGroupId || "");
     setEscalateNote("");
+    setEscalateAssigneeId("__keep__");
     setEscalateMakeUrgent(true);
     setEscalateAddInternalNote(true);
+    setEscalateNotifyAssignee(true);
+    setEscalateNotifyGroup(false);
   }, [editAssignmentGroupId, escalateOpen]);
+
+  const [escalateMembers, setEscalateMembers] = useState<OperatorMemberRow[]>([]);
+  const [escalateMembersLoading, setEscalateMembersLoading] = useState(false);
+  const [escalateMembersError, setEscalateMembersError] = useState<string | null>(null);
 
   useEffect(() => {
     setNotice(initialNotice ?? null);
@@ -250,6 +260,37 @@ export function TicketDetailView({
 
       setOperatorMembers((res.data ?? []) as OperatorMemberRow[]);
       setOperatorMembersLoading(false);
+    },
+    [supabase, user],
+  );
+
+  const loadEscalateMembers = useCallback(
+    async (groupId: string) => {
+      if (!user) return;
+
+      const gid = groupId.trim();
+      if (!gid) {
+        setEscalateMembers([]);
+        setEscalateMembersError(null);
+        return;
+      }
+
+      setEscalateMembersError(null);
+      setEscalateMembersLoading(true);
+
+      const res = await supabase.rpc("list_operator_group_members", {
+        group_id: gid,
+      });
+
+      if (res.error) {
+        setEscalateMembers([]);
+        setEscalateMembersError(res.error.message);
+        setEscalateMembersLoading(false);
+        return;
+      }
+
+      setEscalateMembers((res.data ?? []) as OperatorMemberRow[]);
+      setEscalateMembersLoading(false);
     },
     [supabase, user],
   );
@@ -349,6 +390,11 @@ export function TicketDetailView({
   useEffect(() => {
     void loadOperatorMembers(editAssignmentGroupId);
   }, [editAssignmentGroupId, loadOperatorMembers]);
+
+  useEffect(() => {
+    if (!escalateOpen) return;
+    void loadEscalateMembers(escalateGroupId);
+  }, [escalateGroupId, escalateOpen, loadEscalateMembers]);
 
   useEffect(() => {
     const handler = () => {
@@ -1457,7 +1503,7 @@ export function TicketDetailView({
       return;
     }
 
-    window.open(signed.data.signedUrl, "_blank");
+    window.open(signed.data.signedUrl, "_blank", "noopener,noreferrer");
     setAttachmentsBusyId(null);
   };
 
@@ -1652,6 +1698,38 @@ export function TicketDetailView({
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const profileIds = new Set<string>();
     const groupIds = new Set<string>();
+    const ticketIds = new Set<string>();
+
+    const collectUuid = (key: string, value: unknown) => {
+      if (typeof value !== "string" || !UUID_RE.test(value)) return;
+      const k = key.toLowerCase();
+      if (k.includes("group") && k.endsWith("_id")) {
+        groupIds.add(value);
+        return;
+      }
+      if (k.includes("ticket") && k.endsWith("_id")) {
+        ticketIds.add(value);
+        return;
+      }
+      if (k.endsWith("_id")) {
+        profileIds.add(value);
+      }
+    };
+
+    const scanPayload = (payload: unknown, depth: number) => {
+      if (!payload || depth <= 0) return;
+      if (Array.isArray(payload)) {
+        for (const v of payload) scanPayload(v, depth - 1);
+        return;
+      }
+      if (typeof payload !== "object") return;
+      for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
+        collectUuid(k, v);
+        if (typeof v === "object" && v !== null) {
+          scanPayload(v, depth - 1);
+        }
+      }
+    };
 
     for (const e of normalized as any[]) {
       const changesArr = (e?.payload as any)?.changes as
@@ -1672,6 +1750,10 @@ export function TicketDetailView({
           }
         }
       }
+    }
+
+    for (const e of normalized as any[]) {
+      scanPayload(e?.payload, 3);
     }
 
     const idMap: Record<string, string> = {};
@@ -1698,6 +1780,19 @@ export function TicketDetailView({
         const name = String(g?.name ?? "").trim();
         const key = String(g?.group_key ?? "").trim();
         idMap[String(g.id)] = name || key || "Unknown";
+      }
+    }
+
+    if (ticketIds.size) {
+      const { data: tickets } = await supabase
+        .from("tickets")
+        .select("id,ticket_number,title")
+        .in("id", Array.from(ticketIds));
+
+      for (const t of (tickets ?? []) as any[]) {
+        const num = String(t?.ticket_number ?? "").trim();
+        const title = String(t?.title ?? "").trim();
+        idMap[String(t.id)] = num || title || "Ticket";
       }
     }
 
@@ -1992,12 +2087,12 @@ export function TicketDetailView({
   const handleSaveNewTemplate = async () => {
     if (!user) return;
     if (savedTemplates.length >= 5) {
-      alert("Maximum of 5 templates allowed. Please delete one to add a new template.");
+      setTemplatesError("Maximum of 5 templates allowed. Please delete one to add a new template.");
       return;
     }
 
     if (!newTemplateName.trim() || !newTemplateContent.trim()) {
-      alert("Please enter both template name and content.");
+      setTemplatesError("Please enter both template name and content.");
       return;
     }
 
@@ -2104,8 +2199,12 @@ export function TicketDetailView({
     const willChangePriority = Boolean(escalateMakeUrgent && (ticket?.priority ?? "") !== "urgent");
     const willCreateInternalNote = Boolean(note && escalateAddInternalNote);
 
-    if (!willChangeGroup && !willChangePriority && !note) {
-      setEscalateError("Select a new queue, mark urgent, or add a note.");
+    const assigneeAction = escalateAssigneeId;
+    const nextAssigneeId = assigneeAction === "__keep__" ? null : (assigneeAction || null);
+    const willChangeAssignee = assigneeAction !== "__keep__" && (ticket?.assignee_id ?? null) !== nextAssigneeId;
+
+    if (!willChangeGroup && !willChangePriority && !willChangeAssignee && !note) {
+      setEscalateError("Select a new queue, change assignee, mark urgent, or add a note.");
       return;
     }
 
@@ -2113,10 +2212,18 @@ export function TicketDetailView({
     setEscalateSubmitting(true);
 
     const selectedGroup = operatorGroups.find((g) => g.id === targetGroupId) ?? null;
+    const selectedAssignee =
+      assigneeAction === "__keep__"
+        ? null
+        : (escalateMembers.find((m) => m.id === (nextAssigneeId ?? "")) ?? null);
 
-    if (willChangeGroup || willChangePriority) {
+    const shouldNotifyAssignee = Boolean(escalateNotifyAssignee && willChangeAssignee && nextAssigneeId);
+    const shouldNotifyGroup = Boolean(escalateNotifyGroup && willChangeGroup && targetGroupId);
+
+    if (willChangeGroup || willChangePriority || willChangeAssignee) {
       const updateFields: Record<string, unknown> = {
-        assignment_group_id: targetGroupId,
+        ...(willChangeGroup ? { assignment_group_id: targetGroupId } : null),
+        ...(willChangeAssignee ? { assignee_id: nextAssigneeId } : null),
       };
       if (willChangePriority) {
         updateFields.priority = "urgent";
@@ -2142,6 +2249,8 @@ export function TicketDetailView({
         note,
         to_assignment_group_id: targetGroupId,
         to_assignment_group_name: selectedGroup?.name ?? null,
+        to_assignee_id: assigneeAction === "__keep__" ? undefined : nextAssigneeId,
+        to_assignee_name: selectedAssignee?.full_name ?? selectedAssignee?.email ?? null,
         priority_set_to_urgent: !!escalateMakeUrgent,
       },
     });
@@ -2179,17 +2288,57 @@ export function TicketDetailView({
       },
     });
 
+    if (shouldNotifyAssignee || shouldNotifyGroup) {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+        if (!accessToken) {
+          throw new Error("Missing access token");
+        }
+
+        const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ticket-escalation-email`;
+        const notifyRes = await fetch(fnUrl, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            ticketId: effectiveTicketId,
+            toAssignmentGroupId: targetGroupId,
+            toAssigneeId: nextAssigneeId,
+            note,
+            notifyAssignee: shouldNotifyAssignee,
+            notifyGroup: shouldNotifyGroup,
+            excludeActor: true,
+          }),
+        });
+        if (!notifyRes.ok) {
+          throw new Error(`ticket-escalation-email failed: ${notifyRes.status}`);
+        }
+      } catch {
+        // Don't block escalation if notify fails
+      }
+    }
+
     if (willChangeGroup) {
       setEditAssignmentGroupId(targetGroupId ?? "");
     }
     if (willChangePriority) {
       setEditPriority("urgent");
     }
+    if (willChangeAssignee) {
+      setEditAssigneeId(nextAssigneeId ?? "");
+    }
     setTicket((prev) =>
       prev
         ? {
             ...prev,
             ...(willChangeGroup ? { assignment_group_id: targetGroupId } : null),
+            ...(willChangeAssignee ? { assignee_id: nextAssigneeId } : null),
             ...(willChangePriority ? { priority: "urgent" } : null),
           }
         : prev,
@@ -2198,7 +2347,7 @@ export function TicketDetailView({
     setEscalateSubmitting(false);
     setEscalateOpen(false);
     void refreshAll();
-  }, [effectiveTicketId, escalateAddInternalNote, escalateGroupId, escalateMakeUrgent, escalateNote, operatorGroups, refreshAll, supabase, ticket, user]);
+  }, [effectiveTicketId, escalateAddInternalNote, escalateAssigneeId, escalateGroupId, escalateMakeUrgent, escalateMembers, escalateNote, escalateNotifyAssignee, escalateNotifyGroup, operatorGroups, refreshAll, supabase, ticket, user]);
 
   const createFollowUpTicket = useCallback(async () => {
     if (!user) return;
@@ -2486,7 +2635,16 @@ export function TicketDetailView({
               <select
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={escalateGroupId}
-                onChange={(e) => setEscalateGroupId(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEscalateGroupId(next);
+                  const currentGroup = ticket?.assignment_group_id ?? "";
+                  if (next && next !== currentGroup) {
+                    setEscalateAssigneeId("");
+                  } else {
+                    setEscalateAssigneeId("__keep__");
+                  }
+                }}
                 disabled={operatorGroupsLoading || escalateSubmitting}
               >
                 <option value="">Unassigned</option>
@@ -2499,6 +2657,52 @@ export function TicketDetailView({
               {operatorGroupsError && (
                 <div className="mt-1 text-xs text-red-600">{operatorGroupsError}</div>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assign to</label>
+              <select
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                value={escalateAssigneeId}
+                onChange={(e) => setEscalateAssigneeId(e.target.value)}
+                disabled={escalateSubmitting || !escalateGroupId || escalateMembersLoading}
+              >
+                <option value="__keep__">Keep current assignee</option>
+                <option value="">Unassigned</option>
+                {user?.id && <option value={user.id}>Me ({user.email ?? ""})</option>}
+                {escalateMembers
+                  .filter((m) => m.id !== user?.id)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.full_name || m.email || m.id}
+                    </option>
+                  ))}
+              </select>
+              {escalateMembersError && <div className="mt-1 text-xs text-red-600">{escalateMembersError}</div>}
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={escalateNotifyAssignee}
+                  onChange={(e) => setEscalateNotifyAssignee(e.target.checked)}
+                  disabled={
+                    escalateSubmitting ||
+                    !(escalateAssigneeId && escalateAssigneeId !== "__keep__")
+                  }
+                />
+                Notify new assignee by email
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={escalateNotifyGroup}
+                  onChange={(e) => setEscalateNotifyGroup(e.target.checked)}
+                  disabled={escalateSubmitting || !escalateGroupId || escalateGroupId === (ticket?.assignment_group_id ?? "")}
+                />
+                Notify target queue by email
+              </label>
             </div>
 
             <div>
@@ -2552,7 +2756,21 @@ export function TicketDetailView({
               type="button"
               className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
               onClick={() => void submitEscalation()}
-              disabled={escalateSubmitting}
+              disabled={
+                escalateSubmitting ||
+                (!ticket ||
+                  (() => {
+                    const currentGroupId = ticket?.assignment_group_id ?? null;
+                    const targetGroupId = escalateGroupId || null;
+                    const willChangeGroup = currentGroupId !== targetGroupId;
+                    const willChangePriority = Boolean(escalateMakeUrgent && (ticket?.priority ?? "") !== "urgent");
+                    const note = escalateNote.trim() || null;
+                    const assigneeAction = escalateAssigneeId;
+                    const nextAssigneeId = assigneeAction === "__keep__" ? null : (assigneeAction || null);
+                    const willChangeAssignee = assigneeAction !== "__keep__" && (ticket?.assignee_id ?? null) !== nextAssigneeId;
+                    return !willChangeGroup && !willChangePriority && !willChangeAssignee && !note;
+                  })())
+              }
             >
               <Users size={14} />
               {escalateSubmitting ? "Escalating..." : "Escalate"}
@@ -2927,6 +3145,7 @@ export function TicketDetailView({
                         {auditEvents.map((e) => {
                           const who = e.actor?.full_name ?? e.actor?.email ?? "Unknown";
                           const changesArr = (e.payload as any)?.changes as Array<{ field: string; from: unknown; to: unknown }> | undefined;
+                          const payload = (e.payload ?? null) as any;
 
                           const formatAuditValue = (field: string, value: unknown) => {
                             if (value === null || value === undefined) return "-";
@@ -2938,6 +3157,60 @@ export function TicketDetailView({
                             }
                             return String(value);
                           };
+
+                          const payloadDetails = (() => {
+                            if (!payload || typeof payload !== "object") return [] as Array<{ key: string; value: string }>;
+
+                            const push = (key: string, val: unknown) => {
+                              if (val === null || val === undefined) return;
+                              if (typeof val === "object") return;
+                              const rendered = formatAuditValue(key, val);
+                              if (!rendered || rendered === "-") return;
+                              if (rendered.length > 220) return;
+                              return { key, value: rendered };
+                            };
+
+                            if (e.event_type === "ticket_status_changed") {
+                              return [
+                                push("from", payload.from),
+                                push("to", payload.to),
+                              ].filter(Boolean) as Array<{ key: string; value: string }>;
+                            }
+
+                            if (e.event_type === "escalation") {
+                              return [
+                                push("to_assignment_group_id", payload.to_assignment_group_id),
+                                push("to_assignment_group_name", payload.to_assignment_group_name),
+                                push("to_assignee_id", payload.to_assignee_id),
+                                push("to_assignee_name", payload.to_assignee_name),
+                                push("priority_set_to_urgent", payload.priority_set_to_urgent),
+                                push("note", payload.note),
+                              ].filter(Boolean) as Array<{ key: string; value: string }>;
+                            }
+
+                            if (e.event_type === "follow_up_created") {
+                              return [
+                                push("follow_up_ticket_id", payload.follow_up_ticket_id),
+                              ].filter(Boolean) as Array<{ key: string; value: string }>;
+                            }
+
+                            if (e.event_type === "ticket_auto_closed") {
+                              return [
+                                push("closed_reason", payload.closed_reason),
+                                push("closed_by", payload.closed_by),
+                              ].filter(Boolean) as Array<{ key: string; value: string }>;
+                            }
+
+                            const ignored = new Set(["changes"]);
+                            const out: Array<{ key: string; value: string }> = [];
+                            for (const [k, v] of Object.entries(payload)) {
+                              if (ignored.has(k)) continue;
+                              const row = push(k, v);
+                              if (row) out.push(row);
+                              if (out.length >= 6) break;
+                            }
+                            return out;
+                          })();
 
                           return (
                             <div key={e.id} className="bg-white p-3 rounded border border-gray-300">
@@ -2954,6 +3227,16 @@ export function TicketDetailView({
                                   {changesArr.map((c, idx) => (
                                     <div key={idx} className="text-xs text-gray-700">
                                       <span className="font-semibold">{c.field}</span>: {formatAuditValue(c.field, c.from)} → {formatAuditValue(c.field, c.to)}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {(!Array.isArray(changesArr) || changesArr.length === 0) && payloadDetails.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {payloadDetails.map((d) => (
+                                    <div key={d.key} className="text-xs text-gray-700">
+                                      <span className="font-semibold">{d.key}</span>: {d.value}
                                     </div>
                                   ))}
                                 </div>
@@ -4009,7 +4292,12 @@ export function TicketDetailView({
               onChange={(e) => setMessageText(e.target.value)}
             />
             <div className="flex items-center justify-between mt-2">
-              <button className="text-xs text-[#4a9eff] hover:underline flex items-center gap-1">
+              <button
+                type="button"
+                className="text-xs text-[#4a9eff] hover:underline flex items-center gap-1 disabled:opacity-50"
+                onClick={() => void copyText(messageText)}
+                disabled={!messageText.trim()}
+              >
                 <Copy size={12} />
                 Copy
               </button>

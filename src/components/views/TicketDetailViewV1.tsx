@@ -242,8 +242,7 @@ export function TicketDetailViewV1({
       return;
     }
 
-    const reasonRaw = window.prompt("Escalation note (optional)") ?? "";
-    const reason = reasonRaw.trim();
+    const reason = "";
 
     setError(null);
     setNotice(null);
@@ -573,7 +572,8 @@ export function TicketDetailViewV1({
           <button
             type="button"
             onClick={() => void escalate()}
-            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+            disabled={!canWorkTickets}
+            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors disabled:opacity-60"
             title={canWorkTickets ? "Escalate" : "Only operators/admins can escalate"}
           >
             Escalate
@@ -589,11 +589,11 @@ export function TicketDetailViewV1({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => handleNewTicket()}>
+              <DropdownMenuItem onSelect={() => handleNewTicket()} disabled={!canWorkTickets}>
                 <Plus className="size-4" />
                 New ticket
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void createFollowUp()}>
+              <DropdownMenuItem onSelect={() => void createFollowUp()} disabled={!canWorkTickets}>
                 <Copy className="size-4" />
                 Follow-up ticket (linked)
               </DropdownMenuItem>

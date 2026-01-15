@@ -9,20 +9,104 @@ import {
   Wifi,
 } from "lucide-react";
 
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../../lib/auth/AuthProvider";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+
 // TODO: Fetch IT metrics from Supabase
 export function ITDashboardView() {
-  const metrics = {
-    systemUptime: 99.98,
-    activeServers: 24,
-    totalServers: 25,
-    cpuUsage: 45,
-    memoryUsage: 62,
-    storageUsage: 78,
-    networkHealth: "Excellent",
-    activeIncidents: 3,
-    resolvedToday: 18,
-    avgResponseTime: "12 min",
-  };
+  const { user } = useAuth();
+  const supabase = useMemo(() => getSupabaseClient(), []);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeIncidents, setActiveIncidents] = useState<number | null>(null);
+  const [resolvedToday, setResolvedToday] = useState<number | null>(null);
+  const [avgFirstResponseMinutes, setAvgFirstResponseMinutes] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startIso = today.toISOString();
+
+        const [activeIncidentsRes, resolvedTodayRes, slasRes] = await Promise.all([
+          supabase
+            .from("tickets")
+            .select("id", { count: "exact", head: true })
+            .eq("ticket_type", "itsm_incident")
+            .in("status", ["new", "open", "in_progress", "pending"]),
+          supabase
+            .from("tickets")
+            .select("id", { count: "exact", head: true })
+            .eq("ticket_type", "itsm_incident")
+            .eq("status", "resolved")
+            .gte("resolved_at", startIso),
+          supabase
+            .from("ticket_slas")
+            .select("created_at,first_response_at")
+            .not("first_response_at", "is", null)
+            .order("first_response_at", { ascending: false })
+            .limit(200),
+        ]);
+
+        if (cancelled) return;
+
+        const firstError = activeIncidentsRes.error ?? resolvedTodayRes.error;
+        if (firstError) {
+          setError(firstError.message);
+          setActiveIncidents(null);
+          setResolvedToday(null);
+          setAvgFirstResponseMinutes(null);
+          setLoading(false);
+          return;
+        }
+
+        setActiveIncidents(activeIncidentsRes.count ?? 0);
+        setResolvedToday(resolvedTodayRes.count ?? 0);
+
+        if (!slasRes.error) {
+          const rows = (slasRes.data ?? []) as Array<{ created_at: string; first_response_at: string }>;
+          const diffs = rows
+            .map((r) => {
+              const a = new Date(r.created_at).getTime();
+              const b = new Date(r.first_response_at).getTime();
+              const d = Math.floor((b - a) / 60000);
+              return Number.isFinite(d) && d >= 0 ? d : null;
+            })
+            .filter((d): d is number => typeof d === "number");
+          if (diffs.length) {
+            setAvgFirstResponseMinutes(Math.round(diffs.reduce((x, y) => x + y, 0) / diffs.length));
+          } else {
+            setAvgFirstResponseMinutes(null);
+          }
+        } else {
+          setAvgFirstResponseMinutes(null);
+        }
+
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Failed to load IT dashboard");
+        setActiveIncidents(null);
+        setResolvedToday(null);
+        setAvgFirstResponseMinutes(null);
+        setLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white">
@@ -35,6 +119,12 @@ export function ITDashboardView() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
+        {error && (
+          <div className="mb-4 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-4 gap-4 mb-6">
           {/* System Uptime */}
           <div className="bg-white border border-gray-300 rounded p-4">
@@ -45,10 +135,10 @@ export function ITDashboardView() {
               <Server size={16} className="text-green-600" />
             </div>
             <div className="text-2xl font-bold text-green-600">
-              {metrics.systemUptime}%
+              {loading ? "…" : "N/A"}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Last 30 days
+              &nbsp;
             </div>
           </div>
 
@@ -64,10 +154,10 @@ export function ITDashboardView() {
               />
             </div>
             <div className="text-2xl font-bold text-[#2d3e50]">
-              {metrics.activeServers}/{metrics.totalServers}
+              {loading ? "…" : "N/A"}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              1 maintenance
+              &nbsp;
             </div>
           </div>
 
@@ -83,10 +173,14 @@ export function ITDashboardView() {
               />
             </div>
             <div className="text-2xl font-bold text-orange-600">
-              {metrics.activeIncidents}
+              {loading ? "…" : (activeIncidents ?? 0)}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              -2 from yesterday
+              {loading
+                ? ""
+                : resolvedToday != null
+                  ? `${resolvedToday} resolved today`
+                  : ""}
             </div>
           </div>
 
@@ -99,10 +193,14 @@ export function ITDashboardView() {
               <Clock size={16} className="text-purple-600" />
             </div>
             <div className="text-2xl font-bold text-[#2d3e50]">
-              {metrics.avgResponseTime}
+              {loading
+                ? "…"
+                : avgFirstResponseMinutes != null
+                  ? `${avgFirstResponseMinutes} min`
+                  : "N/A"}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Within SLA
+              &nbsp;
             </div>
           </div>
         </div>
@@ -118,13 +216,13 @@ export function ITDashboardView() {
                 </span>
               </div>
               <span className="text-sm font-semibold">
-                {metrics.cpuUsage}%
+                {loading ? "…" : "N/A"}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-blue-600 h-2 rounded-full"
-                style={{ width: `${metrics.cpuUsage}%` }}
+                style={{ width: "0%" }}
               ></div>
             </div>
           </div>
@@ -138,13 +236,13 @@ export function ITDashboardView() {
                 </span>
               </div>
               <span className="text-sm font-semibold">
-                {metrics.memoryUsage}%
+                {loading ? "…" : "N/A"}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-orange-600 h-2 rounded-full"
-                style={{ width: `${metrics.memoryUsage}%` }}
+                style={{ width: "0%" }}
               ></div>
             </div>
           </div>
@@ -158,13 +256,13 @@ export function ITDashboardView() {
                 </span>
               </div>
               <span className="text-sm font-semibold">
-                {metrics.storageUsage}%
+                {loading ? "…" : "N/A"}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-red-600 h-2 rounded-full"
-                style={{ width: `${metrics.storageUsage}%` }}
+                style={{ width: "0%" }}
               ></div>
             </div>
           </div>
@@ -179,56 +277,7 @@ export function ITDashboardView() {
             </h3>
           </div>
           <div className="grid grid-cols-4 gap-4">
-            {[
-              {
-                name: "Main Office",
-                status: "Online",
-                latency: "2ms",
-                bandwidth: "95%",
-              },
-              {
-                name: "Data Center",
-                status: "Online",
-                latency: "1ms",
-                bandwidth: "82%",
-              },
-              {
-                name: "Remote Site A",
-                status: "Online",
-                latency: "45ms",
-                bandwidth: "78%",
-              },
-              {
-                name: "Remote Site B",
-                status: "Warning",
-                latency: "120ms",
-                bandwidth: "45%",
-              },
-            ].map((site, idx) => (
-              <div
-                key={idx}
-                className="p-3 border border-gray-200 rounded"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium">
-                    {site.name}
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded ${
-                      site.status === "Online"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {site.status}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-600">
-                  <div>Latency: {site.latency}</div>
-                  <div>Bandwidth: {site.bandwidth}</div>
-                </div>
-              </div>
-            ))}
+            <div className="col-span-4 text-xs text-gray-600">No network telemetry connected.</div>
           </div>
         </div>
 
@@ -238,51 +287,7 @@ export function ITDashboardView() {
             Recent System Events
           </h3>
           <div className="space-y-2">
-            {[
-              {
-                time: "14:23",
-                event:
-                  "Server DC1-WEB03 - CPU spike detected (85%)",
-                severity: "warning",
-              },
-              {
-                time: "13:45",
-                event:
-                  "Backup completed successfully - All servers",
-                severity: "success",
-              },
-              {
-                time: "12:10",
-                event: "Network switch PORT-12 - Link down",
-                severity: "error",
-              },
-              {
-                time: "11:30",
-                event: "Disk usage warning - SRV-SQL01 (82%)",
-                severity: "warning",
-              },
-            ].map((event, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded"
-              >
-                <span className="text-xs text-gray-500 w-12">
-                  {event.time}
-                </span>
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    event.severity === "error"
-                      ? "bg-red-500"
-                      : event.severity === "warning"
-                        ? "bg-yellow-500"
-                        : "bg-green-500"
-                  }`}
-                ></div>
-                <span className="text-xs flex-1">
-                  {event.event}
-                </span>
-              </div>
-            ))}
+            <div className="text-xs text-gray-600">No system telemetry connected.</div>
           </div>
         </div>
       </div>

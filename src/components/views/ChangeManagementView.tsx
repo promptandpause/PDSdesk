@@ -100,6 +100,35 @@ export function ChangeManagementView() {
   const [editAssigneeSelf, setEditAssigneeSelf] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  const downloadCsv = (filename: string, rowsToExport: Array<Record<string, unknown>>) => {
+    const esc = (value: unknown) => {
+      const s = String(value ?? "");
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const headers = Array.from(
+      rowsToExport.reduce((set, row) => {
+        Object.keys(row).forEach((k) => set.add(k));
+        return set;
+      }, new Set<string>()),
+    );
+
+    const csv = [
+      headers.join(","),
+      ...rowsToExport.map((r) => headers.map((h) => esc((r as any)[h])).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const openChange = (ticketId: string) => {
     if (typeof window === "undefined") return;
     const id = ticketId.trim();
@@ -452,6 +481,27 @@ export function ChangeManagementView() {
     });
   }, [rows, searchTerm]);
 
+  const exportChanges = () => {
+    const source = filtered;
+    downloadCsv(
+      `change-management-${new Date().toISOString().slice(0, 10)}.csv`,
+      source.map((r) => ({
+        ticket_id: r.ticket.id,
+        ticket_number: r.ticket.ticket_number,
+        title: r.ticket.title,
+        status: r.ticket.status,
+        priority: r.ticket.priority,
+        change_type: r.change.change_type,
+        approval_status: r.change.approval_status,
+        risk_level: r.change.risk_level ?? "",
+        planned_start_at: r.change.scheduled_start_at ?? "",
+        planned_end_at: r.change.scheduled_end_at ?? "",
+        updated_at: r.change.updated_at,
+        created_at: r.change.created_at,
+      })),
+    );
+  };
+
   return (
     <div className="flex-1 flex h-full bg-white overflow-hidden">
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -644,11 +694,23 @@ export function ChangeManagementView() {
             <Plus size={14} />
             New Change Request
           </button>
-          <button className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+          <button
+            type="button"
+            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+            onClick={exportChanges}
+            disabled={loading || filtered.length === 0}
+          >
             <Download size={14} />
             Export
           </button>
-          <button className="p-1.5 hover:bg-gray-200 rounded transition-colors">
+          <button
+            type="button"
+            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            onClick={() => {
+              if (typeof window !== "undefined") window.location.hash = "#/settings";
+            }}
+            title="Settings"
+          >
             <Settings size={16} className="text-[#2d3e50]" />
           </button>
         </div>
@@ -669,7 +731,11 @@ export function ChangeManagementView() {
             className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
           />
         </div>
-        <button className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+        <button
+          type="button"
+          className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          onClick={() => setError("Filters are not implemented yet. Use search for now.")}
+        >
           <Filter size={14} />
           Filters
         </button>

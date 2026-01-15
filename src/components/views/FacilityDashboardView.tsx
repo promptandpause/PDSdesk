@@ -1,11 +1,8 @@
 import {
-  Building,
   Thermometer,
-  Droplets,
   Zap,
   Users,
   AlertTriangle,
-  CheckCircle,
 } from "lucide-react";
 
 // TODO: Fetch facility metrics from Supabase
@@ -31,10 +28,10 @@ export function FacilityDashboardView() {
               <Users size={16} className="text-blue-600" />
             </div>
             <div className="text-2xl font-bold text-[#2d3e50]">
-              245
+              N/A
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              78% capacity
+              &nbsp;
             </div>
           </div>
 
@@ -50,10 +47,10 @@ export function FacilityDashboardView() {
               />
             </div>
             <div className="text-2xl font-bold text-[#2d3e50]">
-              21.5°C
+              N/A
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Within range
+              &nbsp;
             </div>
           </div>
 
@@ -66,10 +63,10 @@ export function FacilityDashboardView() {
               <Zap size={16} className="text-yellow-600" />
             </div>
             <div className="text-2xl font-bold text-[#2d3e50]">
-              1,245 kWh
+              N/A
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Today
+              &nbsp;
             </div>
           </div>
 
@@ -85,10 +82,10 @@ export function FacilityDashboardView() {
               />
             </div>
             <div className="text-2xl font-bold text-red-600">
-              7
+              0
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              2 urgent
+              &nbsp;
             </div>
           </div>
         </div>
@@ -99,75 +96,7 @@ export function FacilityDashboardView() {
             Floor Status
           </h3>
           <div className="space-y-3">
-            {[
-              {
-                floor: "Ground Floor",
-                rooms: 12,
-                occupied: 10,
-                temp: "21°C",
-                status: "Normal",
-              },
-              {
-                floor: "First Floor",
-                rooms: 15,
-                occupied: 14,
-                temp: "22°C",
-                status: "Normal",
-              },
-              {
-                floor: "Second Floor",
-                rooms: 15,
-                occupied: 12,
-                temp: "23°C",
-                status: "Warning",
-              },
-              {
-                floor: "Third Floor",
-                rooms: 10,
-                occupied: 8,
-                temp: "21°C",
-                status: "Normal",
-              },
-            ].map((floor, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50"
-              >
-                <div className="flex items-center gap-3">
-                  <Building
-                    size={18}
-                    className="text-gray-600"
-                  />
-                  <div>
-                    <div className="text-sm font-medium">
-                      {floor.floor}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {floor.occupied}/{floor.rooms} rooms
-                      occupied
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-xs text-gray-600">
-                    <Thermometer
-                      size={14}
-                      className="inline mr-1"
-                    />
-                    {floor.temp}
-                  </div>
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${
-                      floor.status === "Normal"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {floor.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+            <div className="text-xs text-gray-600">No facility telemetry connected.</div>
           </div>
         </div>
 
@@ -197,71 +126,11 @@ export function FacilityDashboardView() {
               </tr>
             </thead>
             <tbody>
-              {[
-                {
-                  id: "F-001",
-                  request: "AC not working",
-                  location: "Floor 2, Room 2.15",
-                  priority: "High",
-                  status: "In Progress",
-                  assignee: "Facilities Team",
-                },
-                {
-                  id: "F-002",
-                  request: "Light bulb replacement",
-                  location: "Floor 1, Room 1.08",
-                  priority: "Low",
-                  status: "Open",
-                  assignee: "Unassigned",
-                },
-                {
-                  id: "F-003",
-                  request: "Meeting room cleaning",
-                  location: "Ground Floor, Meeting Room A",
-                  priority: "Medium",
-                  status: "Completed",
-                  assignee: "Cleaning Staff",
-                },
-              ].map((req, idx) => (
-                <tr
-                  key={idx}
-                  className="border-b border-gray-200 hover:bg-gray-50"
-                >
-                  <td className="px-3 py-2">{req.request}</td>
-                  <td className="px-3 py-2 text-gray-600">
-                    {req.location}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        req.priority === "High"
-                          ? "bg-red-100 text-red-800"
-                          : req.priority === "Medium"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {req.priority}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        req.status === "Completed"
-                          ? "bg-green-100 text-green-800"
-                          : req.status === "In Progress"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {req.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-600">
-                    {req.assignee}
-                  </td>
-                </tr>
-              ))}
+              <tr className="border-b border-gray-200">
+                <td className="px-3 py-3 text-xs text-gray-600" colSpan={5}>
+                  No facility requests found.
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

@@ -41,6 +41,35 @@ export function CallManagementView() {
 
   const [tickets, setTickets] = useState<TicketRow[]>([]);
 
+  const downloadCsv = (filename: string, rowsToExport: Array<Record<string, unknown>>) => {
+    const esc = (value: unknown) => {
+      const s = String(value ?? "");
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const headers = Array.from(
+      rowsToExport.reduce((set, row) => {
+        Object.keys(row).forEach((k) => set.add(k));
+        return set;
+      }, new Set<string>()),
+    );
+
+    const csv = [
+      headers.join(","),
+      ...rowsToExport.map((r) => headers.map((h) => esc((r as any)[h])).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const loadTickets = useCallback(async () => {
     if (!user) return;
 
@@ -92,11 +121,47 @@ export function CallManagementView() {
     [showArchive, tickets],
   );
 
+  const exportTickets = () => {
+    downloadCsv(
+      `call-management-${new Date().toISOString().slice(0, 10)}.csv`,
+      filteredTickets.map((t) => ({
+        ticket_id: t.id,
+        ticket_number: t.ticket_number,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        requester: t.requester?.full_name ?? t.requester?.email ?? "",
+        assignee: t.assignee?.full_name ?? t.assignee?.email ?? "",
+        created_at: t.created_at,
+        archived_at: t.archived_at ?? "",
+      })),
+    );
+  };
+
   const archiveCount = useMemo(() => tickets.filter((t) => !!t.archived_at).length, [tickets]);
 
   useEffect(() => {
     void loadTickets();
   }, [loadTickets]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncFromHash = () => {
+      const raw = window.location.hash || "";
+      const [path, query] = raw.replace(/^#\/?/, "").split("?");
+      if ((path ?? "").split("/")[0] !== "call-management") return;
+      const params = new URLSearchParams(query ?? "");
+      const id = params.get("ticketId") ?? "";
+      if (!id.trim()) return;
+      setSelectedTicket(id.trim());
+      setSelectedView("detail");
+    };
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -139,6 +204,10 @@ export function CallManagementView() {
         onBack={() => {
           setSelectedView("list");
           setSelectedTicket(null);
+          if (typeof window !== "undefined") {
+            const next = "#/call-management";
+            if (window.location.hash !== next) window.location.hash = next;
+          }
         }}
       />
     );
@@ -159,11 +228,23 @@ export function CallManagementView() {
             <Plus size={14} />
             New Incident
           </button>
-          <button className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+          <button
+            type="button"
+            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+            onClick={exportTickets}
+            disabled={ticketsLoading || filteredTickets.length === 0}
+          >
             <Download size={14} />
             Export
           </button>
-          <button className="p-1.5 hover:bg-gray-200 rounded transition-colors">
+          <button
+            type="button"
+            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            onClick={() => {
+              if (typeof window !== "undefined") window.location.hash = "#/settings";
+            }}
+            title="Settings"
+          >
             <Settings size={16} className="text-[#2d3e50]" />
           </button>
         </div>
@@ -184,7 +265,11 @@ export function CallManagementView() {
             className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
           />
         </div>
-        <button className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+        <button
+          type="button"
+          className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          onClick={() => setTicketsError("Filters are not implemented yet. Use search for now.")}
+        >
           <Filter size={14} />
           Filters
         </button>

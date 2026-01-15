@@ -25,6 +25,7 @@ import { VisitorRegistrationView } from "./components/views/VisitorRegistrationV
 import { LongTermPlanningView } from "./components/views/LongTermPlanningView";
 import { SupportingFilesView } from "./components/views/SupportingFilesView";
 import { BookmarksView } from "./components/views/BookmarksView";
+import { NotificationsView } from "./components/views/NotificationsView";
 import { SettingsView } from "./components/views/SettingsView";
 import { useAuth } from "./lib/auth/AuthProvider";
 import { SignInView } from "./components/views/SignInView";
@@ -39,6 +40,7 @@ export type ModuleType =
   | "facility-dashboard"
   | "overview"
   | "search"
+  | "notifications"
   | "tickets-assigned-to-me"
   | "incident-queue"
   | "customer-support-queue"
@@ -73,6 +75,7 @@ const ALL_MODULES: ModuleType[] = [
   "facility-dashboard",
   "overview",
   "search",
+  "notifications",
   "tickets-assigned-to-me",
   "incident-queue",
   "customer-support-queue",
@@ -102,6 +105,7 @@ const DEFAULT_TITLE_BY_MODULE: Record<ModuleType, string> = {
   "facility-dashboard": "Facility Dashboard",
   "overview": "Overview",
   "search": "Search",
+  "notifications": "Notifications",
   "tickets-assigned-to-me": "Tickets Assigned to Me",
   "incident-queue": "First Line Incidents",
   "customer-support-queue": "Customer Support Queue",
@@ -239,6 +243,8 @@ export default function App() {
         return <OverviewView />;
       case "search":
         return <SearchView />;
+      case "notifications":
+        return <NotificationsView />;
       case "tickets-assigned-to-me":
         return <TicketsAssignedToMeView />;
       case "incident-queue":

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   User,
   Bell,
@@ -15,30 +15,33 @@ import {
   UserCog,
 } from "lucide-react";
 import { OperatorGroupsManager } from "../admin/OperatorGroupsManager";
+import { TicketRoutingRulesManager } from "../admin/TicketRoutingRulesManager";
+import { useAuth } from "../../lib/auth/AuthProvider";
 
 // TODO: Fetch user settings from Supabase
 export function SettingsView() {
+  const { user: authUser, profile, isGlobalAdmin } = useAuth();
   const [activeSection, setActiveSection] = useState("profile");
-
-  // TODO: Fetch from Supabase based on user role
-  const [isGlobalAdmin] = useState(true); // For demo - replace with actual role check
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   // Form states
-  const [displayName, setDisplayName] =
-    useState("Alex Johnson");
-  const [email, setEmail] = useState(
-    "alex.johnson@promptandpause.com",
-  );
-  const [internalSupportEmail] = useState(
-    "servicedesk@promptandpause.com",
-  );
-  const [phoneNumber, setPhoneNumber] = useState(
-    "+44 20 1234 5678",
-  );
-  const [department, setDepartment] = useState("IT Services");
-  const [jobTitle, setJobTitle] = useState(
-    "Service Desk Operator",
-  );
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [department, setDepartment] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+
+  const [supportEmail, setSupportEmail] = useState("");
+  const [noReplyEmail, setNoReplyEmail] = useState("");
+  const [businessStartTime, setBusinessStartTime] = useState("");
+  const [businessEndTime, setBusinessEndTime] = useState("");
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
+
+  const [aiAutoAssignmentEnabled, setAiAutoAssignmentEnabled] = useState(false);
+  const [openAiApiKey, setOpenAiApiKey] = useState("");
+  const [openAiModel, setOpenAiModel] = useState("gpt-4o-mini");
+  const [autoAssignAvailableAgentsEnabled, setAutoAssignAvailableAgentsEnabled] = useState(false);
+  const [crossDepartmentWorkflowsEnabled, setCrossDepartmentWorkflowsEnabled] = useState(false);
 
   const [settings, setSettings] = useState({
     emailNotifications: true,
@@ -55,14 +58,70 @@ export function SettingsView() {
     allowDirectMessages: true,
   });
 
+  const settingsStorageKey = useMemo(() => {
+    const id = authUser?.id?.trim();
+    return id ? `pdsdesk.settings.${id}` : "pdsdesk.settings";
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    const nextEmail = (profile?.email ?? authUser?.email ?? "").trim();
+    const nextName =
+      (profile?.full_name ??
+        (authUser?.user_metadata?.full_name as string | undefined) ??
+        (authUser?.user_metadata?.name as string | undefined) ??
+        ""
+      ).trim();
+
+    setEmail(nextEmail);
+    setDisplayName(nextName);
+  }, [authUser?.email, authUser?.user_metadata, profile?.email, profile?.full_name]);
+
+  const initials = useMemo(() => {
+    const source = (displayName || email).trim();
+    if (!source) return "";
+    const parts = source.split(/\s+/).filter(Boolean).slice(0, 2);
+    if (parts.length === 0) return "";
+    return parts.map((p) => (p[0] ?? "").toUpperCase()).join("");
+  }, [displayName, email]);
+
+  const [firstName, surname] = useMemo(() => {
+    const parts = (displayName ?? "").trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return ["", ""];
+    const [first, ...rest] = parts;
+    return [first ?? "", rest.join(" ")];
+  }, [displayName]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(settingsStorageKey);
+      const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+      if (!parsed || typeof parsed !== "object") return;
+      setSettings((prev) => ({
+        ...prev,
+        ...(parsed as Record<string, unknown>),
+      }));
+    } catch {
+      // ignore
+    }
+  }, [settingsStorageKey]);
+
   const handleSave = async () => {
-    // TODO: Save to Supabase
-    // await supabase.from('user_preferences').upsert({
-    //   user_id: currentUser.id,
-    //   settings: settings
-    // })
-    alert("Settings saved successfully!");
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
+      } catch {
+        // ignore
+      }
+    }
+    setSaveNotice("Saved.");
   };
+
+  useEffect(() => {
+    if (!saveNotice) return;
+    const t = window.setTimeout(() => setSaveNotice(null), 2000);
+    return () => window.clearTimeout(t);
+  }, [saveNotice]);
 
   const sections = [
     { id: "profile", icon: User, label: "Profile" },
@@ -99,6 +158,12 @@ export function SettingsView() {
             adminOnly: true,
           },
           {
+            id: "queue-management",
+            icon: SettingsIcon,
+            label: "Queue Management",
+            adminOnly: true,
+          },
+          {
             id: "ai-settings",
             icon: Zap,
             label: "AI & Automation",
@@ -115,6 +180,11 @@ export function SettingsView() {
         <h2 className="text-lg font-semibold text-[#2d3e50]">
           Settings
         </h2>
+        {saveNotice && (
+          <div className="mr-3 text-sm text-green-700">
+            {saveNotice}
+          </div>
+        )}
         <button
           onClick={handleSave}
           className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2"
@@ -166,7 +236,7 @@ export function SettingsView() {
                   </label>
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-full bg-[#4a9eff] flex items-center justify-center text-white text-2xl font-semibold">
-                      AJ
+                      {initials || "U"}
                     </div>
                     <button className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-2">
                       <Upload size={16} />
@@ -177,10 +247,10 @@ export function SettingsView() {
 
                 {/* Synced from Microsoft */}
                 <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
-                  <div className="col-span-2 flex items-center gap-2 mb-2">
-                    <Lock size={16} className="text-blue-600" />
+                  <div className="flex items-center gap-2 mb-4">
+                    <Shield size={16} className="text-blue-600" />
                     <span className="text-sm font-medium text-blue-900">
-                      Synced from Microsoft Azure AD
+                      Managed by your identity provider
                     </span>
                   </div>
                   <div>
@@ -189,7 +259,7 @@ export function SettingsView() {
                     </label>
                     <input
                       type="text"
-                      value={displayName.split(" ")[0]}
+                      value={firstName}
                       disabled
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                     />
@@ -200,7 +270,7 @@ export function SettingsView() {
                     </label>
                     <input
                       type="text"
-                      value={displayName.split(" ")[1]}
+                      value={surname}
                       disabled
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                     />
@@ -659,7 +729,9 @@ export function SettingsView() {
                         </label>
                         <input
                           type="email"
-                          value="support@promptandpause.com"
+                          value={supportEmail}
+                          onChange={(e) => setSupportEmail(e.target.value)}
+                          placeholder="Support email"
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                         />
                       </div>
@@ -669,7 +741,9 @@ export function SettingsView() {
                         </label>
                         <input
                           type="email"
-                          value="noreply@promptandpause.com"
+                          value={noReplyEmail}
+                          onChange={(e) => setNoReplyEmail(e.target.value)}
+                          placeholder="No-reply email"
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                         />
                       </div>
@@ -687,7 +761,8 @@ export function SettingsView() {
                         </label>
                         <input
                           type="time"
-                          value="09:00"
+                          value={businessStartTime}
+                          onChange={(e) => setBusinessStartTime(e.target.value)}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                         />
                       </div>
@@ -697,7 +772,8 @@ export function SettingsView() {
                         </label>
                         <input
                           type="time"
-                          value="17:00"
+                          value={businessEndTime}
+                          onChange={(e) => setBusinessEndTime(e.target.value)}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                         />
                       </div>
@@ -717,17 +793,19 @@ export function SettingsView() {
                           ].map((day) => (
                             <button
                               key={day}
+                              type="button"
                               className={`px-3 py-1.5 text-xs rounded ${
-                                [
-                                  "Mon",
-                                  "Tue",
-                                  "Wed",
-                                  "Thu",
-                                  "Fri",
-                                ].includes(day)
+                                workingDays.includes(day)
                                   ? "bg-[#4a9eff] text-white"
                                   : "bg-gray-200 text-gray-600"
                               }`}
+                              onClick={() =>
+                                setWorkingDays((prev) =>
+                                  prev.includes(day)
+                                    ? prev.filter((d) => d !== day)
+                                    : [...prev, day],
+                                )
+                              }
                             >
                               {day}
                             </button>
@@ -760,10 +838,15 @@ export function SettingsView() {
                           All Users
                         </span>
                         <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                          142 users
+                          Not loaded
                         </span>
                       </div>
-                      <button className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors">
+                      <button
+                        type="button"
+                        disabled
+                        title="Azure AD sync is not configured"
+                        className="px-4 py-2 bg-gray-200 text-gray-600 text-sm rounded cursor-not-allowed"
+                      >
                         Sync from Azure AD
                       </button>
                     </div>
@@ -794,70 +877,11 @@ export function SettingsView() {
                             </tr>
                           </thead>
                           <tbody>
-                            {[
-                              {
-                                name: "Alex Johnson",
-                                email:
-                                  "alex.johnson@promptandpause.com",
-                                dept: "IT Services",
-                                role: "Service Desk",
-                                status: "Active",
-                              },
-                              {
-                                name: "Sarah Williams",
-                                email:
-                                  "sarah.williams@promptandpause.com",
-                                dept: "HR",
-                                role: "HR Team",
-                                status: "Active",
-                              },
-                              {
-                                name: "Michael Brown",
-                                email:
-                                  "michael.brown@promptandpause.com",
-                                dept: "IT Services",
-                                role: "Admin",
-                                status: "Active",
-                              },
-                            ].map((user, idx) => (
-                              <tr
-                                key={idx}
-                                className="border-b border-gray-200 hover:bg-gray-50"
-                              >
-                                <td className="px-4 py-3 font-medium">
-                                  {user.name}
-                                </td>
-                                <td className="px-4 py-3 text-gray-600">
-                                  {user.email}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {user.dept}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <select className="px-2 py-1 text-xs border border-gray-300 rounded">
-                                    <option>{user.role}</option>
-                                    <option>Admin</option>
-                                    <option>
-                                      Service Desk
-                                    </option>
-                                    <option>DevOps</option>
-                                    <option>
-                                      Customer Support
-                                    </option>
-                                  </select>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                                    {user.status}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <button className="text-xs text-[#4a9eff] hover:underline">
-                                    Edit
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            <tr className="border-b border-gray-200">
+                              <td className="px-4 py-6 text-center text-sm text-gray-600" colSpan={6}>
+                                No users loaded.
+                              </td>
+                            </tr>
                           </tbody>
                         </table>
                       </div>
@@ -870,6 +894,11 @@ export function SettingsView() {
           {isGlobalAdmin &&
             activeSection === "operator-groups" && (
               <OperatorGroupsManager />
+            )}
+
+          {isGlobalAdmin &&
+            activeSection === "queue-management" && (
+              <TicketRoutingRulesManager />
             )}
 
           {isGlobalAdmin && activeSection === "ai-settings" && (
@@ -894,7 +923,8 @@ export function SettingsView() {
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
-                          defaultChecked
+                          checked={aiAutoAssignmentEnabled}
+                          onChange={(e) => setAiAutoAssignmentEnabled(e.target.checked)}
                           className="sr-only peer"
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4a9eff]"></div>
@@ -908,7 +938,9 @@ export function SettingsView() {
                         </label>
                         <input
                           type="password"
-                          placeholder="sk-••••••••••••••••••••••••••"
+                          value={openAiApiKey}
+                          onChange={(e) => setOpenAiApiKey(e.target.value)}
+                          placeholder="Enter API key"
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                         />
                       </div>
@@ -916,7 +948,11 @@ export function SettingsView() {
                         <label className="block text-xs text-gray-600 mb-1">
                           Model
                         </label>
-                        <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]">
+                        <select
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                          value={openAiModel}
+                          onChange={(e) => setOpenAiModel(e.target.value)}
+                        >
                           <option>gpt-4o-mini</option>
                           <option>gpt-4o</option>
                           <option>gpt-4-turbo</option>
@@ -939,7 +975,8 @@ export function SettingsView() {
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
-                          defaultChecked
+                          checked={autoAssignAvailableAgentsEnabled}
+                          onChange={(e) => setAutoAssignAvailableAgentsEnabled(e.target.checked)}
                           className="sr-only peer"
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4a9eff]"></div>
@@ -961,7 +998,8 @@ export function SettingsView() {
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
-                          defaultChecked
+                          checked={crossDepartmentWorkflowsEnabled}
+                          onChange={(e) => setCrossDepartmentWorkflowsEnabled(e.target.checked)}
                           className="sr-only peer"
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4a9eff]"></div>

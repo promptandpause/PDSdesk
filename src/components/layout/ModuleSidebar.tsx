@@ -4,6 +4,7 @@ import {
   Home,
   Search,
   User,
+  Bell,
   Inbox,
   Mail,
   Phone,
@@ -69,6 +70,7 @@ export function ModuleSidebar({
     () => [
       "home",
       "search",
+      "notifications",
       "tickets-assigned-to-me",
       "incident-queue",
       "call-management",
@@ -85,6 +87,8 @@ export function ModuleSidebar({
   const [hiddenSectionIds, setHiddenSectionIds] = useState<string[]>([]);
   const [showSidebarSettings, setShowSidebarSettings] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const docsUrl = (import.meta.env.VITE_DOCS_URL ?? "").trim();
 
   const quickAccessItems: MenuItem[] = useMemo(
     () => [
@@ -109,6 +113,21 @@ export function ModuleSidebar({
         label: "Search",
         module: "search",
         title: "Search",
+        roles: [
+          "service-desk",
+          "hr",
+          "devops",
+          "engineering",
+          "compliance",
+          "customer-support",
+        ],
+      },
+      {
+        id: "notifications",
+        icon: Bell,
+        label: "Notifications",
+        module: "notifications",
+        title: "Notifications",
         roles: [
           "service-desk",
           "hr",
@@ -715,14 +734,13 @@ export function ModuleSidebar({
           )}
         </button>
         <button
-          onClick={() =>
-            window.open(
-              "https://docs.promptandpause.com",
-              "_blank",
-            )
-          }
+          onClick={() => {
+            if (!docsUrl) return;
+            window.open(docsUrl, "_blank", "noopener,noreferrer");
+          }}
+          disabled={!docsUrl}
           className="h-12 flex items-center justify-center hover:bg-[#2a2a2a] transition-colors relative group"
-          title="Help"
+          title={docsUrl ? "Help" : "Help (not configured)"}
         >
           <HelpCircle size={20} />
           {!isExpanded && (

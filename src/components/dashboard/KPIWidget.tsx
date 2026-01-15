@@ -1,5 +1,6 @@
 import { Settings, Maximize2 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
+import { useState } from "react";
 
 // TODO: Fetch KPI data from Supabase
 export function KPIWidget({
@@ -17,34 +18,15 @@ export function KPIWidget({
   error?: string | null;
   onSettings?: () => void;
 }) {
-  const kpiTableData =
-    data && data.length > 0
-      ? data
-      : [
-          {
-            indicator: "KPI logged",
-            now: 3,
-            min: 2,
-            max: 24,
-            norm: 20,
-          },
-          {
-            indicator: "KPI solved",
-            now: 1,
-            min: 0,
-            max: 16,
-            norm: 14,
-          },
-        ];
+  const kpiTableData = Array.isArray(data) ? data : [];
+  const [message, setMessage] = useState<string | null>(null);
 
-  // Use first KPI for the main gauge
   const mainKPI = kpiTableData[0];
-  const percentage = Math.min(
-    100,
-    (mainKPI.now / mainKPI.norm) * 100,
-  );
-  const isWarning = mainKPI.now < mainKPI.min;
-  const isDanger = mainKPI.now > mainKPI.norm;
+  const percentage = mainKPI
+    ? Math.min(100, (mainKPI.now / Math.max(1, mainKPI.norm)) * 100)
+    : 0;
+  const isWarning = mainKPI ? mainKPI.now < mainKPI.min : false;
+  const isDanger = mainKPI ? mainKPI.now > mainKPI.norm : false;
 
   return (
     <div className="bg-white border border-gray-300 rounded shadow-sm">
@@ -71,6 +53,12 @@ export function KPIWidget({
         </div>
       </div>
 
+      {message && (
+        <div className="px-3 py-2 text-xs text-red-600 border-b border-gray-200">
+          {message}
+        </div>
+      )}
+
       {/* Widget Content */}
       <div className="p-4">
         {error ? (
@@ -86,6 +74,8 @@ export function KPIWidget({
               </div>
             </div>
           </div>
+        ) : kpiTableData.length === 0 ? (
+          <div className="text-xs text-gray-600">No KPI data yet.</div>
         ) : (
         <div className="flex flex-col lg:flex-row items-center gap-6">
           {/* Circular Progress Gauge */}
@@ -124,10 +114,10 @@ export function KPIWidget({
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <div className="text-2xl font-bold text-[#2d3e50]">
-                  {mainKPI.now}
+                  {mainKPI?.now}
                 </div>
                 <div className="text-xs text-gray-500">
-                  of {mainKPI.norm}
+                  of {mainKPI?.norm}
                 </div>
               </div>
             </div>
@@ -186,7 +176,11 @@ export function KPIWidget({
               </tbody>
             </table>
             <div className="mt-3">
-              <button className="text-xs text-[#4a9eff] hover:underline">
+              <button
+                type="button"
+                className="text-xs text-[#4a9eff] hover:underline"
+                onClick={() => setMessage("Full KPI view is not implemented yet.")}
+              >
                 All KPIs
               </button>
             </div>

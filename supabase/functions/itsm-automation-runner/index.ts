@@ -409,6 +409,7 @@ async function advanceEscalations(params: {
 
 type TicketCloseCandidate = {
   id: string;
+  ticket_type: string;
   ticket_number: string;
   title: string;
   resolved_at: string | null;
@@ -433,7 +434,7 @@ async function autoCloseResolvedTickets(params: {
   const { data: candidates, error } = await supabase
     .from("tickets")
     .select(
-      "id,ticket_number,title,resolved_at,requester_email,requester_name,requester:profiles!tickets_requester_id_fkey(email,full_name)",
+      "id,ticket_type,ticket_number,title,resolved_at,requester_email,requester_name,requester:profiles!tickets_requester_id_fkey(email,full_name)",
     )
     .eq("status", "resolved")
     .not("resolved_at", "is", null)
@@ -516,7 +517,8 @@ async function autoCloseResolvedTickets(params: {
       toEmail.split("@")[0];
 
     const subject = `How did we do? (Ticket #${t.ticket_number})`;
-    const appLink = `${PDSDESK_APP_URL}/#/customer-support-queue`;
+    const module = (t.ticket_type ?? "").toLowerCase() === "customer_service" ? "customer-support-queue" : "call-management";
+    const appLink = `${PDSDESK_APP_URL}/#/${module}?ticketId=${encodeURIComponent(t.id)}`;
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #111827;">
         <p style="margin: 0 0 16px 0;">Hi ${requesterName},</p>

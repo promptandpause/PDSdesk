@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
   Plus,
@@ -7,154 +7,199 @@ import {
   Save,
   X,
 } from "lucide-react";
+import { useAuth } from "../../lib/auth/AuthProvider";
+import { getSupabaseClient } from "../../lib/supabaseClient";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 interface OperatorGroup {
   id: string;
+  group_key: string;
   name: string;
   description: string;
-  email: string; // Team email for notifications
-  members: number;
-  created: string;
+  members: number | null;
+  created_at: string;
 }
 
 // TODO: Fetch from Supabase
 export function OperatorGroupsManager() {
-  const [groups, setGroups] = useState<OperatorGroup[]>([
-    {
-      id: "1",
-      name: "First Line Support",
-      description:
-        "Handles initial incident triage and basic requests",
-      email: "servicedesk@promptandpause.com",
-      members: 12,
-      created: "2024-01-01",
-    },
-    {
-      id: "2",
-      name: "Second Line Support",
-      description: "Advanced technical support and escalations",
-      email: "support-l2@promptandpause.com",
-      members: 8,
-      created: "2024-01-01",
-    },
-    {
-      id: "3",
-      name: "Infra Team",
-      description: "Network infrastructure and connectivity",
-      email: "infrastructure@promptandpause.com",
-      members: 5,
-      created: "2024-01-01",
-    },
-    {
-      id: "4",
-      name: "Applications Team",
-      description: "Business applications and software",
-      email: "apps@promptandpause.com",
-      members: 6,
-      created: "2024-01-01",
-    },
-    {
-      id: "5",
-      name: "Customer Support",
-      description: "External customer inquiries",
-      email: "support@promptandpause.com",
-      members: 10,
-      created: "2024-01-10",
-    },
-    {
-      id: "6",
-      name: "DevOps Team",
-      description: "Development and operations",
-      email: "devops@promptandpause.com",
-      members: 7,
-      created: "2024-01-01",
-    },
-    {
-      id: "7",
-      name: "Security Team",
-      description: "Security and compliance",
-      email: "security@promptandpause.com",
-      members: 4,
-      created: "2024-01-01",
-    },
-    {
-      id: "8",
-      name: "HR Team",
-      description: "Human resources inquiries",
-      email: "hr@promptandpause.com",
-      members: 5,
-      created: "2024-01-01",
-    },
-  ]);
+  const { user, isGlobalAdmin } = useAuth();
+  const supabase = useMemo(() => getSupabaseClient(), []);
+
+  const [groups, setGroups] = useState<OperatorGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(
     null,
   );
   const [formData, setFormData] = useState({
+    group_key: "",
     name: "",
     description: "",
-    email: "",
   });
 
-  const handleSave = async () => {
-    if (editingId) {
-      // Update existing group
-      setGroups(
-        groups.map((g) =>
-          g.id === editingId
-            ? {
-                ...g,
-                name: formData.name,
-                description: formData.description,
-                email: formData.email,
-              }
-            : g,
-        ),
-      );
-      // TODO: Update in Supabase
-    } else {
-      // Add new group
-      const newGroup: OperatorGroup = {
-        id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        email: formData.email,
-        members: 0,
-        created: new Date().toISOString().split("T")[0],
-      };
-      setGroups([...groups, newGroup]);
-      // TODO: Insert into Supabase
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const loadGroups = useCallback(async () => {
+    if (!user) return;
+
+    setGroupsError(null);
+    setGroupsLoading(true);
+
+    const res = await supabase
+      .from("operator_groups")
+      .select("id,group_key,name,description,created_at")
+      .order("name", { ascending: true });
+
+    if (res.error) {
+      setGroups([]);
+      setGroupsError(res.error.message);
+      setGroupsLoading(false);
+      return;
     }
+
+    const rows = (res.data ?? []) as Array<{
+      id: string;
+      group_key: string;
+      name: string;
+      description: string | null;
+      created_at: string;
+    }>;
+
+    const groupIds = rows.map((r) => r.id);
+    let countsById = new Map<string, number>();
+
+    if (isGlobalAdmin && groupIds.length > 0) {
+      const membersRes = await supabase
+        .from("operator_group_members")
+        .select("group_id")
+        .in("group_id", groupIds)
+        .limit(2000);
+
+      if (!membersRes.error) {
+        countsById = (membersRes.data ?? []).reduce((acc, row: any) => {
+          const id = row.group_id as string;
+          acc.set(id, (acc.get(id) ?? 0) + 1);
+          return acc;
+        }, new Map<string, number>());
+      }
+    }
+
+    setGroups(
+      rows.map((r) => ({
+        id: r.id,
+        group_key: r.group_key,
+        name: r.name,
+        description: r.description ?? "",
+        members: isGlobalAdmin ? (countsById.get(r.id) ?? 0) : null,
+        created_at: r.created_at,
+      })),
+    );
+    setGroupsLoading(false);
+  }, [isGlobalAdmin, supabase, user]);
+
+  useEffect(() => {
+    void loadGroups();
+  }, [loadGroups]);
+
+  const handleSave = async () => {
+    if (!user) return;
+    if (!isGlobalAdmin) return;
+
+    if (editingId) {
+      const payload: Record<string, unknown> = {
+        name: formData.name,
+        description: formData.description || null,
+      };
+
+      const upd = await supabase.from("operator_groups").update(payload).eq("id", editingId);
+      if (upd.error) {
+        setGroupsError(upd.error.message);
+        return;
+      }
+    } else {
+      const group_key = formData.group_key.trim();
+      const name = formData.name.trim();
+      const description = formData.description.trim();
+
+      if (!group_key || !name) return;
+
+      const inserted = await supabase
+        .from("operator_groups")
+        .insert({
+          group_key,
+          name,
+          description: description || null,
+          is_active: true,
+        });
+
+      if (inserted.error) {
+        setGroupsError(inserted.error.message);
+        return;
+      }
+    }
+
+    await loadGroups();
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ name: "", description: "", email: "" });
+    setFormData({ group_key: "", name: "", description: "" });
   };
 
   const handleDelete = (id: string) => {
-    if (
-      confirm(
-        "Are you sure you want to delete this operator group?",
-      )
-    ) {
-      setGroups(groups.filter((g) => g.id !== id));
-      // TODO: Delete from Supabase
-    }
+    if (!isGlobalAdmin) return;
+    setPendingDeleteId(id);
+    setDeleteDialogOpen(true);
   };
+
+  const confirmDelete = useCallback(async () => {
+    if (!isGlobalAdmin) return;
+    if (!pendingDeleteId) return;
+
+    setGroupsError(null);
+    setDeleting(true);
+
+    const del = await supabase
+      .from("operator_groups")
+      .delete()
+      .eq("id", pendingDeleteId);
+
+    if (del.error) {
+      setGroupsError(del.error.message);
+      setDeleting(false);
+      return;
+    }
+
+    setDeleteDialogOpen(false);
+    setPendingDeleteId(null);
+    setDeleting(false);
+    await loadGroups();
+  }, [isGlobalAdmin, loadGroups, pendingDeleteId, supabase]);
 
   const startEdit = (group: OperatorGroup) => {
     setEditingId(group.id);
     setFormData({
+      group_key: group.group_key,
       name: group.name,
       description: group.description,
-      email: group.email,
     });
   };
 
   const cancelEdit = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ name: "", description: "", email: "" });
+    setFormData({ group_key: "", name: "", description: "" });
   };
 
   return (
@@ -171,12 +216,19 @@ export function OperatorGroupsManager() {
         </div>
         <button
           onClick={() => setIsAdding(true)}
+          disabled={!isGlobalAdmin}
           className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2"
         >
           <Plus size={16} />
           Add Operator Group
         </button>
       </div>
+
+      {groupsError && (
+        <div className="mb-4 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+          {groupsError}
+        </div>
+      )}
 
       {/* Add/Edit Form */}
       {(isAdding || editingId) && (
@@ -187,6 +239,24 @@ export function OperatorGroupsManager() {
               : "New Operator Group"}
           </h4>
           <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Group Key
+              </label>
+              <input
+                type="text"
+                value={formData.group_key}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    group_key: e.target.value,
+                  })
+                }
+                placeholder="e.g., it_services"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                disabled={!!editingId}
+              />
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Group Name
@@ -200,7 +270,7 @@ export function OperatorGroupsManager() {
                     name: e.target.value,
                   })
                 }
-                placeholder="e.g., Third Line Support"
+                placeholder="e.g., IT Services"
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
               />
             </div>
@@ -221,27 +291,10 @@ export function OperatorGroupsManager() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    email: e.target.value,
-                  })
-                }
-                placeholder="e.g., team@promptandpause.com"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-              />
-            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                disabled={!formData.name.trim()}
+                disabled={!formData.name.trim() || (!editingId && !formData.group_key.trim())}
                 className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={14} />
@@ -265,13 +318,13 @@ export function OperatorGroupsManager() {
           <thead className="bg-gray-50 border-b border-gray-300">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold">
+                Group Key
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold">
                 Group Name
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold">
                 Description
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
-                Email
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold">
                 Members
@@ -285,56 +338,78 @@ export function OperatorGroupsManager() {
             </tr>
           </thead>
           <tbody>
-            {groups.map((group) => (
-              <tr
-                key={group.id}
-                className="border-b border-gray-200 hover:bg-gray-50"
-              >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Users
-                      size={16}
-                      className="text-blue-600"
-                    />
-                    <span className="font-medium">
-                      {group.name}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {group.description}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {group.email}
-                </td>
-                <td className="px-4 py-3">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                    {group.members} members
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {group.created}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => startEdit(group)}
-                      className="text-blue-600 hover:underline flex items-center gap-1"
-                    >
-                      <Edit size={14} />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(group.id)}
-                      className="text-red-600 hover:underline flex items-center gap-1"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </div>
+            {groupsLoading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-sm text-gray-600">
+                  Loading...
                 </td>
               </tr>
-            ))}
+            ) : groups.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-sm text-gray-600">
+                  No operator groups found.
+                </td>
+              </tr>
+            ) : (
+              groups.map((group) => (
+                <tr
+                  key={group.id}
+                  className="border-b border-gray-200 hover:bg-gray-50"
+                >
+                  <td className="px-4 py-3 text-gray-600">
+                    {group.group_key}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Users
+                        size={16}
+                        className="text-blue-600"
+                      />
+                      <span className="font-medium">
+                        {group.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {group.description}
+                  </td>
+                  <td className="px-4 py-3">
+                    {group.members === null ? (
+                      <span className="text-xs text-gray-500">-</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                        {group.members} members
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {group.created_at ? new Date(group.created_at).toLocaleDateString() : ""}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isGlobalAdmin ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => startEdit(group)}
+                          className="text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          <Edit size={14} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(group.id)}
+                          className="text-red-600 hover:underline flex items-center gap-1"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-500">Read-only</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -350,8 +425,7 @@ export function OperatorGroupsManager() {
             routing
           </li>
           <li>
-            • Each group has a dedicated email address (e.g.,
-            devops@promptandpause.com)
+            • Each group has a stable group key used for routing
           </li>
           <li>
             • All users within a group receive ticket
@@ -369,11 +443,43 @@ export function OperatorGroupsManager() {
             SLA policies
           </li>
           <li>
-            • Internal support email:{" "}
-            <strong>servicedesk@promptandpause.com</strong>
+            • Only global admins can manage operator groups
           </li>
         </ul>
       </div>
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setPendingDeleteId(null);
+            setDeleting(false);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete operator group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

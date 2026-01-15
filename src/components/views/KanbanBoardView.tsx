@@ -1,10 +1,10 @@
-import { useState } from "react";
 import {
   GripVertical,
   Plus,
   MoreHorizontal,
   User,
 } from "lucide-react";
+import { useState } from "react";
 
 // TODO: Implement drag-and-drop with react-dnd
 // TODO: Real-time updates via Supabase subscriptions
@@ -19,98 +19,32 @@ interface Task {
 }
 
 export function KanbanBoardView() {
+  const [message, setMessage] = useState<string | null>(null);
+
   const columns = [
     {
       id: "new",
       title: "New",
       color: "#e0e0e0",
-      tasks: [
-        {
-          id: "I-001",
-          title: "Email sync issue on mobile",
-          priority: 1,
-          category: "Email",
-          assignee: null,
-          dueDate: "2h",
-        },
-        {
-          id: "I-002",
-          title: "Printer queue stuck",
-          priority: 2,
-          category: "Hardware",
-          assignee: null,
-          dueDate: "4h",
-        },
-      ] as Task[],
+      tasks: [] as Task[],
     },
     {
       id: "in-progress",
       title: "In Progress",
       color: "#4a9eff",
-      tasks: [
-        {
-          id: "I-003",
-          title: "VPN connection timeout",
-          priority: 1,
-          category: "Network",
-          assignee: "Mike Chen",
-          dueDate: "1h",
-        },
-        {
-          id: "I-004",
-          title: "Software installation",
-          priority: 2,
-          category: "Software",
-          assignee: "Sarah Jones",
-          dueDate: "3h",
-        },
-        {
-          id: "I-005",
-          title: "Password reset request",
-          priority: 3,
-          category: "Access",
-          assignee: "Lisa Wang",
-          dueDate: "5h",
-        },
-      ] as Task[],
+      tasks: [] as Task[],
     },
     {
       id: "waiting",
       title: "Waiting",
       color: "#ff9800",
-      tasks: [
-        {
-          id: "I-006",
-          title: "Hardware upgrade approval",
-          priority: 2,
-          category: "Hardware",
-          assignee: "Alex Kim",
-          dueDate: "1d",
-        },
-      ] as Task[],
+      tasks: [] as Task[],
     },
     {
       id: "resolved",
       title: "Resolved",
       color: "#4caf50",
-      tasks: [
-        {
-          id: "I-007",
-          title: "Account access granted",
-          priority: 1,
-          category: "Access",
-          assignee: "Jessica Wang",
-          dueDate: "Done",
-        },
-        {
-          id: "I-008",
-          title: "Laptop battery replaced",
-          priority: 2,
-          category: "Hardware",
-          assignee: "Mike Chen",
-          dueDate: "Done",
-        },
-      ] as Task[],
+      tasks: [] as Task[],
     },
   ];
 
@@ -123,6 +57,12 @@ export function KanbanBoardView() {
           <span className="font-semibold">Call Management</span>
         </h1>
       </div>
+
+      {message && (
+        <div className="px-4 py-2 text-sm text-red-600 border-b border-gray-200">
+          {message}
+        </div>
+      )}
 
       {/* Kanban Board */}
       <div className="flex-1 overflow-x-auto p-4 bg-[#f5f5f5]">
@@ -144,7 +84,11 @@ export function KanbanBoardView() {
                   <h3 className="font-semibold text-[#2d3e50] text-sm">
                     {column.title}
                   </h3>
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <button
+                    type="button"
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    onClick={() => setMessage("Column actions are not implemented yet.")}
+                  >
                     <MoreHorizontal
                       size={16}
                       className="text-gray-600"
@@ -155,7 +99,11 @@ export function KanbanBoardView() {
                   <span className="text-xs text-gray-600">
                     {column.tasks.length} tasks
                   </span>
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                  <button
+                    type="button"
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    onClick={() => setMessage("Adding tasks from the Kanban board is not implemented yet.")}
+                  >
                     <Plus
                       size={16}
                       className="text-[#4a9eff]"

@@ -7,15 +7,26 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Users,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { TicketDetailView } from "./TicketDetailView";
 import { TicketCreateViewV1 } from "./TicketCreateViewV1";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 export function IncidentQueueView() {
-  const { user } = useAuth();
+  const { user, hasRole, isGlobalAdmin } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
   const [view, setView] = useState<"list" | "create" | "detail">("list");
@@ -30,6 +41,11 @@ export function IncidentQueueView() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const canWorkTickets =
+    isGlobalAdmin || hasRole("service_desk_admin") || hasRole("operator");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
@@ -85,6 +101,7 @@ export function IncidentQueueView() {
       .select(
         "id,ticket_number,title,status,priority,category,created_at,due_at,archived_at,requester_email,requester_name,requester:profiles!tickets_requester_id_fkey(full_name,email),assignee:profiles!tickets_assignee_id_fkey(full_name,email)",
       )
+      .neq("ticket_type", "customer_service")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -125,9 +142,186 @@ export function IncidentQueueView() {
     setLoading(false);
   }, [supabase, user]);
 
+  const downloadCsv = (filename: string, rows: Array<Record<string, unknown>>) => {
+    const esc = (value: unknown) => {
+      const s = String(value ?? "");
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const headers = Array.from(
+      rows.reduce((set, row) => {
+        Object.keys(row).forEach((k) => set.add(k));
+        return set;
+      }, new Set<string>()),
+    );
+
+    const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => esc((r as any)[h])).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportTickets = () => {
+    const ids = new Set(selectedTickets);
+    const source = selectedTickets.length > 0
+      ? tickets.filter((t) => ids.has(t.id))
+      : filteredTickets;
+
+    downloadCsv(
+      `incident-queue-${new Date().toISOString().slice(0, 10)}.csv`,
+      source.map((t) => ({
+        ticket_number: t.ticket_number,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        category: t.category,
+        requester: t.requester_name ?? t.requester?.full_name ?? "",
+        requester_email: t.requester_email ?? t.requester?.email ?? "",
+        assignee: t.assignee?.full_name ?? t.assignee?.email ?? "",
+        created_at: t.created_at,
+        due_at: t.due_at,
+        archived_at: t.archived_at ?? "",
+      })),
+    );
+  };
+
+  const assignSelectedToMe = async () => {
+    if (!user) return;
+    if (!canWorkTickets) return;
+    if (selectedTickets.length === 0) return;
+
+    setActionError(null);
+    setActionBusy(true);
+    const res = await supabase
+      .from("tickets")
+      .update({ assignee_id: user.id })
+      .in("id", selectedTickets);
+
+    if (res.error) {
+      setActionError(res.error.message);
+      setActionBusy(false);
+      return;
+    }
+
+    await loadTickets();
+    setActionBusy(false);
+  };
+
+  const bumpPriority = async (direction: "up" | "down") => {
+    if (!user) return;
+    if (!canWorkTickets) return;
+    if (selectedTickets.length === 0) return;
+
+    const byId = new Map(tickets.map((t) => [t.id, t] as const));
+    const order = ["low", "medium", "high", "urgent"] as const;
+
+    setActionError(null);
+    setActionBusy(true);
+
+    for (const id of selectedTickets) {
+      const t = byId.get(id);
+      if (!t) continue;
+      const idx = Math.max(0, order.indexOf(t.priority as any));
+      const nextIdx = direction === "up" ? Math.min(order.length - 1, idx + 1) : Math.max(0, idx - 1);
+      const next = order[nextIdx];
+      if (next === t.priority) continue;
+
+      const upd = await supabase
+        .from("tickets")
+        .update({ priority: next })
+        .eq("id", id);
+      if (upd.error) {
+        setActionError(upd.error.message);
+        setActionBusy(false);
+        return;
+      }
+    }
+
+    await loadTickets();
+    setActionBusy(false);
+  };
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const requestDelete = () => {
+    if (!canWorkTickets) return;
+    if (selectedTickets.length === 0) return;
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!user) return;
+    if (!canWorkTickets) return;
+    if (selectedTickets.length === 0) return;
+
+    setActionError(null);
+    setDeleting(true);
+
+    const selectedRows = tickets.filter((t) => selectedTickets.includes(t.id));
+    const ticketNumbers = selectedRows.map((t) => t.ticket_number).filter(Boolean);
+
+    const del = await supabase
+      .from("tickets")
+      .delete()
+      .in("id", selectedTickets);
+
+    if (del.error) {
+      setActionError(del.error.message);
+      setDeleting(false);
+      return;
+    }
+
+    const audit = await supabase.from("audit_logs").insert({
+      actor_id: user.id,
+      action: "tickets_deleted",
+      entity_type: "tickets",
+      entity_id: null,
+      metadata: {
+        source: "incident-queue",
+        ticket_ids: selectedTickets,
+        ticket_numbers: ticketNumbers,
+      },
+    });
+
+    if (audit.error) {
+      setActionError(audit.error.message);
+    }
+
+    setDeleteDialogOpen(false);
+    setDeleting(false);
+    await loadTickets();
+  };
+
   useEffect(() => {
     void loadTickets();
   }, [loadTickets]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncFromHash = () => {
+      const raw = window.location.hash || "";
+      const [path, query] = raw.replace(/^#\/?/, "").split("?");
+      if ((path ?? "").split("/")[0] !== "incident-queue") return;
+      const params = new URLSearchParams(query ?? "");
+      const id = params.get("ticketId") ?? "";
+      if (!id.trim()) return;
+      setActiveTicketId(id.trim());
+      setDetailNotice(undefined);
+      setView("detail");
+    };
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -240,6 +434,10 @@ export function IncidentQueueView() {
           setActiveTicketId(null);
           setDetailNotice(undefined);
           setView("list");
+          if (typeof window !== "undefined") {
+            const next = "#/incident-queue";
+            if (window.location.hash !== next) window.location.hash = next;
+          }
         }}
       />
     );
@@ -266,15 +464,31 @@ export function IncidentQueueView() {
           >
             Refresh
           </button>
-          <button className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+          <button
+            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+            onClick={exportTickets}
+            disabled={loading}
+          >
             <Download size={14} />
             Export
           </button>
-          <button className="p-1.5 hover:bg-gray-200 rounded transition-colors">
+          <button
+            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            onClick={() => {
+              if (typeof window !== "undefined") window.location.hash = "#/settings";
+            }}
+            title="Settings"
+          >
             <Settings size={16} className="text-[#2d3e50]" />
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="px-4 py-2 text-sm text-red-600 border-b border-gray-200">
+          {actionError}
+        </div>
+      )}
 
       {/* Action Bar */}
       {selectedTickets.length > 0 && (
@@ -283,17 +497,42 @@ export function IncidentQueueView() {
             {selectedTickets.length} ticket(s) selected
           </span>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1">
+            <button
+              className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => void assignSelectedToMe()}
+              disabled={!canWorkTickets || actionBusy}
+              title={!canWorkTickets ? "Not permitted" : "Assign selected to me"}
+            >
               <Users size={14} />
               Assign
             </button>
-            <button className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1">
+            <button
+              className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => void bumpPriority("up")}
+              disabled={!canWorkTickets || actionBusy}
+              title={!canWorkTickets ? "Not permitted" : "Increase priority"}
+            >
               <ArrowUpCircle size={14} />
               Escalate
             </button>
-            <button className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1">
+            <button
+              className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => void bumpPriority("down")}
+              disabled={!canWorkTickets || actionBusy}
+              title={!canWorkTickets ? "Not permitted" : "Decrease priority"}
+            >
               <ArrowDownCircle size={14} />
               De-escalate
+            </button>
+
+            <button
+              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={requestDelete}
+              disabled={!canWorkTickets || actionBusy}
+              title={!canWorkTickets ? "Not permitted" : "Delete selected tickets"}
+            >
+              <Trash2 size={14} />
+              Delete
             </button>
           </div>
         </div>
@@ -359,7 +598,11 @@ export function IncidentQueueView() {
             Archive ({archiveCount})
           </button>
         </div>
-        <button className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+        <button
+          type="button"
+          className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          onClick={() => setError("More filters are not implemented yet. Use the search and dropdowns for now.")}
+        >
           <Filter size={14} />
           More Filters
         </button>
@@ -375,157 +618,179 @@ export function IncidentQueueView() {
         {loading ? (
           <div className="px-4 py-3 text-sm text-gray-600">Loading...</div>
         ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-[#f5f5f5] border-b border-gray-300 sticky top-0">
-            <tr>
-              <th className="px-4 py-2 w-10">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={
-                    filteredTickets.length > 0 &&
-                    selectedTickets.length === filteredTickets.length
-                  }
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedTickets(
-                        filteredTickets.map((i) => i.id),
-                      );
-                    } else {
-                      setSelectedTickets([]);
-                    }
-                  }}
-                />
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Number
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Subject
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Caller
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Priority
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Status
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Assigned To
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Category
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Created
-              </th>
-              <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                Target Date
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTickets.map((ticket) => (
-              <tr
-                key={ticket.id}
-                className={`border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer transition-colors ${
-                  selectedTickets.includes(ticket.id)
-                    ? "bg-[#e3f2fd]"
-                    : ""
-                }`}
-                onClick={() => {
-                  setActiveTicketId(ticket.id);
-                  setDetailNotice(undefined);
-                  setView("detail");
-                }}
-              >
-                <td className="px-4 py-3">
+          <table className="w-full text-sm">
+            <thead className="bg-[#f5f5f5] border-b border-gray-300 sticky top-0">
+              <tr>
+                <th className="px-4 py-2 w-10">
                   <input
                     type="checkbox"
                     className="rounded border-gray-300"
-                    checked={selectedTickets.includes(
-                      ticket.id,
-                    )}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      toggleSelection(ticket.id);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </td>
-                <td className="px-4 py-3 text-[#4a9eff] font-medium">
-                  {ticket.ticket_number}
-                </td>
-                <td className="px-4 py-3 font-medium">
-                  {ticket.title}
-                </td>
-                <td className="px-4 py-3">
-                  {ticket.requester_name ??
-                    ticket.requester?.full_name ??
-                    ticket.requester_email ??
-                    ticket.requester?.email ??
-                    ""}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      priorityLabel(ticket.priority) === "P1"
-                        ? "bg-red-100 text-red-800"
-                        : priorityLabel(ticket.priority) === "P2"
-                          ? "bg-orange-100 text-orange-800"
-                          : priorityLabel(ticket.priority) === "P3"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {priorityLabel(ticket.priority)}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      statusLabel(ticket.status) === "New"
-                        ? "bg-blue-100 text-blue-800"
-                        : statusLabel(ticket.status) === "Open"
-                          ? "bg-cyan-100 text-cyan-800"
-                          : statusLabel(ticket.status) === "In Progress"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {statusLabel(ticket.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={
-                      ticket.assignee
-                        ? ""
-                        : "text-red-600 font-medium"
+                    checked={
+                      filteredTickets.length > 0 &&
+                      selectedTickets.length === filteredTickets.length
                     }
-                  >
-                    {ticket.assignee?.full_name ??
-                      ticket.assignee?.email ??
-                      "Unassigned"}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {ticket.category}
-                </td>
-                <td className="px-4 py-3 text-xs text-gray-600">
-                  {new Date(ticket.created_at).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-xs text-gray-600">
-                  {new Date(ticket.due_at).toLocaleString()}
-                </td>
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTickets(filteredTickets.map((i) => i.id));
+                      } else {
+                        setSelectedTickets([]);
+                      }
+                    }}
+                  />
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Number
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Subject
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Caller
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Priority
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Status
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Assigned To
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Category
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Created
+                </th>
+                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
+                  Target Date
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredTickets.map((ticket) => (
+                <tr
+                  key={ticket.id}
+                  className={`border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer transition-colors ${
+                    selectedTickets.includes(ticket.id)
+                      ? "bg-[#e3f2fd]"
+                      : ""
+                  }`}
+                  onClick={() => {
+                    setActiveTicketId(ticket.id);
+                    setDetailNotice(undefined);
+                    setView("detail");
+                  }}
+                >
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={selectedTickets.includes(ticket.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelection(ticket.id);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-[#4a9eff] font-medium">
+                    {ticket.ticket_number}
+                  </td>
+                  <td className="px-4 py-3 font-medium">{ticket.title}</td>
+                  <td className="px-4 py-3">
+                    {ticket.requester_name ??
+                      ticket.requester?.full_name ??
+                      ticket.requester_email ??
+                      ticket.requester?.email ??
+                      ""}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        priorityLabel(ticket.priority) === "P1"
+                          ? "bg-red-100 text-red-800"
+                          : priorityLabel(ticket.priority) === "P2"
+                            ? "bg-orange-100 text-orange-800"
+                            : priorityLabel(ticket.priority) === "P3"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {priorityLabel(ticket.priority)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        statusLabel(ticket.status) === "New"
+                          ? "bg-blue-100 text-blue-800"
+                          : statusLabel(ticket.status) === "Open"
+                            ? "bg-cyan-100 text-cyan-800"
+                            : statusLabel(ticket.status) === "In Progress"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {statusLabel(ticket.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={
+                        ticket.assignee ? "" : "text-red-600 font-medium"
+                      }
+                    >
+                      {ticket.assignee?.full_name ??
+                        ticket.assignee?.email ??
+                        "Unassigned"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{ticket.category}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {new Date(ticket.created_at).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {new Date(ticket.due_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleting(false);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete selected tickets?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

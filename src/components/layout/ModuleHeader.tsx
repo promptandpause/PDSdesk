@@ -34,9 +34,9 @@ export function ModuleHeader({
   onOpenSettings,
   onRefresh,
 }: ModuleHeaderProps) {
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showUsers, setShowUsers] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const docsUrl = (import.meta.env.VITE_DOCS_URL ?? "").trim();
 
   const handleRefresh = () => {
     if (onRefresh) {
@@ -48,22 +48,16 @@ export function ModuleHeader({
   };
 
   const handleCalendar = () => {
-    setShowCalendar(!showCalendar);
-    // TODO: Open calendar modal
-    console.log("Opening calendar...");
+    setMessage("Calendar is not implemented yet.");
   };
 
   const handleUsers = () => {
-    setShowUsers(!showUsers);
-    // TODO: Open users directory
-    console.log("Opening users directory...");
+    setMessage("Users directory is not implemented yet.");
   };
 
   const handleHelp = () => {
-    setShowHelp(!showHelp);
-    // TODO: Open help documentation
-    console.log("Opening help...");
-    window.open("https://docs.topdesk.com", "_blank");
+    if (!docsUrl) return;
+    window.open(docsUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -101,8 +95,9 @@ export function ModuleHeader({
           </button>
           <button
             onClick={handleHelp}
+            disabled={!docsUrl}
             className="p-1 hover:bg-[#b0b0b0] rounded transition-colors"
-            title="Help"
+            title={docsUrl ? "Help" : "Help (not configured)"}
           >
             <HelpCircle size={14} className="text-[#2d3e50]" />
           </button>
@@ -117,6 +112,12 @@ export function ModuleHeader({
           </div>
         </div>
       </div>
+
+      {message && (
+        <div className="px-3 py-1 text-xs text-red-600 border-b border-[#a0a0a0] bg-[#d8d8d8]">
+          {message}
+        </div>
+      )}
 
       {/* Tabs bar */}
       <div className="flex items-center bg-[#d8d8d8] px-1 overflow-x-auto">

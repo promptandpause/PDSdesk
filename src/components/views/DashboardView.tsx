@@ -312,6 +312,47 @@ export function DashboardView({
   const [savedListsLoading, setSavedListsLoading] = useState(false);
   const [savedListsError, setSavedListsError] = useState<string | null>(null);
 
+  const openSearchPrefill = useCallback(
+    (term: string, module: "all" | "tickets" | "assets" | "knowledge" = "all") => {
+      onOpenTab("search", "Search");
+
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams();
+      params.set("term", term);
+      params.set("module", module);
+      window.location.hash = `#/search?${params.toString()}`;
+    },
+    [onOpenTab],
+  );
+
+  const openReport = useCallback(
+    (name: string) => {
+      openSearchPrefill(name, "tickets");
+    },
+    [openSearchPrefill],
+  );
+
+  const openSelection = useCallback(
+    (name: string) => {
+      const normalized = name.trim().toLowerCase();
+      if (normalized === "customer support queue") {
+        onOpenTab("customer-support-queue", "Customer Support Queue");
+        return;
+      }
+      if (normalized === "my open tickets") {
+        onOpenTab("tickets-assigned-to-me", "Tickets Assigned to Me");
+        return;
+      }
+      if (normalized === "recently updated tickets") {
+        onOpenTab("call-management", "Call Management");
+        return;
+      }
+
+      openSearchPrefill(name, "tickets");
+    },
+    [onOpenTab, openSearchPrefill],
+  );
+
   const getWidgetSettingsArray = useCallback(
     (id: WidgetId, key: string): string[] => {
       const raw = widgets[id]?.settings?.[key];
@@ -709,35 +750,30 @@ export function DashboardView({
       {
         label: "Total Tickets",
         value: metrics?.totalTickets ?? 0,
-        trend: "+0%",
         color: "#4a9eff",
         key: "totalTickets",
       },
       {
         label: "Open",
         value: metrics?.openTickets ?? 0,
-        trend: "+0%",
         color: "#ff9800",
         key: "openTickets",
       },
       {
         label: "Resolved",
         value: metrics?.resolvedTickets ?? 0,
-        trend: "+0%",
         color: "#4caf50",
         key: "resolvedTickets",
       },
       {
         label: "Customer Support",
         value: metrics?.customerSupport ?? 0,
-        trend: "+0%",
         color: "#9c27b0",
         key: "customerSupport",
       },
       {
         label: "Assigned to me",
         value: metrics?.assignedToMe ?? 0,
-        trend: "+0%",
         color: "#607d8b",
         key: "assignedToMe",
       },
@@ -842,6 +878,7 @@ export function DashboardView({
             items={savedReports}
             loading={dashboardLoading || savedListsLoading}
             error={dashboardError ?? savedListsError}
+            onOpenItem={openReport}
             onSettings={() => openWidgetSettings("reports")}
             onMaximize={() => setMaximizedWidgetId("reports")}
           />
@@ -855,6 +892,7 @@ export function DashboardView({
             items={savedSelections}
             loading={dashboardLoading || savedListsLoading}
             error={dashboardError ?? savedListsError}
+            onOpenItem={openSelection}
             onSettings={() => openWidgetSettings("selections")}
             onMaximize={() => setMaximizedWidgetId("selections")}
           />
@@ -863,7 +901,7 @@ export function DashboardView({
     };
 
     return byId;
-  }, [dashboardError, dashboardLoading, metrics, metricsError, metricsLoading, openWidgetSettings, savedListsError, savedListsLoading, savedReports, savedSelections, widgets]);
+  }, [dashboardError, dashboardLoading, metrics, metricsError, metricsLoading, openReport, openSelection, openWidgetSettings, savedListsError, savedListsLoading, savedReports, savedSelections, widgets]);
 
   return (
     <div className="flex h-full">

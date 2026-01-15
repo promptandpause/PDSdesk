@@ -7,6 +7,7 @@ export function ReportsListWidget({
   onSettings,
   title,
   items,
+  onOpenItem,
   loading,
   error,
 }: {
@@ -14,18 +15,11 @@ export function ReportsListWidget({
   onSettings?: () => void;
   title?: string;
   items?: string[];
+  onOpenItem?: (name: string) => void;
   loading?: boolean;
   error?: string | null;
 }) {
-  const reports = items && items.length > 0 ? items : [
-    "Avg time taken to resolve incidents or service req",
-    "Calls per Operator",
-    "Number of Incidents per operator",
-    "First-level resolution",
-    "Supplier SLA Report",
-    "Scheduled Reports",
-    "All reports",
-  ];
+  const reports = Array.isArray(items) ? items : [];
 
   return (
     <div className="bg-white border border-gray-300 rounded shadow-sm">
@@ -59,11 +53,17 @@ export function ReportsListWidget({
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-4/5" />
           </div>
+        ) : reports.length === 0 ? (
+          <div className="text-xs text-gray-600">No saved reports yet.</div>
         ) : (
           <div className="space-y-2">
             {reports.map((report, index) => (
               <div key={index}>
-                <button className="text-xs text-[#4a9eff] hover:underline text-left">
+                <button
+                  type="button"
+                  className="text-xs text-[#4a9eff] hover:underline text-left"
+                  onClick={() => onOpenItem?.(report)}
+                >
                   {report}
                 </button>
               </div>

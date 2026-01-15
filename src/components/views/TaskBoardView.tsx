@@ -65,86 +65,18 @@ import { getSupabaseClient } from "../../lib/supabaseClient";
    requestBy?: string;
  };
 
- const FALLBACK_TASKS: BoardTask[] = [
-   {
-     id: "I 1604 024",
-     ticketId: "",
-     ticketNumber: "",
-     ticketTitle: "",
-     title: "Reservation screen broken",
-     category: "Storing: Workplace hardware - Monitor",
-     requester: "Elsacker, Nancy van (PDSdesk Belgium BVBA)",
-     operator: "Meadows, Dawn",
-     status: "new",
-     assigned_to: null,
-     created_by: null,
-     completed_at: null,
-     assigneeLabel: "Meadows, Dawn",
-     creatorLabel: "Admin",
-     date: "12 May 2016 15:36",
-     type: "incident",
-     priority: 3,
-     hasRequest: true,
-     caller: {
-       name: "Elsacker, Nancy van - PDSdesk Belgium BVBA",
-       phone: "+32 012345679",
-       image:
-         "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
-     },
-     request:
-       "The large reservation screen in the main hall is broken.",
-     requestTime: "April 22, 2016 03:06 PM",
-     requestBy: "Admin",
-   },
-   {
-     id: "A-W 1604 001",
-     ticketId: "",
-     ticketNumber: "",
-     ticketTitle: "",
-     title: "Check spaces",
-     category: "Change: W 1210 007 change of work space",
-     requester: "Offermans, Marcel (Prompt and Pause)",
-     operator: null,
-     status: "in_progress",
-     assigned_to: null,
-     created_by: null,
-     completed_at: null,
-     assigneeLabel: "Unassigned",
-     creatorLabel: "",
-     date: "13 May 2016 12:03",
-     type: "activity",
-     priority: 3,
-     hasRequest: false,
-   },
-   {
-     id: "I 1604 022",
-     ticketId: "",
-     ticketNumber: "",
-     ticketTitle: "",
-     title: "First Line Call",
-     category: "Storing: Workplace hardware - Other hardware",
-     requester: "Meert, Frank (OGD Delft)",
-     operator: null,
-     status: "new",
-     assigned_to: null,
-     created_by: null,
-     completed_at: null,
-     assigneeLabel: "Unassigned",
-     creatorLabel: "",
-     date: "13 May 2016 17:30",
-     type: "incident",
-     priority: 3,
-     hasRequest: false,
-   },
- ];
-
 // TODO: Fetch tasks from Supabase with real-time subscriptions
 export function TaskBoardView() {
   const { user } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
+  const docsUrl = (import.meta.env.VITE_DOCS_URL ?? "").trim();
+
   const [showFilters, setShowFilters] = useState(true);
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
+
+  const [message, setMessage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilters, setStatusFilters] = useState({
@@ -506,9 +438,6 @@ export function TaskBoardView() {
   const deleteTask = useCallback(async (taskId: string) => {
     if (!user) return;
 
-    const ok = window.confirm("Delete this task? This cannot be undone.");
-    if (!ok) return;
-
     setDeletingTask(true);
     setDeleteError(null);
 
@@ -529,6 +458,11 @@ export function TaskBoardView() {
     setSelectedTask(nextCandidate);
     setDeletingTask(false);
   }, [loadTasks, supabase, tasks, user]);
+
+  const requestDeleteTask = useCallback((taskId: string) => {
+    setDeleteError(null);
+    setDeleteConfirmTaskId(taskId);
+  }, []);
 
   return (
     <div className="flex h-full bg-white">
@@ -663,6 +597,7 @@ export function TaskBoardView() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
                 onClick={() => {
                   resetCreateForm();
@@ -673,6 +608,7 @@ export function TaskBoardView() {
                 New Task
               </button>
               <button
+                type="button"
                 className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
                 onClick={() => void loadTasks()}
               >
@@ -681,7 +617,18 @@ export function TaskBoardView() {
                   className="text-[#2d3e50]"
                 />
               </button>
-              <button className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors">
+              <button
+                type="button"
+                className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                title={docsUrl ? "Help" : "Help (not configured)"}
+                onClick={() => {
+                  if (!docsUrl) {
+                    setMessage("Help is not configured yet.");
+                    return;
+                  }
+                  window.open(docsUrl, "_blank", "noopener,noreferrer");
+                }}
+              >
                 <HelpCircle
                   size={14}
                   className="text-[#2d3e50]"
@@ -690,6 +637,15 @@ export function TaskBoardView() {
             </div>
           </div>
         </div>
+
+        {message && (
+          <div className="border-b border-gray-300 px-4 py-2 bg-white">
+            <div className="text-sm text-red-600 flex items-center gap-2">
+              <MessageSquare size={14} />
+              {message}
+            </div>
+          </div>
+        )}
 
         {taskError && (
           <div className="border-b border-gray-300 px-4 py-2 bg-white">
@@ -722,7 +678,14 @@ export function TaskBoardView() {
               >
                 <div className="p-3 flex items-start gap-3">
                   <div className="flex-shrink-0 flex items-center gap-2">
-                    <button className="text-gray-400 hover:text-yellow-500">
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-yellow-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMessage("Favorites are not implemented yet.");
+                      }}
+                    >
                       <Star size={16} />
                     </button>
                     <div
@@ -920,7 +883,7 @@ export function TaskBoardView() {
                             <div className="flex justify-end gap-2">
                               <button
                                 className="px-3 py-1.5 border border-red-300 text-red-700 text-sm rounded hover:bg-red-50 transition-colors disabled:opacity-60"
-                                onClick={() => void deleteTask(task.id)}
+                                onClick={() => requestDeleteTask(task.id)}
                                 disabled={savingTask || deletingTask}
                               >
                                 {deletingTask ? "Deleting..." : "Delete"}
@@ -1029,6 +992,51 @@ export function TaskBoardView() {
                 disabled={creatingTask}
               >
                 {creatingTask ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded border border-gray-300 bg-white shadow-lg">
+            <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <div className="text-sm font-semibold text-[#2d3e50]">Delete Task</div>
+              <button
+                className="text-sm text-gray-600 hover:text-[#2d3e50] disabled:opacity-60"
+                onClick={() => setDeleteConfirmTaskId(null)}
+                disabled={deletingTask}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="text-sm text-[#2d3e50]">Delete this task?</div>
+              <div className="text-xs text-gray-600">This cannot be undone.</div>
+            </div>
+
+            <div className="border-t border-gray-200 px-4 py-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors disabled:opacity-60"
+                onClick={() => setDeleteConfirmTaskId(null)}
+                disabled={deletingTask}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-60"
+                onClick={() => {
+                  const id = deleteConfirmTaskId;
+                  setDeleteConfirmTaskId(null);
+                  if (id) void deleteTask(id);
+                }}
+                disabled={deletingTask}
+              >
+                {deletingTask ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

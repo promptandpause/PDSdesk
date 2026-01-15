@@ -32,7 +32,7 @@ export function PersonFormView({
       <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">
-            Unregistered User
+            Person
           </span>
           <h2 className="text-lg font-semibold text-[#2d3e50]">
             {isNewPerson ? "New person" : "Edit person"}
@@ -81,7 +81,6 @@ export function PersonFormView({
                     </label>
                     <input
                       type="text"
-                      defaultValue="User"
                       className="col-span-2 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                     />
                   </div>
@@ -92,7 +91,6 @@ export function PersonFormView({
                     </label>
                     <input
                       type="text"
-                      defaultValue="Unregistered"
                       className="col-span-2 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                     />
                   </div>
@@ -234,7 +232,6 @@ export function PersonFormView({
                     </label>
                     <input
                       type="email"
-                      defaultValue="unregistered@helpdeskbuttons.com"
                       className="col-span-2 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                     />
                   </div>

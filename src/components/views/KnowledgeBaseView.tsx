@@ -5,9 +5,12 @@ import {
   ThumbsUp,
   Eye,
   Tag,
+  Download,
+  Filter,
+  Settings,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import {
@@ -26,6 +29,66 @@ export function KnowledgeBaseView() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [includeDrafts, setIncludeDrafts] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"any" | "draft_only">("any");
+
+  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
+  const [showTagsInList, setShowTagsInList] = useState(true);
+  const [showStatsInList, setShowStatsInList] = useState(true);
+
+  const kbPrefsKey = useMemo(() => {
+    const id = user?.id?.trim();
+    return id ? `pdsdesk.kb.prefs.${id}` : "pdsdesk.kb.prefs";
+  }, [user?.id]);
+
+  const kbPrefsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    kbPrefsLoadedRef.current = false;
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(kbPrefsKey);
+      const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+      if (!parsed || typeof parsed !== "object") {
+        kbPrefsLoadedRef.current = true;
+        return;
+      }
+
+      const obj = parsed as Record<string, unknown>;
+      if (typeof obj.selectedCategory === "string") setSelectedCategory(obj.selectedCategory);
+      if (typeof obj.includeDrafts === "boolean") setIncludeDrafts(obj.includeDrafts);
+      if (obj.statusFilter === "any" || obj.statusFilter === "draft_only") {
+        setStatusFilter(obj.statusFilter);
+      }
+      if (typeof obj.showTagsInList === "boolean") setShowTagsInList(obj.showTagsInList);
+      if (typeof obj.showStatsInList === "boolean") setShowStatsInList(obj.showStatsInList);
+    } catch {
+      // ignore
+    } finally {
+      kbPrefsLoadedRef.current = true;
+    }
+  }, [kbPrefsKey]);
+
+  useEffect(() => {
+    if (!kbPrefsLoadedRef.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        kbPrefsKey,
+        JSON.stringify({
+          selectedCategory,
+          includeDrafts,
+          statusFilter,
+          showTagsInList,
+          showStatsInList,
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  }, [kbPrefsKey, includeDrafts, selectedCategory, showStatsInList, showTagsInList, statusFilter]);
 
   type ArticleRow = {
     id: string;
@@ -119,18 +182,6 @@ export function KnowledgeBaseView() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onOpen = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { articleId?: string } | undefined;
-      const id = detail?.articleId?.trim();
-      if (!id) return;
-      window.location.hash = `#/knowledge-base?articleId=${encodeURIComponent(id)}`;
-    };
-    window.addEventListener("pdsdesk:knowledge-base:open-article", onOpen);
-    return () => window.removeEventListener("pdsdesk:knowledge-base:open-article", onOpen);
-  }, []);
-
-  useEffect(() => {
     if (!user) return;
     if (!selectedArticleId) {
       setSelectedArticle(null);
@@ -148,7 +199,7 @@ export function KnowledgeBaseView() {
       setSelectedLoading(true);
       setSelectedError(null);
 
-      await supabase.rpc("increment_knowledge_article_view", { article_id: selectedArticleId });
+      void supabase.rpc("increment_knowledge_article_view", { article_id: selectedArticleId });
 
       const res = await supabase
         .from("knowledge_articles")
@@ -393,11 +444,74 @@ export function KnowledgeBaseView() {
     return articles.filter((a) => {
       const cat = (a.category ?? "Uncategorized").trim() || "Uncategorized";
       if (selectedCategory !== "All" && cat !== selectedCategory) return false;
+
+      const status = String(a.status ?? "").trim().toLowerCase();
+      if (statusFilter === "draft_only") {
+        if (status !== "draft") return false;
+      } else if (!includeDrafts) {
+        if (status !== "published") return false;
+      }
+
       if (!q) return true;
       const haystack = `${a.slug} ${a.title} ${(a.tags ?? []).join(" ")} ${cat}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [articles, searchTerm, selectedCategory]);
+  }, [articles, includeDrafts, searchTerm, selectedCategory, statusFilter]);
+
+  const exportCsv = () => {
+    const escape = (v: unknown) => {
+      const s = String(v ?? "");
+      if (s.includes("\"")) {
+        return `"${s.replace(/\"/g, '""')}"`;
+      }
+      if (s.includes(",") || s.includes("\n") || s.includes("\r")) {
+        return `"${s}"`;
+      }
+      return s;
+    };
+
+    const headers = [
+      "Title",
+      "Slug",
+      "Status",
+      "Category",
+      "Tags",
+      "Views",
+      "Likes",
+      "Updated",
+    ];
+
+    const lines: string[] = [];
+    lines.push(headers.map((h) => escape(h)).join(","));
+    for (const a of filteredArticles) {
+      lines.push(
+        [
+          a.title,
+          a.slug,
+          a.status,
+          (a.category ?? "Uncategorized").trim() || "Uncategorized",
+          (a.tags ?? []).join("; "),
+          a.view_count ?? 0,
+          a.like_count ?? 0,
+          a.updated_at ? new Date(a.updated_at).toISOString() : "",
+        ]
+          .map((v) => escape(v))
+          .join(","),
+      );
+    }
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `knowledge-articles-${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex-1 flex h-full bg-white overflow-hidden">
@@ -415,7 +529,7 @@ export function KnowledgeBaseView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createSlug}
                 onChange={(e) => setCreateSlug(e.target.value)}
-                placeholder="kb-reset-password"
+                placeholder="article-slug"
                 disabled={createSubmitting}
               />
             </div>
@@ -425,7 +539,7 @@ export function KnowledgeBaseView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createTitle}
                 onChange={(e) => setCreateTitle(e.target.value)}
-                placeholder="How to reset your password"
+                placeholder="Article title"
                 disabled={createSubmitting}
               />
             </div>
@@ -435,7 +549,7 @@ export function KnowledgeBaseView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createCategory}
                 onChange={(e) => setCreateCategory(e.target.value)}
-                placeholder="Account Management"
+                placeholder="Category"
                 disabled={createSubmitting}
               />
             </div>
@@ -445,7 +559,7 @@ export function KnowledgeBaseView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createTags}
                 onChange={(e) => setCreateTags(e.target.value)}
-                placeholder="password, account, security"
+                placeholder="tag1, tag2"
                 disabled={createSubmitting}
               />
             </div>
@@ -497,6 +611,113 @@ export function KnowledgeBaseView() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Filters</DialogTitle>
+            <DialogDescription>Filter knowledge base articles.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Drafts</label>
+              <div className="flex items-center justify-between gap-3 p-3 border border-gray-300 rounded">
+                <div>
+                  <div className="text-sm font-medium text-[#2d3e50]">Include drafts</div>
+                  <div className="text-xs text-gray-600">Show draft articles alongside published.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 text-[#4a9eff] border-gray-300 rounded focus:ring-[#4a9eff]"
+                  checked={includeDrafts}
+                  onChange={(e) => {
+                    setIncludeDrafts(e.target.checked);
+                    if (!e.target.checked) setStatusFilter("any");
+                  }}
+                  disabled={statusFilter === "draft_only"}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                value={statusFilter}
+                onChange={(e) => {
+                  const v = e.target.value === "draft_only" ? "draft_only" : "any";
+                  setStatusFilter(v);
+                  if (v === "draft_only") setIncludeDrafts(true);
+                }}
+              >
+                <option value="any">Published + Drafts (controlled by checkbox)</option>
+                <option value="draft_only">Draft only</option>
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              onClick={() => {
+                setIncludeDrafts(true);
+                setStatusFilter("any");
+              }}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+              onClick={() => setFiltersOpen(false)}
+            >
+              Apply
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewSettingsOpen} onOpenChange={setViewSettingsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>View settings</DialogTitle>
+            <DialogDescription>Choose what appears in the list.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="flex items-center justify-between gap-3 text-sm text-gray-700">
+              <span>Show tags</span>
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={showTagsInList}
+                onChange={(e) => setShowTagsInList(e.target.checked)}
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 text-sm text-gray-700">
+              <span>Show stats (views, likes, updated)</span>
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={showStatsInList}
+                onChange={(e) => setShowStatsInList(e.target.checked)}
+              />
+            </label>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              onClick={() => setViewSettingsOpen(false)}
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Sidebar - Categories */}
       <div className="w-64 border-r border-gray-300 flex flex-col">
         <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3">
@@ -530,29 +751,57 @@ export function KnowledgeBaseView() {
             <h2 className="text-lg font-semibold text-[#2d3e50]">
               Knowledge Base
             </h2>
-            <button
-              type="button"
-              className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus size={14} />
-              New Article
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus size={14} />
+                New Article
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                onClick={() => exportCsv()}
+              >
+                <Download size={14} />
+                Export
+              </button>
+              <button
+                type="button"
+                className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                onClick={() => setViewSettingsOpen(true)}
+                title="View settings"
+              >
+                <Settings size={16} className="text-[#2d3e50]" />
+              </button>
+            </div>
           </div>
 
           <div className="border-b border-gray-300 px-4 py-3 bg-white">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="text"
-                placeholder="Search knowledge base..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Search knowledge base..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                />
+              </div>
+              <button
+                type="button"
+                className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                onClick={() => setFiltersOpen(true)}
+              >
+                <Filter size={14} />
+                Filters
+              </button>
             </div>
           </div>
 
@@ -592,19 +841,22 @@ export function KnowledgeBaseView() {
                           <p className="text-xs text-gray-500 mb-2">
                             {category}
                           </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-600">
-                            <span className="flex items-center gap-1">
-                              <Eye size={12} />
-                              {article.view_count} views
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <ThumbsUp size={12} />
-                              {article.like_count} likes
-                            </span>
-                            <span>Updated: {new Date(article.updated_at).toLocaleDateString()}</span>
-                          </div>
+                          {showStatsInList && (
+                            <div className="flex items-center gap-3 text-xs text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <Eye size={12} />
+                                {article.view_count} views
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <ThumbsUp size={12} />
+                                {article.like_count} likes
+                              </span>
+                              <span>Updated: {new Date(article.updated_at).toLocaleDateString()}</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
+                    </div>
+                    {showTagsInList && (
                       <div className="flex gap-1 flex-wrap">
                         {(article.tags ?? []).map((tag) => (
                           <span
@@ -616,9 +868,10 @@ export function KnowledgeBaseView() {
                           </span>
                         ))}
                       </div>
-                    </button>
-                  );
-                })}
+                    )}
+                  </button>
+                );
+              })}
               </div>
             )}
           </div>

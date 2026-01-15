@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Package, Search, Ticket } from "lucide-react";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
@@ -17,12 +17,14 @@ export function SearchView() {
   type SearchResult = {
     kind: SearchKind;
     id: string;
+    ref: string;
     title: string;
     subtitle: string | null;
     date: string | null;
   };
 
   const [results, setResults] = useState<SearchResult[]>([]);
+  const searchSeq = useRef(0);
 
   const modules = [
     { id: "all", label: "All" },
@@ -31,33 +33,35 @@ export function SearchView() {
     { id: "tickets", label: "Tickets" },
   ];
 
-  useEffect(() => {
-    if (!user) return;
+  const searchNow = useCallback(
+    async (termOverride?: string, moduleOverride?: string) => {
+      if (!user) return;
 
-    const raw = searchTerm.trim();
-    if (!raw) {
-      setResults([]);
-      setError(null);
-      setLoading(false);
-      return;
-    }
+      const raw = (termOverride ?? searchTerm).trim();
+      if (!raw) {
+        setResults([]);
+        setError(null);
+        setLoading(false);
+        return;
+      }
 
-    const term = raw.replace(/,/g, " ");
-    const like = `%${term}%`;
+      const module = moduleOverride ?? selectedModule;
+      const term = raw.replace(/,/g, " ");
+      const like = `%${term}%`;
 
-    let cancelled = false;
-    const t = window.setTimeout(async () => {
+      const seq = (searchSeq.current += 1);
+
       setLoading(true);
       setError(null);
 
-      const shouldSearchTickets = selectedModule === "all" || selectedModule === "tickets";
-      const shouldSearchAssets = selectedModule === "all" || selectedModule === "assets";
-      const shouldSearchKnowledge = selectedModule === "all" || selectedModule === "knowledge";
+      const shouldSearchTickets = module === "all" || module === "tickets";
+      const shouldSearchAssets = module === "all" || module === "assets";
+      const shouldSearchKnowledge = module === "all" || module === "knowledge";
 
       const ticketPromise = shouldSearchTickets
         ? supabase
             .from("tickets")
-            .select("id,title,status,priority,created_at")
+            .select("id,ticket_number,title,status,priority,created_at")
             .or(`title.ilike.${like},description.ilike.${like}`)
             .order("created_at", { ascending: false })
             .limit(20)
@@ -87,17 +91,19 @@ export function SearchView() {
         knowledgePromise,
       ]);
 
-      if (cancelled) return;
+      if (searchSeq.current !== seq) return;
 
       const next: SearchResult[] = [];
+      let nextError: string | null = null;
 
       if (ticketsRes?.error) {
-        setError(ticketsRes.error.message);
+        nextError = ticketsRes.error.message;
       } else {
         for (const t of (ticketsRes?.data ?? []) as any[]) {
           next.push({
             kind: "ticket",
             id: t.id,
+            ref: t.ticket_number ?? t.id,
             title: t.title,
             subtitle: `${t.status ?? ""}${t.priority ? ` · ${t.priority}` : ""}`.trim() || null,
             date: t.created_at ?? null,
@@ -106,26 +112,29 @@ export function SearchView() {
       }
 
       if (assetsRes?.error) {
-        setError(assetsRes.error.message);
+        nextError = nextError ?? assetsRes.error.message;
       } else {
         for (const a of (assetsRes?.data ?? []) as any[]) {
           next.push({
             kind: "asset",
             id: a.id,
+            ref: a.asset_tag ?? a.id,
             title: a.name,
-            subtitle: [a.asset_tag, a.asset_type, a.serial_number].filter(Boolean).join(" · ") || null,
+            subtitle:
+              [a.asset_tag, a.asset_type, a.serial_number].filter(Boolean).join(" · ") || null,
             date: a.updated_at ?? null,
           });
         }
       }
 
       if (knowledgeRes?.error) {
-        setError(knowledgeRes.error.message);
+        nextError = nextError ?? knowledgeRes.error.message;
       } else {
         for (const k of (knowledgeRes?.data ?? []) as any[]) {
           next.push({
             kind: "knowledge",
             id: k.id,
+            ref: k.slug ?? k.id,
             title: k.title,
             subtitle: [k.slug, k.category].filter(Boolean).join(" · ") || null,
             date: k.updated_at ?? null,
@@ -133,15 +142,66 @@ export function SearchView() {
         }
       }
 
+      setError(nextError);
       setResults(next);
       setLoading(false);
+    },
+    [searchTerm, selectedModule, supabase, user],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const apply = (term: string | undefined, mod: string | undefined) => {
+      if (typeof term === "string") setSearchTerm(term);
+      if (typeof mod === "string") {
+        const allowed = new Set(modules.map((m) => m.id));
+        if (allowed.has(mod)) setSelectedModule(mod);
+      }
+    };
+
+    const syncFromHash = () => {
+      const raw = window.location.hash || "";
+      const [_path, query] = raw.replace(/^#\/?/, "").split("?");
+      const params = new URLSearchParams(query ?? "");
+      const term = params.get("term") ?? undefined;
+      const mod = params.get("module") ?? undefined;
+      if (term || mod) apply(term, mod);
+    };
+
+    const onPrefill = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { term?: string; module?: string } | undefined;
+      if (!detail) return;
+      apply(detail.term, detail.module);
+    };
+
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    window.addEventListener("pdsdesk:search:prefill", onPrefill);
+    return () => {
+      window.removeEventListener("hashchange", syncFromHash);
+      window.removeEventListener("pdsdesk:search:prefill", onPrefill);
+    };
+  }, [modules]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const raw = searchTerm.trim();
+    if (!raw) {
+      setResults([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const t = window.setTimeout(async () => {
+      await searchNow(searchTerm, selectedModule);
     }, 300);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(t);
     };
-  }, [searchTerm, selectedModule, supabase, user]);
+  }, [searchNow, searchTerm, selectedModule, user]);
 
   const grouped = useMemo(() => {
     const byKind: Record<SearchKind, SearchResult[]> = {
@@ -155,25 +215,16 @@ export function SearchView() {
 
   const openResult = (r: SearchResult) => {
     if (r.kind === "ticket") {
-      window.location.hash = "#/call-management";
-      window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("pdsdesk:call-management:open-ticket", { detail: { ticketId: r.id } }));
-      }, 50);
+      window.location.hash = `#/call-management?ticketId=${encodeURIComponent(r.id)}`;
       return;
     }
 
     if (r.kind === "asset") {
       window.location.hash = `#/asset-management?assetId=${encodeURIComponent(r.id)}`;
-      window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("pdsdesk:asset-management:open-asset", { detail: { assetId: r.id } }));
-      }, 50);
       return;
     }
 
     window.location.hash = `#/knowledge-base?articleId=${encodeURIComponent(r.id)}`;
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("pdsdesk:knowledge-base:open-article", { detail: { articleId: r.id } }));
-    }, 50);
   };
 
   return (
@@ -222,7 +273,8 @@ export function SearchView() {
           <button
             type="button"
             className="px-4 py-2.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
-            onClick={() => setSearchTerm((prev) => prev)}
+            onClick={() => void searchNow(searchTerm, selectedModule)}
+            disabled={loading || !searchTerm.trim()}
           >
             Search
           </button>
@@ -275,7 +327,7 @@ export function SearchView() {
                               {kindLabel}
                             </span>
                             <span className="text-sm font-semibold text-[#4a9eff]">
-                              {r.kind === "asset" ? r.subtitle?.split(" · ")[0] ?? r.id : r.id}
+                              {r.ref}
                             </span>
                           </div>
                           <h3 className="text-sm font-medium text-[#2d3e50] mb-1">

@@ -1,45 +1,25 @@
 import {
   UserPlus,
-  Clock,
-  CheckCircle,
-  XCircle,
   Search,
 } from "lucide-react";
+import { useState } from "react";
 
 // TODO: Fetch visitor data from Supabase
 export function VisitorRegistrationView() {
-  const visitors = [
-    {
-      id: "V-001",
-      name: "John Smith",
-      company: "Acme Corp",
-      host: "Alex Johnson",
-      checkIn: "09:15",
-      checkOut: "-",
-      status: "Checked In",
-      purpose: "Business Meeting",
-    },
-    {
-      id: "V-002",
-      name: "Jane Doe",
-      company: "Tech Solutions",
-      host: "Sarah Williams",
-      checkIn: "10:30",
-      checkOut: "12:45",
-      status: "Checked Out",
-      purpose: "Interview",
-    },
-    {
-      id: "V-003",
-      name: "Bob Wilson",
-      company: "Consultancy Ltd",
-      host: "Michael Brown",
-      checkIn: "14:00",
-      checkOut: "-",
-      status: "Checked In",
-      purpose: "Consultation",
-    },
-  ];
+  const [message, setMessage] = useState<string | null>(null);
+
+  type VisitorRow = {
+    id: string;
+    name: string;
+    company: string;
+    host: string;
+    checkIn: string;
+    checkOut: string;
+    status: string;
+    purpose: string;
+  };
+
+  const visitors: VisitorRow[] = [];
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white">
@@ -47,11 +27,21 @@ export function VisitorRegistrationView() {
         <h2 className="text-lg font-semibold text-[#2d3e50]">
           Visitor Registration
         </h2>
-        <button className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2">
+        <button
+          type="button"
+          className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2"
+          onClick={() => setMessage("Visitor registration is not implemented yet.")}
+        >
           <UserPlus size={16} />
           Register New Visitor
         </button>
       </div>
+
+      {message && (
+        <div className="px-4 py-2 text-sm text-red-600 border-b border-gray-200">
+          {message}
+        </div>
+      )}
 
       <div className="border-b border-gray-300 px-4 py-3 flex items-center gap-3">
         <div className="flex-1 relative">
@@ -103,37 +93,39 @@ export function VisitorRegistrationView() {
             </tr>
           </thead>
           <tbody>
-            {visitors.map((visitor) => (
-              <tr
-                key={visitor.id}
-                className="border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer"
-              >
-                <td className="px-4 py-3 text-[#4a9eff] font-medium">
-                  {visitor.id}
+            {visitors.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-sm text-gray-600">
+                  No visitors found.
                 </td>
-                <td className="px-4 py-3 font-medium">
-                  {visitor.name}
-                </td>
-                <td className="px-4 py-3">{visitor.company}</td>
-                <td className="px-4 py-3">{visitor.host}</td>
-                <td className="px-4 py-3">{visitor.checkIn}</td>
-                <td className="px-4 py-3">
-                  {visitor.checkOut}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      visitor.status === "Checked In"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {visitor.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3">{visitor.purpose}</td>
               </tr>
-            ))}
+            ) : (
+              visitors.map((visitor) => (
+                <tr
+                  key={visitor.id}
+                  className="border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer"
+                >
+                  <td className="px-4 py-3 text-[#4a9eff] font-medium">
+                    {visitor.id}
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {visitor.name}
+                  </td>
+                  <td className="px-4 py-3">{visitor.company}</td>
+                  <td className="px-4 py-3">{visitor.host}</td>
+                  <td className="px-4 py-3">{visitor.checkIn}</td>
+                  <td className="px-4 py-3">
+                    {visitor.checkOut}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                      {visitor.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{visitor.purpose}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

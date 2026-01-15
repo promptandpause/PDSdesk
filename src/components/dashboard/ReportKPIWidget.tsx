@@ -10,7 +10,7 @@ interface ReportKPIWidgetProps {
   title: string;
   subtitle: string;
   variant?: "pie" | "dual-gauge";
-  cards?: Array<{ label: string; value: number; trend: string; color: string }>;
+  cards?: Array<{ label: string; value: number; trend?: string; color: string }>;
   gauges?: Array<{ title: string; now: number; min: number; norm: number; max: number }>;
   onMaximize?: () => void;
   onSettings?: () => void;
@@ -27,25 +27,7 @@ export function ReportKPIWidget({
   onSettings,
 }: ReportKPIWidgetProps) {
   if (variant === "dual-gauge") {
-    const safeGauges =
-      gauges && gauges.length > 0
-        ? gauges
-        : [
-            {
-              title: "KPI logged",
-              now: 3,
-              min: 2,
-              norm: 20,
-              max: 24,
-            },
-            {
-              title: "KPI solved",
-              now: 1,
-              min: 0,
-              norm: 14,
-              max: 16,
-            },
-          ];
+    const safeGauges = Array.isArray(gauges) ? gauges : [];
 
     return (
       <div className="bg-white border border-gray-300 rounded shadow-sm">
@@ -74,53 +56,29 @@ export function ReportKPIWidget({
           <p className="text-xs text-gray-600 mb-4">
             {subtitle}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-            {safeGauges.slice(0, 2).map((g) => (
-              <CleanGauge
-                key={g.title}
-                title={g.title}
-                now={g.now}
-                min={g.min}
-                norm={g.norm}
-                max={g.max}
-              />
-            ))}
-          </div>
+          {safeGauges.length === 0 ? (
+            <div className="text-xs text-gray-600">No KPI data yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              {safeGauges.slice(0, 2).map((g) => (
+                <CleanGauge
+                  key={g.title}
+                  title={g.title}
+                  now={g.now}
+                  min={g.min}
+                  norm={g.norm}
+                  max={g.max}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   // Using clean KPI cards instead of pie chart
-  const kpiData =
-    cards && cards.length > 0
-      ? cards
-      : [
-          {
-            label: "Total Calls",
-            value: 1249,
-            trend: "+12%",
-            color: "#4a9eff",
-          },
-          {
-            label: "Resolved",
-            value: 987,
-            trend: "+8%",
-            color: "#4caf50",
-          },
-          {
-            label: "Pending",
-            value: 156,
-            trend: "-5%",
-            color: "#ff9800",
-          },
-          {
-            label: "Escalated",
-            value: 45,
-            trend: "+3%",
-            color: "#f44336",
-          },
-        ];
+  const kpiData = Array.isArray(cards) ? cards : [];
 
   return (
     <div className="bg-white border border-gray-300 rounded shadow-sm">
@@ -147,11 +105,15 @@ export function ReportKPIWidget({
 
       <div className="p-4">
         <p className="text-xs text-gray-600 mb-4">{subtitle}</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {kpiData.map((kpi) => (
-            <KPICard key={kpi.label} {...kpi} />
-          ))}
-        </div>
+        {kpiData.length === 0 ? (
+          <div className="text-xs text-gray-600">No KPI data yet.</div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {kpiData.map((kpi) => (
+              <KPICard key={kpi.label} {...kpi} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -271,10 +233,11 @@ function KPICard({
 }: {
   label: string;
   value: number;
-  trend: string;
+  trend?: string;
   color: string;
 }) {
-  const isPositive = trend.startsWith("+");
+  const safeTrend = (trend ?? "").trim();
+  const isPositive = safeTrend ? safeTrend.startsWith("+") : true;
 
   return (
     <div className="flex flex-col items-center p-4 bg-gray-50 rounded border border-gray-200">
@@ -289,11 +252,13 @@ function KPICard({
       <div className="text-xs text-gray-600 text-center mb-1">
         {label}
       </div>
-      <div
-        className={`text-xs font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}
-      >
-        {trend}
-      </div>
+      {safeTrend ? (
+        <div
+          className={`text-xs font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}
+        >
+          {safeTrend}
+        </div>
+      ) : null}
     </div>
   );
 }

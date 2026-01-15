@@ -26,6 +26,8 @@ export function AssetManagementView() {
 
   const [searchTerm, setSearchTerm] = useState("");
 
+  type AssetColumn = "asset_tag" | "name" | "asset_type" | "location" | "status" | "updated_at";
+
   type AssetRow = {
     id: string;
     asset_tag: string;
@@ -45,6 +47,21 @@ export function AssetManagementView() {
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterLocation, setFilterLocation] = useState<string>("");
+
+  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
+  const [columnVisibility, setColumnVisibility] = useState<Record<AssetColumn, boolean>>({
+    asset_tag: true,
+    name: true,
+    asset_type: true,
+    location: true,
+    status: true,
+    updated_at: true,
+  });
 
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
@@ -342,12 +359,83 @@ export function AssetManagementView() {
 
   const filteredAssets = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return assets;
+    const status = filterStatus.trim().toLowerCase();
+    const type = filterType.trim().toLowerCase();
+    const location = filterLocation.trim().toLowerCase();
+
     return assets.filter((a) => {
+      if (status !== "all" && String(a.status ?? "").trim().toLowerCase() !== status) return false;
+      if (type !== "all" && String(a.asset_type ?? "").trim().toLowerCase() !== type) return false;
+      if (location) {
+        const loc = String(a.location ?? "").trim().toLowerCase();
+        if (!loc.includes(location)) return false;
+      }
+
+      if (!q) return true;
       const haystack = `${a.asset_tag} ${a.name} ${a.asset_type ?? ""} ${a.serial_number ?? ""} ${a.model ?? ""} ${a.manufacturer ?? ""} ${a.location ?? ""}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [assets, searchTerm]);
+  }, [assets, filterLocation, filterStatus, filterType, searchTerm]);
+
+  const exportCsv = () => {
+    const colsAll: Array<{ key: AssetColumn; header: string }> = [
+      { key: "asset_tag", header: "Asset Tag" },
+      { key: "name", header: "Name" },
+      { key: "asset_type", header: "Type" },
+      { key: "location", header: "Location" },
+      { key: "status", header: "Status" },
+      { key: "updated_at", header: "Updated" },
+    ];
+
+    const cols = colsAll.filter((c) => columnVisibility[c.key]);
+
+    const escape = (v: unknown) => {
+      const s = String(v ?? "");
+      if (s.includes("\"")) {
+        return `"${s.replace(/\"/g, '""')}"`;
+      }
+      if (s.includes(",") || s.includes("\n") || s.includes("\r")) {
+        return `"${s}"`;
+      }
+      return s;
+    };
+
+    const lines: string[] = [];
+    lines.push(cols.map((c) => escape(c.header)).join(","));
+    for (const a of filteredAssets) {
+      const row = cols.map((c) => {
+        switch (c.key) {
+          case "asset_tag":
+            return escape(a.asset_tag);
+          case "name":
+            return escape(a.name);
+          case "asset_type":
+            return escape(a.asset_type ?? "");
+          case "location":
+            return escape(a.location ?? "");
+          case "status":
+            return escape(a.status ?? "");
+          case "updated_at":
+            return escape(a.updated_at ? new Date(a.updated_at).toISOString() : "");
+          default:
+            return "";
+        }
+      });
+      lines.push(row.join(","));
+    }
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `assets-${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex-1 flex h-full bg-white overflow-hidden">
@@ -365,7 +453,7 @@ export function AssetManagementView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createAssetTag}
                 onChange={(e) => setCreateAssetTag(e.target.value)}
-                placeholder="ASSET-0001"
+                placeholder="Asset tag"
                 disabled={createSubmitting}
               />
             </div>
@@ -375,7 +463,7 @@ export function AssetManagementView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
-                placeholder="Dell XPS 15"
+                placeholder="Asset name"
                 disabled={createSubmitting}
               />
             </div>
@@ -385,7 +473,7 @@ export function AssetManagementView() {
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
                 value={createType}
                 onChange={(e) => setCreateType(e.target.value)}
-                placeholder="Laptop"
+                placeholder="Asset type"
                 disabled={createSubmitting}
               />
             </div>
@@ -464,6 +552,113 @@ export function AssetManagementView() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Filters</DialogTitle>
+            <DialogDescription>Filter assets shown in the list.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <input
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                placeholder="all"
+              />
+              <div className="text-xs text-gray-500 mt-1">Use “all” to include all types. Matches exact type.</div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location contains</label>
+              <input
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+                placeholder="HQ"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              onClick={() => {
+                setFilterStatus("all");
+                setFilterType("all");
+                setFilterLocation("");
+              }}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+              onClick={() => setFiltersOpen(false)}
+            >
+              Apply
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewSettingsOpen} onOpenChange={setViewSettingsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>View settings</DialogTitle>
+            <DialogDescription>Choose which columns are visible.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {([
+              ["asset_tag", "Asset Tag"],
+              ["name", "Name"],
+              ["asset_type", "Type"],
+              ["location", "Location"],
+              ["status", "Status"],
+              ["updated_at", "Updated"],
+            ] as Array<[AssetColumn, string]>).map(([key, label]) => (
+              <label key={key} className="flex items-center justify-between gap-3 text-sm text-gray-700">
+                <span>{label}</span>
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  checked={columnVisibility[key]}
+                  onChange={(e) => setColumnVisibility((prev) => ({ ...prev, [key]: e.target.checked }))}
+                />
+              </label>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              onClick={() => setViewSettingsOpen(false)}
+            >
+              Close
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
         <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3 flex items-center justify-between">
@@ -479,11 +674,20 @@ export function AssetManagementView() {
               <Plus size={14} />
               New Asset
             </button>
-            <button className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+            <button
+              type="button"
+              className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+              onClick={() => exportCsv()}
+            >
               <Download size={14} />
               Export
             </button>
-            <button className="p-1.5 hover:bg-gray-200 rounded transition-colors">
+            <button
+              type="button"
+              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+              onClick={() => setViewSettingsOpen(true)}
+              title="View settings"
+            >
               <Settings size={16} className="text-[#2d3e50]" />
             </button>
           </div>
@@ -503,7 +707,11 @@ export function AssetManagementView() {
               className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
             />
           </div>
-          <button className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1">
+          <button
+            type="button"
+            className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+            onClick={() => setFiltersOpen(true)}
+          >
             <Filter size={14} />
             Filters
           </button>
@@ -522,24 +730,24 @@ export function AssetManagementView() {
             <table className="w-full text-sm">
               <thead className="bg-[#f5f5f5] border-b border-gray-300 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                    Asset Tag
-                  </th>
-                  <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                    Name
-                  </th>
-                  <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                    Type
-                  </th>
-                  <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                    Location
-                  </th>
-                  <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                    Status
-                  </th>
-                  <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                    Updated
-                  </th>
+                  {columnVisibility.asset_tag && (
+                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Asset Tag</th>
+                  )}
+                  {columnVisibility.name && (
+                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Name</th>
+                  )}
+                  {columnVisibility.asset_type && (
+                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Type</th>
+                  )}
+                  {columnVisibility.location && (
+                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Location</th>
+                  )}
+                  {columnVisibility.status && (
+                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Status</th>
+                  )}
+                  {columnVisibility.updated_at && (
+                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Updated</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -551,20 +759,28 @@ export function AssetManagementView() {
                     }`}
                     onClick={() => openAsset(asset.id)}
                   >
-                    <td className="px-4 py-3 text-[#4a9eff] font-medium">
-                      {asset.asset_tag}
-                    </td>
-                    <td className="px-4 py-3">{asset.name}</td>
-                    <td className="px-4 py-3">{asset.asset_type ?? ""}</td>
-                    <td className="px-4 py-3">{asset.location ?? ""}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                        {asset.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {asset.updated_at ? new Date(asset.updated_at).toLocaleDateString() : ""}
-                    </td>
+                    {columnVisibility.asset_tag && (
+                      <td className="px-4 py-3 text-[#4a9eff] font-medium">{asset.asset_tag}</td>
+                    )}
+                    {columnVisibility.name && <td className="px-4 py-3">{asset.name}</td>}
+                    {columnVisibility.asset_type && (
+                      <td className="px-4 py-3">{asset.asset_type ?? ""}</td>
+                    )}
+                    {columnVisibility.location && (
+                      <td className="px-4 py-3">{asset.location ?? ""}</td>
+                    )}
+                    {columnVisibility.status && (
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                          {asset.status}
+                        </span>
+                      </td>
+                    )}
+                    {columnVisibility.updated_at && (
+                      <td className="px-4 py-3">
+                        {asset.updated_at ? new Date(asset.updated_at).toLocaleDateString() : ""}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

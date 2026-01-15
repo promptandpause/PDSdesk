@@ -25,6 +25,7 @@ export function QuickLaunchBar({
   onOpenTab,
 }: QuickLaunchBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const quickActions = [
     {
@@ -134,13 +135,25 @@ export function QuickLaunchBar({
             )}
           </button>
         ))}
+
+        {message && isExpanded && (
+          <div className="px-3 pb-2 text-xs text-red-200">
+            {message}
+          </div>
+        )}
       </div>
 
       {/* Edit button at bottom */}
       <div className="border-t border-[#1e2935] p-2 flex-shrink-0">
         <button
+          type="button"
           className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#3d5167] hover:bg-[#4d6177] rounded transition-colors"
           title="Adjust Quick Launch bar"
+          onClick={() => {
+            setIsExpanded(true);
+            setMessage("Quick Launch editing is not implemented yet.");
+            onAction?.("quick-launch:edit");
+          }}
         >
           <Edit3 size={16} />
           {isExpanded && <span className="text-xs">Edit</span>}

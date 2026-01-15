@@ -7,6 +7,7 @@ export function SelectionsWidget({
   onSettings,
   title,
   items,
+  onOpenItem,
   loading,
   error,
 }: {
@@ -14,16 +15,11 @@ export function SelectionsWidget({
   onSettings?: () => void;
   title?: string;
   items?: string[];
+  onOpenItem?: (name: string) => void;
   loading?: boolean;
   error?: string | null;
 }) {
-  const selections = items && items.length > 0 ? items : [
-    "List of all major incidents",
-    "All calls with a Worcade conversation",
-    "Incidents with feedback",
-    "List of all current incidents per department",
-    "All Selections",
-  ];
+  const selections = Array.isArray(items) ? items : [];
 
   return (
     <div className="bg-white border border-gray-300 rounded shadow-sm">
@@ -57,11 +53,17 @@ export function SelectionsWidget({
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-4/5" />
           </div>
+        ) : selections.length === 0 ? (
+          <div className="text-xs text-gray-600">No saved selections yet.</div>
         ) : (
           <div className="space-y-2">
             {selections.map((selection, index) => (
               <div key={index}>
-                <button className="text-xs text-[#4a9eff] hover:underline text-left">
+                <button
+                  type="button"
+                  className="text-xs text-[#4a9eff] hover:underline text-left"
+                  onClick={() => onOpenItem?.(selection)}
+                >
                   {selection}
                 </button>
               </div>
