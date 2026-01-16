@@ -11,4 +11,6 @@ export { MyTicketsPage } from './MyTicketsPage';
 export { CustomerQueuePage } from './CustomerQueuePage';
 export { AssetsPage } from './AssetsPage';
 export { SavedRepliesPage } from './SavedRepliesPage';
+export { PlannerPage } from './PlannerPage';
+export { KanbanBoardPage } from './KanbanBoardPage';
 export { OperatorGroupsPage, SLAPoliciesPage, RoutingRulesPage } from './admin';

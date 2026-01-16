@@ -22,6 +22,13 @@ const agentNavigation: NavSection[] = [
     ],
   },
   {
+    title: 'Planning',
+    items: [
+      { label: 'Planner', to: '/planner', icon: '☰' },
+      { label: 'Kanban Boards', to: '/kanban', icon: '▦' },
+    ],
+  },
+  {
     title: 'Resources',
     items: [
       { label: 'Knowledge Base', to: '/kb', icon: '◉' },
