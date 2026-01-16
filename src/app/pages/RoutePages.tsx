@@ -49,14 +49,33 @@ type KnowledgeArticleRow = {
   like_count: number;
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  open: "info",
+  pending: "warning",
+  resolved: "success",
+  closed: "neutral",
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "neutral",
+  medium: "info",
+  high: "warning",
+  urgent: "danger",
+};
+
 export function TicketsPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("");
+  const [sortField, setSortField] = useState<string>("updated_at");
+  const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,22 +86,30 @@ export function TicketsPage() {
 
       let q = supabase
         .from("tickets")
-        .select("id,ticket_number,title,status,priority,updated_at")
-        .order("updated_at", { ascending: false })
+        .select("id,ticket_number,title,status,priority,updated_at", { count: "exact" })
+        .order(sortField, { ascending: sortAsc })
         .limit(50);
 
       const trimmed = query.trim();
       if (trimmed) {
         q = q.or(`title.ilike.%${trimmed}%,ticket_number.ilike.%${trimmed}%,external_number.ilike.%${trimmed}%`);
       }
+      if (statusFilter) {
+        q = q.eq("status", statusFilter);
+      }
+      if (priorityFilter) {
+        q = q.eq("priority", priorityFilter);
+      }
 
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (cancelled) return;
       if (error) {
         setError(error.message);
         setTickets([]);
+        setTotalCount(0);
       } else {
         setTickets((data as TicketRow[]) ?? []);
+        setTotalCount(count ?? 0);
       }
       setLoading(false);
     }
@@ -92,65 +119,187 @@ export function TicketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [query, supabase]);
+  }, [query, statusFilter, priorityFilter, sortField, sortAsc, supabase]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc((v) => !v);
+    } else {
+      setSortField(field);
+      setSortAsc(false);
+    }
+  };
 
   return (
-    <PlaceholderPage title="Tickets" subtitle="Agent ticket list">
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <input
-          className="pds-input"
-          placeholder="Search tickets"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button
-          type="button"
-          className="pds-btn pds-btn--outline pds-focus"
-          onClick={() => navigate("/tickets/new")}
-        >
-          New ticket
-        </button>
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <span className="pds-page-title">Tickets</span>
+            <span className="pds-text-muted" style={{ fontSize: 12 }}>
+              {totalCount} total
+            </span>
+          </div>
+          <div className="pds-toolbar-actions">
+            <button
+              type="button"
+              className="pds-btn pds-btn--primary pds-focus"
+              onClick={() => navigate("/tickets/new")}
+            >
+              + Create
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* View Controls */}
+      <div className="flex items-center justify-between gap-2 px-5 pb-4 pt-3">
+        <input
+          className="pds-input"
+          placeholder="Search tickets..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ maxWidth: 280 }}
+        />
+        <div className="flex items-center gap-2">
+          <select
+            className="pds-input"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ width: 120 }}
+          >
+            <option value="">All status</option>
+            <option value="open">Open</option>
+            <option value="pending">Pending</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
+          <select
+            className="pds-input"
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            style={{ width: 120 }}
+          >
+            <option value="">All priority</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
       {error ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
           {error}
         </div>
       ) : loading ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
           Loading...
         </div>
       ) : tickets.length === 0 ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
-          No tickets found.
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>No tickets found.</div>
+          <button
+            type="button"
+            className="pds-btn pds-btn--primary pds-focus"
+            onClick={() => navigate("/tickets/new")}
+          >
+            Create your first ticket
+          </button>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {tickets.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className="pds-btn pds-btn--outline pds-focus"
-              style={{ justifyContent: "space-between", textAlign: "left" }}
-              onClick={() => navigate(`/tickets/${t.id}`)}
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>
-                  {t.ticket_number} - {t.title}
-                </div>
-                <div className="pds-text-muted" style={{ fontSize: 12 }}>
-                  {t.status} - {t.priority} - {new Date(t.updated_at).toLocaleString()}
-                </div>
-              </div>
-              <span className="pds-text-muted" style={{ fontSize: 12 }}>
-                Open
-              </span>
-            </button>
-          ))}
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
+              <tr>
+                <th
+                  className="pds-th"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("ticket_number")}
+                >
+                  # {sortField === "ticket_number" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
+                <th
+                  className="pds-th"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("title")}
+                >
+                  Subject {sortField === "title" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
+                <th
+                  className="pds-th"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("status")}
+                >
+                  Status {sortField === "status" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
+                <th
+                  className="pds-th"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("priority")}
+                >
+                  Priority {sortField === "priority" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
+                <th
+                  className="pds-th"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSort("updated_at")}
+                >
+                  Updated {sortField === "updated_at" ? (sortAsc ? "↑" : "↓") : ""}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {tickets.map((t) => (
+                <tr
+                  key={t.id}
+                  className="pds-row"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/tickets/${t.id}`)}
+                >
+                  <td className="pds-td">
+                    <span className="pds-link">{t.ticket_number}</span>
+                  </td>
+                  <td className="pds-td" style={{ fontWeight: 500 }}>
+                    {t.title}
+                  </td>
+                  <td className="pds-td">
+                    <span className={`pds-badge pds-badge--${STATUS_COLORS[t.status] ?? "neutral"}`}>
+                      {t.status}
+                    </span>
+                  </td>
+                  <td className="pds-td">
+                    <span className={`pds-badge pds-badge--${PRIORITY_COLORS[t.priority] ?? "neutral"}`}>
+                      {t.priority}
+                    </span>
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
+                    {new Date(t.updated_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
-    </PlaceholderPage>
+
+      {/* Footer */}
+      {!loading && tickets.length > 0 ? (
+        <div className="pds-statbar" style={{ marginTop: "auto" }}>
+          <div className="pds-stat">
+            <span className="pds-stat-label">Showing</span>
+            <span className="pds-stat-value">{tickets.length}</span>
+          </div>
+          <div className="pds-stat">
+            <span className="pds-stat-label">of</span>
+            <span className="pds-stat-value">{totalCount}</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
