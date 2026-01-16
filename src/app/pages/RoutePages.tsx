@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { PlaceholderPage } from "./PlaceholderPage";
@@ -773,11 +773,36 @@ export function SearchPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const navigate = useNavigate();
 
-  const [query, setQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const qParam = searchParams.get("q") ?? "";
+
+  const [query, setQuery] = useState(qParam);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ticketResults, setTicketResults] = useState<TicketRow[]>([]);
   const [articleResults, setArticleResults] = useState<KnowledgeArticleRow[]>([]);
+
+  useEffect(() => {
+    if (qParam !== query) {
+      setQuery(qParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qParam]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = query.trim();
+      if (!trimmed) {
+        setSearchParams({}, { replace: true });
+      } else {
+        setSearchParams({ q: trimmed }, { replace: true });
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [query, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;

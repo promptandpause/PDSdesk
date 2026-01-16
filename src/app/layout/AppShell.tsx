@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Command as CommandPrimitive } from "cmdk";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 
@@ -173,14 +174,196 @@ function NotificationsDrawer({
 }
 
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const navigate = useNavigate();
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [ticketMatches, setTicketMatches] = useState<{ id: string; ticket_number: string; title: string }[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setTicketMatches([]);
+    setLoadingTickets(false);
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const q = query.trim();
+
+    async function loadTickets() {
+      if (!open) return;
+
+      // Helpdesk supports "#123" for ticket navigation.
+      // Our ids are UUIDs, so we approximate by searching ticket_number/external_number.
+      if (!q.startsWith("#") || q.length < 2) {
+        setTicketMatches([]);
+        setLoadingTickets(false);
+        return;
+      }
+
+      const needle = q.slice(1).trim();
+      if (!needle) {
+        setTicketMatches([]);
+        setLoadingTickets(false);
+        return;
+      }
+
+      setLoadingTickets(true);
+
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("id,ticket_number,title")
+        .or(`ticket_number.ilike.%${needle}%,external_number.ilike.%${needle}%`)
+        .order("updated_at", { ascending: false })
+        .limit(8);
+
+      if (cancelled) return;
+
+      if (error) {
+        setTicketMatches([]);
+      } else {
+        setTicketMatches(((data as any[]) ?? []).map((r) => ({
+          id: r.id as string,
+          ticket_number: (r.ticket_number as string) ?? "",
+          title: (r.title as string) ?? "",
+        })));
+      }
+
+      setLoadingTickets(false);
+    }
+
+    const timer = window.setTimeout(() => {
+      void loadTickets();
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, query, supabase]);
+
   if (!open) return null;
+
   return (
-    <div className="fixed inset-0 z-[6500] flex items-start justify-center pt-10">
+    <div
+      className="fixed inset-0 z-[6500] flex items-start justify-center pt-10"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+    >
       <div className="pds-overlay fixed inset-0" onClick={onClose} />
-      <div className="relative pds-overlay-surface w-[720px] max-w-[calc(100vw-24px)]">
-        <div className="pds-text-muted" style={{ fontSize: 13, padding: 12 }}>
-          Command palette (WIP)
-        </div>
+
+      <div className="relative pds-overlay-surface w-[720px] max-w-[calc(100vw-24px)] overflow-hidden">
+        <CommandPrimitive
+          className="w-full"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+        >
+          <div className="relative">
+            <div className="pl-4.5 absolute inset-y-0 left-0 flex items-center">
+              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                🔎
+              </span>
+            </div>
+            <CommandPrimitive.Input
+              ref={inputRef}
+              value={query}
+              onValueChange={setQuery}
+              placeholder={'Search tickets, comments, or "#123" to navigate to a ticket'}
+              className="pl-11.5 pr-4.5 w-full border-none bg-transparent py-3 text-base text-gray-800 placeholder:text-gray-500 focus:ring-0 outline-none"
+              autoComplete="off"
+            />
+          </div>
+
+          <CommandPrimitive.List className="max-h-96 overflow-auto border-t border-gray-100">
+            <CommandPrimitive.Group heading="Jump to" className="mt-3">
+              <div className="px-2.5">
+                <CommandPrimitive.Item
+                  value="Tickets"
+                  onSelect={() => {
+                    navigate("/tickets");
+                    onClose();
+                  }}
+                  className="pds-menu-item flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm data-[selected=true]:bg-[var(--pds-accent-soft)]"
+                >
+                  Tickets
+                </CommandPrimitive.Item>
+                <CommandPrimitive.Item
+                  value="Knowledge Base"
+                  onSelect={() => {
+                    navigate("/kb");
+                    onClose();
+                  }}
+                  className="pds-menu-item flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm data-[selected=true]:bg-[var(--pds-accent-soft)]"
+                >
+                  Knowledge Base
+                </CommandPrimitive.Item>
+              </div>
+            </CommandPrimitive.Group>
+
+            {query.trim().length > 2 ? (
+              <CommandPrimitive.Group heading="Search" className="mt-4.5">
+                <div className="px-2.5">
+                  <CommandPrimitive.Item
+                    value={`Search for ${query.trim()}`}
+                    onSelect={() => {
+                      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+                      onClose();
+                    }}
+                    className="pds-menu-item flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm data-[selected=true]:bg-[var(--pds-accent-soft)]"
+                  >
+                    Search for “{query.trim()}”
+                  </CommandPrimitive.Item>
+                </div>
+              </CommandPrimitive.Group>
+            ) : null}
+
+            {query.trim().startsWith("#") ? (
+              <CommandPrimitive.Group heading="Tickets" className="mt-4.5">
+                <div className="px-2.5">
+                  {loadingTickets ? (
+                    <div className="pds-text-muted" style={{ fontSize: 12, padding: "8px 12px" }}>
+                      Searching tickets...
+                    </div>
+                  ) : ticketMatches.length === 0 ? (
+                    <div className="pds-text-muted" style={{ fontSize: 12, padding: "8px 12px" }}>
+                      No matching tickets.
+                    </div>
+                  ) : (
+                    ticketMatches.map((t) => (
+                      <CommandPrimitive.Item
+                        key={t.id}
+                        value={`${t.ticket_number} ${t.title}`}
+                        onSelect={() => {
+                          navigate(`/tickets/${t.id}`);
+                          onClose();
+                        }}
+                        className="pds-menu-item flex cursor-pointer items-center justify-between gap-3 rounded px-3 py-2 text-sm data-[selected=true]:bg-[var(--pds-accent-soft)]"
+                      >
+                        <span style={{ fontWeight: 650 }}>{t.ticket_number}</span>
+                        <span className="pds-text-muted" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {t.title}
+                        </span>
+                      </CommandPrimitive.Item>
+                    ))
+                  )}
+                </div>
+              </CommandPrimitive.Group>
+            ) : null}
+          </CommandPrimitive.List>
+        </CommandPrimitive>
       </div>
     </div>
   );
