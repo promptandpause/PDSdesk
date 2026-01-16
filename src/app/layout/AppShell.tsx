@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { TopBar } from './TopBar';
 
 export function AppShell() {
   return (
@@ -12,16 +13,26 @@ export function AppShell() {
       }}
     >
       <Sidebar />
-      <main
-        className="itsm-scrollbar"
+      <div
         style={{
           flex: 1,
-          overflow: 'auto',
-          backgroundColor: 'var(--itsm-surface-sunken)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
-        <Outlet />
-      </main>
+        <TopBar />
+        <main
+          className="itsm-scrollbar"
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            backgroundColor: 'var(--itsm-surface-sunken)',
+          }}
+        >
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

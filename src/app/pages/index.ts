@@ -7,3 +7,4 @@ export { CustomersPage } from './CustomersPage';
 export { ContactsPage } from './ContactsPage';
 export { SettingsPage } from './SettingsPage';
 export { MyTicketsPage } from './MyTicketsPage';
+export { OperatorGroupsPage, SLAPoliciesPage } from './admin';

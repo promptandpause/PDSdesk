@@ -6,3 +6,5 @@ export { Panel, PanelSection } from './Panel';
 export { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from './Table';
 export { MetricCard, MetricRow } from './MetricCard';
 export { Drawer } from './Drawer';
+export { NotificationsDropdown } from './NotificationsDropdown';
+export { SLAIndicator, SLARow } from './SLAIndicator';

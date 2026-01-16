@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
-import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge } from '../components';
+import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator } from '../components';
+import { useTicketSLA } from '../hooks/useSLA';
 
 interface Ticket {
   id: string;
@@ -13,7 +14,8 @@ interface Ticket {
   status: string;
   priority: string;
   category: string | null;
-  assigned_to: string | null;
+  assignee_id: string | null;
+  assignment_group_id: string | null;
   requester_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -39,6 +41,8 @@ export function TicketDetailPage() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const { sla, isResponseMet, isResolved } = useTicketSLA(id ?? null);
 
   useEffect(() => {
     if (!id) return;
@@ -269,10 +273,30 @@ export function TicketDetailPage() {
             </PanelSection>
             <PanelSection title="Assigned To" noBorder>
               <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
-                {ticket.assigned_to ?? 'Unassigned'}
+                {ticket.assignee_id ?? 'Unassigned'}
               </span>
             </PanelSection>
           </Panel>
+
+          {/* SLA Panel */}
+          {sla && (
+            <Panel title="SLA">
+              <PanelSection title="First Response" noBorder>
+                <SLAIndicator
+                  dueAt={sla.first_response_due_at}
+                  label="Response"
+                  isComplete={isResponseMet}
+                />
+              </PanelSection>
+              <PanelSection title="Resolution" noBorder>
+                <SLAIndicator
+                  dueAt={sla.resolution_due_at}
+                  label="Resolution"
+                  isComplete={isResolved}
+                />
+              </PanelSection>
+            </Panel>
+          )}
 
           <Panel>
             <PanelSection title="Created" noBorder>

@@ -10,6 +10,8 @@ import {
   ContactsPage,
   SettingsPage,
   MyTicketsPage,
+  OperatorGroupsPage,
+  SLAPoliciesPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
@@ -49,6 +51,8 @@ export const router = createBrowserRouter([
       { path: 'contacts', element: <ContactsPage /> },
       { path: 'call-logs', element: <PlaceholderPage title="Call Logs" /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'settings/operator-groups', element: <OperatorGroupsPage /> },
+      { path: 'settings/sla-policies', element: <SLAPoliciesPage /> },
       { path: 'my-tickets', element: <MyTicketsPage /> },
       { path: 'my-tickets/new', element: <TicketNewPage /> },
       { path: 'my-tickets/:id', element: <TicketDetailPage /> },
