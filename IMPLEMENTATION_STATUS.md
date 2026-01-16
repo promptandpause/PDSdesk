@@ -44,7 +44,7 @@
 |---------|---------------|---------------|--------|
 | CMDB | ✅ assets, ticket_assets tables | ✅ AssetsPage with full CRUD | Complete |
 | Service Catalog | ✅ service_catalog_items | ✅ ServiceCatalogPage | Complete |
-| Reservations | ⚠️ Schema ready | ⚠️ Future enhancement | Partial |
+| Reservations | ✅ facilities, reservations tables | ✅ ReservationsPage with calendar/list views | Complete |
 
 ## Phase 6 – Reporting & Dashboards ✅ COMPLETE
 
@@ -55,7 +55,7 @@
 | Performance views | ✅ dashboard_widgets, saved_reports | ✅ Dashboard widgets | Complete |
 | Mobile | N/A | ✅ Responsive design | Complete |
 | PWA | ✅ manifest.json, sw.js | ✅ Installable PWA | Complete |
-| AI/Copilots | ⚠️ Future enhancement | ⚠️ Future enhancement | Planned |
+| AI/Copilots | ✅ ai-copilot edge function | ✅ useAICopilot hook | Complete |
 
 ## Additional Features ✅ COMPLETE
 
@@ -83,6 +83,7 @@
 - `/kb` - Knowledge Base articles list
 - `/kb/new`, `/kb/:id` - KB article editor
 - `/assets` - IT asset inventory (CMDB)
+- `/reservations` - Book rooms, vehicles, equipment
 - `/saved-replies` - Reusable response templates
 - `/ticket-templates` - Ticket creation templates
 
@@ -111,11 +112,20 @@
 
 ---
 
+## AI Copilot Features
+- **Ticket Categorization** - Auto-suggest category and priority based on content
+- **Reply Suggestions** - AI-generated response drafts
+- **Ticket Summarization** - Summarize long ticket threads
+- **Sentiment Analysis** - Detect customer sentiment
+- **Fallback Mode** - Keyword-based categorization when OpenAI unavailable
+
+---
+
 ## Future Enhancements
 
 ### Lower Priority
-1. **Reservations/Facilities** - Room/resource booking
-2. **AI/Copilots** - OpenAI integration for auto-categorization
-3. **Advanced Reporting** - Custom report builder
-4. **Ticket Watchers UI** - Watch/unwatch tickets
-5. **Time Tracking UI** - Log time on tickets
+1. **Advanced Reporting** - Custom report builder
+2. **Ticket Watchers UI** - Watch/unwatch tickets
+3. **Time Tracking UI** - Log time on tickets
+4. **Ticket Links UI** - Link related tickets
+5. **Approval Workflow UI** - Request and approve ticket changes
