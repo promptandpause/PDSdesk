@@ -1320,6 +1320,12 @@ export function SearchPage() {
   );
 }
 
+const KB_STATUS_COLORS: Record<string, string> = {
+  published: "success",
+  draft: "warning",
+  archived: "neutral",
+};
+
 export function KnowledgeBaseAgentPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const navigate = useNavigate();
@@ -1329,6 +1335,7 @@ export function KnowledgeBaseAgentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [articles, setArticles] = useState<KnowledgeArticleRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -1339,7 +1346,7 @@ export function KnowledgeBaseAgentPage() {
 
       let q = supabase
         .from("knowledge_articles")
-        .select("id,title,category,status,updated_at,view_count,like_count")
+        .select("id,title,category,status,updated_at,view_count,like_count", { count: "exact" })
         .order("updated_at", { ascending: false })
         .limit(50);
 
@@ -1352,14 +1359,16 @@ export function KnowledgeBaseAgentPage() {
         q = q.textSearch("search_tsv", trimmed, { type: "websearch" });
       }
 
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (cancelled) return;
 
       if (error) {
         setError(error.message);
         setArticles([]);
+        setTotalCount(0);
       } else {
         setArticles((data as KnowledgeArticleRow[]) ?? []);
+        setTotalCount(count ?? 0);
       }
       setLoading(false);
     }
@@ -1372,60 +1381,134 @@ export function KnowledgeBaseAgentPage() {
   }, [query, status, supabase]);
 
   return (
-    <PlaceholderPage title="Knowledge Base" subtitle="Agent knowledge base">
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <input
-          className="pds-input"
-          placeholder="Search articles"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <select className="pds-input" value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 160 }}>
-          <option value="published">published</option>
-          <option value="draft">draft</option>
-          <option value="">all</option>
-        </select>
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <span className="pds-page-title">Knowledge Base</span>
+            <span className="pds-text-muted" style={{ fontSize: 12 }}>
+              {totalCount} articles
+            </span>
+          </div>
+          <div className="pds-toolbar-actions">
+            <button
+              type="button"
+              className="pds-btn pds-btn--primary pds-focus"
+              onClick={() => navigate("/kb/articles/new")}
+            >
+              + Create Article
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* View Controls */}
+      <div className="flex items-center justify-between gap-2 px-5 pb-4 pt-3">
+        <input
+          className="pds-input"
+          placeholder="Search articles..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ maxWidth: 280 }}
+        />
+        <div className="flex items-center gap-2">
+          <select
+            className="pds-input"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            style={{ width: 140 }}
+          >
+            <option value="">All status</option>
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
       {error ? (
-        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
           {error}
         </div>
-      ) : null}
-
-      {loading ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+      ) : loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
           Loading...
         </div>
       ) : articles.length === 0 ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
-          No articles.
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>No articles found.</div>
+          <button
+            type="button"
+            className="pds-btn pds-btn--primary pds-focus"
+            onClick={() => navigate("/kb/articles/new")}
+          >
+            Create your first article
+          </button>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {articles.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              className="pds-btn pds-btn--outline pds-focus"
-              style={{ justifyContent: "space-between", textAlign: "left" }}
-              onClick={() => navigate(`/kb/articles/${a.id}`)}
-            >
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>{a.title}</div>
-                <div className="pds-text-muted" style={{ fontSize: 12 }}>
-                  {(a.category ?? "Uncategorized")} - {a.status} - {new Date(a.updated_at).toLocaleString()}
-                </div>
-              </div>
-              <span className="pds-text-muted" style={{ fontSize: 12 }}>
-                Open
-              </span>
-            </button>
-          ))}
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
+              <tr>
+                <th className="pds-th">Title</th>
+                <th className="pds-th">Category</th>
+                <th className="pds-th">Status</th>
+                <th className="pds-th">Views</th>
+                <th className="pds-th">Likes</th>
+                <th className="pds-th">Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {articles.map((a) => (
+                <tr
+                  key={a.id}
+                  className="pds-row"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/kb/articles/${a.id}`)}
+                >
+                  <td className="pds-td" style={{ fontWeight: 500 }}>
+                    <span className="pds-link">{a.title}</span>
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {a.category || "Uncategorized"}
+                  </td>
+                  <td className="pds-td">
+                    <span className={`pds-badge pds-badge--${KB_STATUS_COLORS[a.status] ?? "neutral"}`}>
+                      {a.status}
+                    </span>
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {a.view_count}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {a.like_count}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
+                    {new Date(a.updated_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
-    </PlaceholderPage>
+
+      {/* Footer */}
+      {!loading && articles.length > 0 ? (
+        <div className="pds-statbar" style={{ marginTop: "auto" }}>
+          <div className="pds-stat">
+            <span className="pds-stat-label">Showing</span>
+            <span className="pds-stat-value">{articles.length}</span>
+          </div>
+          <div className="pds-stat">
+            <span className="pds-stat-label">of</span>
+            <span className="pds-stat-value">{totalCount}</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
