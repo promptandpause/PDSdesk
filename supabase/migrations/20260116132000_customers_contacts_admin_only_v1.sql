@@ -1,5 +1,3 @@
--- Tighten Customers/Contacts RLS to admins only
-
 alter table public.customers enable row level security;
 alter table public.contacts enable row level security;
 
