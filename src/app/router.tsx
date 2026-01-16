@@ -11,8 +11,10 @@ import {
   SettingsPage,
   MyTicketsPage,
   CustomerQueuePage,
+  AssetsPage,
   OperatorGroupsPage,
   SLAPoliciesPage,
+  RoutingRulesPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
@@ -57,6 +59,8 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
       { path: 'settings/operator-groups', element: <OperatorGroupsPage /> },
       { path: 'settings/sla-policies', element: <SLAPoliciesPage /> },
+      { path: 'settings/routing-rules', element: <RoutingRulesPage /> },
+      { path: 'assets', element: <AssetsPage /> },
       { path: 'my-tickets', element: <MyTicketsPage /> },
       { path: 'my-tickets/new', element: <TicketNewPage /> },
       { path: 'my-tickets/:id', element: <TicketDetailPage /> },

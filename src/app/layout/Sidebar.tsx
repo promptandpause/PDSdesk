@@ -25,6 +25,7 @@ const agentNavigation: NavSection[] = [
     title: 'Resources',
     items: [
       { label: 'Knowledge Base', to: '/kb', icon: '◉' },
+      { label: 'Assets', to: '/assets', icon: '▣' },
       { label: 'Saved Replies', to: '/saved-replies', icon: '◈' },
     ],
   },
