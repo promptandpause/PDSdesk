@@ -321,6 +321,9 @@ export function TicketPage() {
   const [isInternal, setIsInternal] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [activeTab, setActiveTab] = useState<"activity" | "comments">("activity");
+  const [sidebarTab, setSidebarTab] = useState<"details" | "contact">("details");
+
   useEffect(() => {
     let cancelled = false;
 
@@ -420,6 +423,16 @@ export function TicketPage() {
     setSaving(false);
   }
 
+  async function updateStatus(newStatus: string) {
+    if (!ticketId) return;
+    const { error } = await supabase.from("tickets").update({ status: newStatus }).eq("id", ticketId);
+    if (error) {
+      setError(error.message);
+    } else {
+      setTicket((prev: any) => (prev ? { ...prev, status: newStatus } : prev));
+    }
+  }
+
   if (!ticketId) {
     return <PlaceholderPage title="Ticket" subtitle="Missing ticket id" />;
   }
@@ -427,127 +440,296 @@ export function TicketPage() {
   const title = ticket?.ticket_number ? `${ticket.ticket_number} - ${ticket.title ?? ""}` : `Ticket ${ticketId}`;
 
   return (
-    <PlaceholderPage title={title} subtitle="Agent ticket detail">
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate("/tickets")}>Return</button>
-        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => setReloadNonce((v) => v + 1)}>Refresh</button>
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="pds-btn pds-btn--ghost pds-focus"
+              onClick={() => navigate("/tickets")}
+              title="Back to tickets"
+            >
+              ←
+            </button>
+            <span className="pds-page-title">{title}</span>
+          </div>
+          <div className="pds-toolbar-actions">
+            <button
+              type="button"
+              className="pds-btn pds-btn--outline pds-focus"
+              onClick={() => setReloadNonce((v) => v + 1)}
+            >
+              Refresh
+            </button>
+            {ticket ? (
+              <select
+                className="pds-input"
+                value={ticket.status}
+                onChange={(e) => void updateStatus(e.target.value)}
+                style={{ width: 130 }}
+              >
+                <option value="open">Open</option>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {error ? (
-        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
-          Loading...
+        <div className="flex items-center justify-center flex-1">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>Loading...</div>
         </div>
       ) : !ticket ? (
-        <div className="pds-text-muted" style={{ fontSize: 13 }}>
-          Ticket not found.
+        <div className="flex items-center justify-center flex-1">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>Ticket not found.</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div className="pds-panel" style={{ padding: 12 }}>
-              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 6 }}>Description</div>
-              <div className="pds-text-muted" style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
-                {ticket.description || "(no description)"}
-              </div>
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main Activity Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Tabs */}
+            <div className="pds-subtabs">
+              <button
+                type="button"
+                className="pds-subtab"
+                data-active={activeTab === "activity"}
+                onClick={() => setActiveTab("activity")}
+              >
+                Activity
+              </button>
+              <button
+                type="button"
+                className="pds-subtab"
+                data-active={activeTab === "comments"}
+                onClick={() => setActiveTab("comments")}
+              >
+                Comments ({comments.length})
+              </button>
             </div>
 
-            <div className="pds-panel" style={{ padding: 12 }}>
-              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 10 }}>Conversation</div>
+            {/* Activity/Comments Panel */}
+            <div className="flex-1 overflow-auto p-4">
+              {activeTab === "activity" ? (
+                <div className="flex flex-col gap-4">
+                  {/* Description */}
+                  <div className="pds-panel" style={{ padding: 16 }}>
+                    <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 8 }}>Description</div>
+                    <div className="pds-text-muted" style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
+                      {ticket.description || "(no description)"}
+                    </div>
+                  </div>
 
-              {comments.length === 0 ? (
-                <div className="pds-text-muted" style={{ fontSize: 13 }}>
-                  No messages yet.
+                  {/* Timeline */}
+                  {comments.length > 0 ? (
+                    <div className="flex flex-col gap-3">
+                      {comments.map((c) => {
+                        const author = Array.isArray(c.author) ? c.author[0] : null;
+                        const authorLabel = author?.full_name || author?.email || c.author_id;
+                        return (
+                          <div
+                            key={c.id}
+                            className="pds-panel"
+                            style={{ padding: 12 }}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="flex items-center justify-center rounded-full bg-gray-200 text-gray-600"
+                                  style={{ width: 28, height: 28, fontSize: 12, fontWeight: 600 }}
+                                >
+                                  {(authorLabel as string)?.charAt(0)?.toUpperCase() ?? "?"}
+                                </div>
+                                <span style={{ fontWeight: 600, fontSize: 13 }}>{authorLabel}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {c.is_internal ? (
+                                  <span className="pds-badge pds-badge--warning">Internal</span>
+                                ) : (
+                                  <span className="pds-badge pds-badge--info">Public</span>
+                                )}
+                                <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                                  {new Date(c.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--pds-text)" }}>
+                              {c.body}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="pds-text-muted" style={{ fontSize: 13 }}>No activity yet.</div>
+                  )}
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {comments.map((c) => {
-                    const author = Array.isArray(c.author) ? c.author[0] : null;
-                    const authorLabel = author?.full_name || author?.email || c.author_id;
-                    return (
-                      <div key={c.id} style={{ border: "1px solid var(--pds-border)", borderRadius: 10, padding: 10 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                          <div style={{ fontWeight: 600, color: "var(--pds-text)", fontSize: 13 }}>{authorLabel}</div>
-                          <div className="pds-text-muted" style={{ fontSize: 12 }}>
-                            {c.is_internal ? "Internal" : "Public"} - {new Date(c.created_at).toLocaleString()}
+                <div className="flex flex-col gap-3">
+                  {comments.filter((c) => !c.is_internal).length === 0 ? (
+                    <div className="pds-text-muted" style={{ fontSize: 13 }}>No public comments yet.</div>
+                  ) : (
+                    comments
+                      .filter((c) => !c.is_internal)
+                      .map((c) => {
+                        const author = Array.isArray(c.author) ? c.author[0] : null;
+                        const authorLabel = author?.full_name || author?.email || c.author_id;
+                        return (
+                          <div key={c.id} className="pds-panel" style={{ padding: 12 }}>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span style={{ fontWeight: 600, fontSize: 13 }}>{authorLabel}</span>
+                              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                                {new Date(c.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--pds-text)" }}>
+                              {c.body}
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--pds-text)" }}>{c.body}</div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })
+                  )}
                 </div>
               )}
+            </div>
 
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <select
-                    className="pds-input"
-                    value={""}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      const reply = savedReplies.find((r) => r.id === selectedId);
-                      if (reply) {
-                        setNewBody((prev) => (prev ? `${prev}\n\n${reply.content}` : reply.content));
-                      }
-                    }}
-                    style={{ flex: 1 }}
-                  >
-                    <option value="">Insert saved reply...</option>
-                    {savedReplies.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <label className="pds-text-muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                    <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
-                    Internal
-                  </label>
-                </div>
-
-                <textarea
+            {/* Composer */}
+            <div className="border-t p-4 bg-white">
+              <div className="flex items-center gap-2 mb-2">
+                <select
                   className="pds-input"
-                  value={newBody}
-                  onChange={(e) => setNewBody(e.target.value)}
-                  placeholder="Write a reply"
-                  style={{ minHeight: 110, resize: "vertical" }}
-                />
-
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    className="pds-btn pds-btn--solid pds-focus"
-                    onClick={() => void submitComment()}
-                    disabled={saving}
-                  >
-                    {saving ? "Sending..." : "Send"}
-                  </button>
-                </div>
+                  value=""
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const reply = savedReplies.find((r) => r.id === selectedId);
+                    if (reply) {
+                      setNewBody((prev) => (prev ? `${prev}\n\n${reply.content}` : reply.content));
+                    }
+                  }}
+                  style={{ width: 200 }}
+                >
+                  <option value="">Insert saved reply...</option>
+                  {savedReplies.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+                <label className="pds-text-muted flex items-center gap-1" style={{ fontSize: 12 }}>
+                  <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
+                  Internal note
+                </label>
+              </div>
+              <textarea
+                className="pds-input w-full"
+                value={newBody}
+                onChange={(e) => setNewBody(e.target.value)}
+                placeholder="Write a reply..."
+                style={{ minHeight: 80, resize: "vertical" }}
+              />
+              <div className="flex justify-end mt-2">
+                <button
+                  type="button"
+                  className="pds-btn pds-btn--primary pds-focus"
+                  onClick={() => void submitComment()}
+                  disabled={saving || !newBody.trim()}
+                >
+                  {saving ? "Sending..." : isInternal ? "Add Note" : "Send Reply"}
+                </button>
               </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div className="pds-panel" style={{ padding: 12 }}>
-              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 8 }}>Details</div>
-              <div className="pds-text-muted" style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
-                <div>Status: {ticket.status}</div>
-                <div>Priority: {ticket.priority}</div>
-                <div>Category: {ticket.category}</div>
-                <div>Updated: {new Date(ticket.updated_at).toLocaleString()}</div>
-                {ticket.requester_email ? <div>Requester: {ticket.requester_name ? `${ticket.requester_name} <${ticket.requester_email}>` : ticket.requester_email}</div> : null}
-              </div>
+          {/* Sidebar */}
+          <div className="w-[320px] border-l flex flex-col bg-white">
+            <div className="pds-subtabs">
+              <button
+                type="button"
+                className="pds-subtab"
+                data-active={sidebarTab === "details"}
+                onClick={() => setSidebarTab("details")}
+              >
+                Details
+              </button>
+              <button
+                type="button"
+                className="pds-subtab"
+                data-active={sidebarTab === "contact"}
+                onClick={() => setSidebarTab("contact")}
+              >
+                Contact
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {sidebarTab === "details" ? (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Status
+                    </div>
+                    <span className={`pds-badge pds-badge--${STATUS_COLORS[ticket.status] ?? "neutral"}`}>
+                      {ticket.status}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Priority
+                    </div>
+                    <span className={`pds-badge pds-badge--${PRIORITY_COLORS[ticket.priority] ?? "neutral"}`}>
+                      {ticket.priority}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Category
+                    </div>
+                    <div style={{ fontSize: 13 }}>{ticket.category || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Created
+                    </div>
+                    <div style={{ fontSize: 13 }}>{new Date(ticket.created_at).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Updated
+                    </div>
+                    <div style={{ fontSize: 13 }}>{new Date(ticket.updated_at).toLocaleString()}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Requester Name
+                    </div>
+                    <div style={{ fontSize: 13 }}>{ticket.requester_name || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="pds-text-muted" style={{ fontSize: 11, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      Requester Email
+                    </div>
+                    <div style={{ fontSize: 13 }}>{ticket.requester_email || "—"}</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-    </PlaceholderPage>
+    </div>
   );
 }
 
