@@ -1207,77 +1207,87 @@ export function DashboardPage() {
           <div className="pds-text-muted" style={{ fontSize: 14 }}>Loading...</div>
         </div>
       ) : (
-        <div className="p-5 w-full overflow-y-auto">
-          {/* Number Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div className="pds-panel p-4 text-center">
-              <div className="pds-text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
-                Open Tickets
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--pds-text)" }}>{stats.openTickets}</div>
+        <div className="flex-1 overflow-y-auto">
+          {/* Horizontal Number Cards Row */}
+          <div className="flex border-b">
+            <div className="flex-1 px-6 py-4 border-r text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Open Tickets</div>
+              <div className="text-3xl font-bold text-gray-900">{stats.openTickets}</div>
             </div>
-            <div className="pds-panel p-4 text-center">
-              <div className="pds-text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
-                Pending
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--pds-text)" }}>{stats.pendingTickets}</div>
+            <div className="flex-1 px-6 py-4 border-r text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Pending</div>
+              <div className="text-3xl font-bold text-gray-900">{stats.pendingTickets}</div>
             </div>
-            <div className="pds-panel p-4 text-center">
-              <div className="pds-text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
-                Resolved Today
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--pds-text)" }}>{stats.resolvedToday}</div>
+            <div className="flex-1 px-6 py-4 border-r text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Resolved Today</div>
+              <div className="text-3xl font-bold text-gray-900">{stats.resolvedToday}</div>
             </div>
-            <div className="pds-panel p-4 text-center">
-              <div className="pds-text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
-                Avg Response
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--pds-text)" }}>{stats.avgResponseTime}</div>
+            <div className="flex-1 px-6 py-4 border-r text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Avg Response</div>
+              <div className="text-3xl font-bold text-gray-900">{stats.avgResponseTime}</div>
             </div>
-            <div className="pds-panel p-4 text-center">
-              <div className="pds-text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
-                KB Articles
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--pds-text)" }}>{stats.totalArticles}</div>
+            <div className="flex-1 px-6 py-4 text-center">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">KB Articles</div>
+              <div className="text-3xl font-bold text-gray-900">{stats.totalArticles}</div>
             </div>
           </div>
 
-          {/* Recent Tickets */}
-          <div className="pds-panel p-4">
-            <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 12 }}>Recent Tickets</div>
+          {/* Recent Tickets Section */}
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900">Recent Tickets</h3>
+              <button
+                type="button"
+                className="text-sm text-blue-600 hover:text-blue-800"
+                onClick={() => navigate("/tickets")}
+              >
+                View all →
+              </button>
+            </div>
             {recentTickets.length === 0 ? (
-              <div className="pds-text-muted" style={{ fontSize: 13 }}>No recent tickets.</div>
+              <div className="text-gray-500 text-sm py-8 text-center">No recent tickets.</div>
             ) : (
-              <div className="pds-table-wrap">
-                <table className="pds-table">
-                  <thead className="pds-thead">
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="pds-th">#</th>
-                      <th className="pds-th">Subject</th>
-                      <th className="pds-th">Status</th>
-                      <th className="pds-th">Updated</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-200">
                     {recentTickets.map((t) => (
                       <tr
                         key={t.id}
-                        className="pds-row"
-                        style={{ cursor: "pointer" }}
+                        className="hover:bg-gray-50 cursor-pointer"
                         onClick={() => navigate(`/tickets/${t.id}`)}
                       >
-                        <td className="pds-td">
-                          <span className="pds-link">{t.ticket_number}</span>
+                        <td className="px-4 py-3">
+                          <span className="text-blue-600 font-medium">{t.ticket_number}</span>
                         </td>
-                        <td className="pds-td" style={{ fontWeight: 500 }}>
+                        <td className="px-4 py-3 font-medium text-gray-900">
                           {t.title}
                         </td>
-                        <td className="pds-td">
-                          <span className={`pds-badge pds-badge--${STATUS_COLORS[t.status] ?? "neutral"}`}>
-                            {t.status}
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
+                            t.status === "open" ? "bg-red-50 text-red-700" :
+                            t.status === "in_progress" ? "bg-yellow-50 text-yellow-700" :
+                            t.status === "resolved" ? "bg-green-50 text-green-700" :
+                            t.status === "closed" ? "bg-gray-100 text-gray-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              t.status === "open" ? "bg-red-500" :
+                              t.status === "in_progress" ? "bg-yellow-500" :
+                              t.status === "resolved" ? "bg-green-500" :
+                              "bg-gray-400"
+                            }`} />
+                            {t.status.replace("_", " ")}
                           </span>
                         </td>
-                        <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
+                        <td className="px-4 py-3 text-sm text-gray-500">
                           {new Date(t.updated_at).toLocaleString()}
                         </td>
                       </tr>
@@ -1286,15 +1296,6 @@ export function DashboardPage() {
                 </table>
               </div>
             )}
-            <div className="flex justify-end mt-3">
-              <button
-                type="button"
-                className="pds-btn pds-btn--outline pds-focus"
-                onClick={() => navigate("/tickets")}
-              >
-                View all tickets
-              </button>
-            </div>
           </div>
         </div>
       )}

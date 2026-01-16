@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Command as CommandPrimitive } from "cmdk";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
@@ -7,41 +7,45 @@ import { getSupabaseClient } from "../../lib/supabaseClient";
 type SidebarItem = {
   label: string;
   to: string;
+  icon: string;
   hidden?: boolean;
 };
 
 function SidebarLink({
   to,
   label,
+  icon,
+  isExpanded,
+  isActive,
   onClick,
   right,
 }: {
   to: string;
   label: string;
+  icon: string;
+  isExpanded: boolean;
+  isActive: boolean;
   onClick?: () => void;
   right?: React.ReactNode;
 }) {
   return (
     <NavLink
       to={to}
-      className={({ isActive }) =>
-        `-all flex h-7 cursor-pointer items-center rounded pl-2 pr-1 text-gray-800 duration-300 ease-in-out ${
-          isActive ? "bg-white shadow-sm" : "hover:bg-gray-100"
-        }`
-      }
+      className={`flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer group ${
+        isActive ? "bg-[#2a2a2a]" : ""
+      }`}
       onClick={() => onClick?.()}
-      end
+      title={!isExpanded ? label : undefined}
     >
-      <div className="-all ml-2 flex grow items-center justify-between text-sm duration-300 ease-in-out">
-        {label}
-        {right}
-      </div>
+      <span style={{ fontSize: 18, width: 20, textAlign: "center" }}>{icon}</span>
+      {isExpanded && <span className="text-sm">{label}</span>}
+      {isExpanded && right}
     </NavLink>
   );
 }
 
 function AppHeader() {
-  return <div className="flex border-b pr-5" />;
+  return <div className="flex border-b pr-5 h-0" />;
 }
 
 type UserNotificationRow = {
@@ -430,9 +434,12 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
 export function AppShell() {
   const { profile, roles, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const isAgent = roles.includes("operator") || roles.includes("service_desk_admin") || roles.includes("global_admin");
-  const sidebarWidth = 230;
+
+  const [isExpanded, setIsExpanded] = useState(true);
+  const sidebarWidth = isExpanded ? 220 : 56;
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -480,87 +487,160 @@ export function AppShell() {
   }, []);
 
   const agentItems: SidebarItem[] = [
-    { label: "Tickets", to: "/tickets" },
-    { label: "Knowledge Base", to: "/kb" },
-    { label: "Customers", to: "/customers" },
-    { label: "Contacts", to: "/contacts" },
-    { label: "Call Logs", to: "/call-logs" },
+    { label: "Search", to: "/search", icon: "🔍" },
+    { label: "Notifications", to: "#notifications", icon: "🔔" },
+    { label: "Tickets", to: "/tickets", icon: "🎫" },
+    { label: "Knowledge Base", to: "/kb", icon: "📚" },
+    { label: "Canned Responses", to: "/saved-replies", icon: "💬" },
+    { label: "Customers", to: "/customers", icon: "🏢" },
+    { label: "Contacts", to: "/contacts", icon: "👤" },
   ];
 
   const customerItems: SidebarItem[] = [
-    { label: "Tickets", to: "/my-tickets" },
-    { label: "Knowledge Base", to: "/kb-public" },
+    { label: "My Tickets", to: "/my-tickets", icon: "🎫" },
+    { label: "Knowledge Base", to: "/kb-public", icon: "📚" },
   ];
+
+  const currentPath = location.pathname;
 
   return (
     <div className="flex h-screen w-screen">
-      <div
-        className="relative z-10 flex h-full w-[230px] flex-col border-r bg-gray-50 transition-all duration-300 ease-in-out"
+      {/* Dark Sidebar */}
+      <aside
+        className="bg-[#1a1a1a] text-white transition-all duration-300 flex flex-col"
         style={{ width: sidebarWidth }}
       >
-        <div className="p-1">
-          <div className="pds-panel" style={{ padding: 10 }}>
-            <div className="text-sm" style={{ fontWeight: 750, color: "var(--pds-text)" }}>
-              Service Desk
-            </div>
-            <div className="pds-text-muted" style={{ fontSize: 12, marginTop: 2 }}>
-              {profile?.full_name ?? profile?.email ?? "Signed in"}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => setShowCommandPalette(true)} style={{ flex: 1 }}>
-                Cmd+K
-              </button>
-              <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => void signOut()} style={{ flex: 1 }}>
-                Log out
-              </button>
-            </div>
+        {/* Header with logo and toggle */}
+        <div
+          className="flex items-center gap-3 px-3 py-3 border-b border-[#2a2a2a] cursor-pointer hover:bg-[#2a2a2a]"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div
+            className="flex items-center justify-center rounded-lg bg-[#2563eb] text-white"
+            style={{ width: 32, height: 32, fontSize: 14, fontWeight: 700 }}
+          >
+            HD
           </div>
+          {isExpanded && (
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate">Helpdesk</div>
+              <div className="text-xs text-gray-400 truncate">
+                {profile?.full_name ?? "Administrator"}
+              </div>
+            </div>
+          )}
+          {isExpanded && (
+            <span className="text-gray-400 text-xs">▼</span>
+          )}
         </div>
 
-        {isAgent ? (
-          <div className="overflow-y-auto px-2">
-            <div className="mb-3 flex flex-col gap-1">
-              <button
-                id="notifications-btn"
-                type="button"
-                className="-all flex h-7 cursor-pointer items-center rounded pl-2 pr-1 text-gray-800 duration-300 ease-in-out hover:bg-gray-100"
-                onClick={() => setShowNotifications((v) => !v)}
-              >
-                <div className="-all ml-2 flex grow items-center justify-between text-sm duration-300 ease-in-out">
-                  Notifications
-                  {unreadCount ? (
-                    <span className="pds-badge pds-badge--neutral" style={{ height: 18 }}>
-                      {unreadCount}
-                    </span>
-                  ) : null}
-                </div>
-              </button>
-              <SidebarLink to="/dashboard" label="Dashboard" />
-            </div>
-          </div>
-        ) : null}
+        {/* Search shortcut */}
+        <button
+          type="button"
+          className="flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer border-b border-[#2a2a2a]"
+          onClick={() => setShowCommandPalette(true)}
+          title={!isExpanded ? "Search (⌘K)" : undefined}
+        >
+          <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>🔍</span>
+          {isExpanded && (
+            <>
+              <span className="text-sm text-gray-300 flex-1 text-left">Search</span>
+              <span className="text-xs text-gray-500 bg-[#2a2a2a] px-1.5 py-0.5 rounded">⌘K</span>
+            </>
+          )}
+        </button>
 
-        <div className="mx-2 my-2 h-1" />
-        <div className="flex flex-col ml-2 mr-1">
+        {/* Notifications */}
+        <button
+          id="notifications-btn"
+          type="button"
+          className={`flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer ${
+            showNotifications ? "bg-[#2a2a2a]" : ""
+          }`}
+          onClick={() => setShowNotifications((v) => !v)}
+          title={!isExpanded ? "Notifications" : undefined}
+        >
+          <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>🔔</span>
+          {isExpanded && (
+            <>
+              <span className="text-sm flex-1 text-left">Notifications</span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {unreadCount}
+                </span>
+              )}
+            </>
+          )}
+          {!isExpanded && unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+          )}
+        </button>
+
+        {/* Main nav items */}
+        <nav className="flex-1 overflow-y-auto py-2">
           {(isAgent ? agentItems : customerItems)
-            .filter((i) => !i.hidden)
+            .filter((i) => !i.hidden && i.to !== "#notifications")
             .map((item) => (
-              <SidebarLink key={item.to} to={item.to} label={item.label} />
+              <SidebarLink
+                key={item.to}
+                to={item.to}
+                label={item.label}
+                icon={item.icon}
+                isExpanded={isExpanded}
+                isActive={currentPath === item.to || currentPath.startsWith(item.to + "/")}
+              />
             ))}
+        </nav>
+
+        {/* Bottom section */}
+        <div className="border-t border-[#2a2a2a] py-2">
+          {isAgent ? (
+            <button
+              type="button"
+              className="flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer w-full"
+              onClick={() => navigate("/my-tickets")}
+              title={!isExpanded ? "Customer Portal" : undefined}
+            >
+              <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>🌐</span>
+              {isExpanded && <span className="text-sm">Customer Portal</span>}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer w-full"
+              onClick={() => navigate("/tickets")}
+              title={!isExpanded ? "Agent Portal" : undefined}
+            >
+              <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>🛠️</span>
+              {isExpanded && <span className="text-sm">Agent Portal</span>}
+            </button>
+          )}
+
+          {/* Help link */}
+          <button
+            type="button"
+            className="flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer w-full"
+            onClick={() => window.open("https://docs.frappe.io/helpdesk", "_blank")}
+            title={!isExpanded ? "Help" : undefined}
+          >
+            <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>❓</span>
+            {isExpanded && <span className="text-sm">Help</span>}
+          </button>
+
+          {/* Sign out */}
+          <button
+            type="button"
+            className="flex items-center gap-3 px-3 py-2 hover:bg-[#2a2a2a] transition-colors cursor-pointer w-full text-red-400"
+            onClick={() => void signOut()}
+            title={!isExpanded ? "Sign Out" : undefined}
+          >
+            <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>🚪</span>
+            {isExpanded && <span className="text-sm">Sign Out</span>}
+          </button>
         </div>
+      </aside>
 
-        {!isAgent ? (
-          <div style={{ marginTop: "auto" }} className="p-2">
-            <button type="button" className="pds-btn pds-btn--outline pds-focus w-full" onClick={() => navigate("/tickets")}>Agent portal</button>
-          </div>
-        ) : (
-          <div style={{ marginTop: "auto" }} className="p-2">
-            <button type="button" className="pds-btn pds-btn--outline pds-focus w-full" onClick={() => navigate("/my-tickets")}>Customer portal</button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 flex flex-col h-full overflow-auto">
+      <div className="flex-1 flex flex-col h-full overflow-auto bg-white">
         <AppHeader />
         <Outlet />
       </div>
