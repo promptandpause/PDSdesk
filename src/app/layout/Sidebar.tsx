@@ -35,6 +35,7 @@ const agentNavigation: NavSection[] = [
       { label: 'Service Catalog', to: '/service-catalog', icon: '▧' },
       { label: 'Knowledge Base', to: '/kb', icon: '◉' },
       { label: 'Assets', to: '/assets', icon: '▣' },
+      { label: 'Reservations', to: '/reservations', icon: '◐' },
       { label: 'Saved Replies', to: '/saved-replies', icon: '◈' },
       { label: 'Templates', to: '/ticket-templates', icon: '◧' },
     ],

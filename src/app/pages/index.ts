@@ -16,4 +16,5 @@ export { KanbanBoardPage } from './KanbanBoardPage';
 export { ProblemsPage } from './ProblemsPage';
 export { ServiceCatalogPage } from './ServiceCatalogPage';
 export { TicketTemplatesPage } from './TicketTemplatesPage';
+export { ReservationsPage } from './ReservationsPage';
 export { OperatorGroupsPage, SLAPoliciesPage, RoutingRulesPage, AuditLogPage } from './admin';
