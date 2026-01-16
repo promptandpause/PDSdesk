@@ -16,6 +16,7 @@ import {
   MyTicketNewPage,
   MyTicketPage,
   MyTicketsPage,
+  NotificationsPage,
   SearchPage,
   TicketNewPage,
   TicketPage,
@@ -58,6 +59,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth requireAgent>
             <TicketPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "notifications",
+        element: (
+          <RequireAuth requireAgent>
+            <NotificationsPage />
           </RequireAuth>
         ),
       },

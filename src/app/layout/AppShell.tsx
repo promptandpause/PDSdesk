@@ -58,6 +58,7 @@ export function AppShell() {
                 Agent
               </div>
               <SideLink to="/tickets" label="Tickets" />
+              <SideLink to="/notifications" label="Notifications" />
               <SideLink to="/tickets/new" label="New ticket" />
               <SideLink to="/dashboard" label="Dashboard" />
               <SideLink to="/kb" label="Knowledge Base" />
