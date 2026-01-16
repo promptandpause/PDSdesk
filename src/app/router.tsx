@@ -10,6 +10,7 @@ import {
   ContactsPage,
   SettingsPage,
   MyTicketsPage,
+  CustomerQueuePage,
   OperatorGroupsPage,
   SLAPoliciesPage,
 } from './pages';
@@ -42,6 +43,9 @@ export const router = createBrowserRouter([
       { path: 'tickets', element: <TicketsPage /> },
       { path: 'tickets/new', element: <TicketNewPage /> },
       { path: 'tickets/:id', element: <TicketDetailPage /> },
+      { path: 'customer-queue', element: <CustomerQueuePage /> },
+      { path: 'customer-queue/new', element: <TicketNewPage /> },
+      { path: 'customer-queue/:id', element: <TicketDetailPage /> },
       { path: 'kb', element: <KnowledgeBasePage /> },
       { path: 'kb/new', element: <PlaceholderPage title="New Article" /> },
       { path: 'kb/:id', element: <PlaceholderPage title="Article Detail" /> },

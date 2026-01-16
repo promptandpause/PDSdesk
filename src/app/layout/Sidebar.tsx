@@ -18,6 +18,7 @@ const agentNavigation: NavSection[] = [
     items: [
       { label: 'Dashboard', to: '/dashboard', icon: '◫' },
       { label: 'Tickets', to: '/tickets', icon: '▤' },
+      { label: 'Customer Queue', to: '/customer-queue', icon: '◆' },
     ],
   },
   {
