@@ -794,14 +794,398 @@ export function CallLogsPage() {
 }
 
 export function MyTicketsPage() {
-  return <PlaceholderPage title="My tickets" subtitle="Customer portal" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!user) return;
+      setLoading(true);
+      setError(null);
+
+      let q = supabase
+        .from("tickets")
+        .select("id,ticket_number,title,status,priority,updated_at")
+        .eq("requester_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(50);
+
+      const trimmed = query.trim();
+      if (trimmed) {
+        q = q.or(`title.ilike.%${trimmed}%,ticket_number.ilike.%${trimmed}%,external_number.ilike.%${trimmed}%`);
+      }
+
+      const { data, error } = await q;
+      if (cancelled) return;
+      if (error) {
+        setError(error.message);
+        setTickets([]);
+      } else {
+        setTickets((data as TicketRow[]) ?? []);
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query, supabase, user]);
+
+  return (
+    <PlaceholderPage title="My tickets" subtitle="Customer portal">
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <input
+          className="pds-input"
+          placeholder="Search my tickets"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <button
+          type="button"
+          className="pds-btn pds-btn--outline pds-focus"
+          onClick={() => navigate("/my-tickets/new")}
+        >
+          New request
+        </button>
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Loading...
+        </div>
+      ) : tickets.length === 0 ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          No tickets yet.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {tickets.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className="pds-btn pds-btn--outline pds-focus"
+              style={{ justifyContent: "space-between", textAlign: "left" }}
+              onClick={() => navigate(`/my-tickets/${t.id}`)}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>
+                  {t.ticket_number} - {t.title}
+                </div>
+                <div className="pds-text-muted" style={{ fontSize: 12 }}>
+                  {t.status} - {t.priority} - {new Date(t.updated_at).toLocaleString()}
+                </div>
+              </div>
+              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                Open
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </PlaceholderPage>
+  );
 }
 
 export function MyTicketPage() {
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { ticketId } = useParams();
-  return <PlaceholderPage title={`My ticket ${ticketId ?? ""}`.trim()} subtitle="Customer ticket detail" />;
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<any | null>(null);
+  const [comments, setComments] = useState<TicketCommentRow[]>([]);
+
+  const [newBody, setNewBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!ticketId || !user) return;
+
+      setLoading(true);
+      setError(null);
+
+      const [{ data: ticket, error: ticketError }, { data: comments, error: commentsError }] = await Promise.all([
+        supabase
+          .from("tickets")
+          .select("id,ticket_number,title,description,status,priority,category,created_at,updated_at")
+          .eq("id", ticketId)
+          .maybeSingle(),
+        supabase
+          .from("ticket_comments")
+          .select("id,author_id,body,is_internal,created_at,author:profiles(full_name,email)")
+          .eq("ticket_id", ticketId)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      if (cancelled) return;
+
+      if (ticketError) {
+        setError(ticketError.message);
+        setTicket(null);
+        setComments([]);
+        setLoading(false);
+        return;
+      }
+
+      if (commentsError) {
+        setError(commentsError.message);
+      }
+
+      setTicket(ticket ?? null);
+      setComments((comments as TicketCommentRow[]) ?? []);
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadNonce, supabase, ticketId, user]);
+
+  async function submitComment() {
+    if (!ticketId || !user) return;
+    const body = newBody.trim();
+    if (!body) return;
+
+    setSaving(true);
+    setError(null);
+
+    const { error } = await supabase.from("ticket_comments").insert({
+      ticket_id: ticketId,
+      author_id: user.id,
+      body,
+      is_internal: false,
+    });
+
+    if (error) {
+      setError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    setNewBody("");
+    setSaving(false);
+    setReloadNonce((v) => v + 1);
+  }
+
+  if (!ticketId) {
+    return <PlaceholderPage title="My ticket" subtitle="Missing ticket id" />;
+  }
+
+  const pageTitle = ticket?.ticket_number ? `${ticket.ticket_number} - ${ticket.title ?? ""}` : `My ticket ${ticketId}`;
+
+  return (
+    <PlaceholderPage title={pageTitle} subtitle="Customer ticket detail">
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate("/my-tickets")}>Return</button>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => setReloadNonce((v) => v + 1)}>Refresh</button>
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Loading...
+        </div>
+      ) : !ticket ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Ticket not found.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="pds-panel" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 6 }}>Description</div>
+              <div className="pds-text-muted" style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>
+                {ticket.description || "(no description)"}
+              </div>
+            </div>
+
+            <div className="pds-panel" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 10 }}>Conversation</div>
+
+              {comments.length === 0 ? (
+                <div className="pds-text-muted" style={{ fontSize: 13 }}>
+                  No messages yet.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {comments.map((c) => {
+                    const author = Array.isArray(c.author) ? c.author[0] : null;
+                    const authorLabel = author?.full_name || author?.email || c.author_id;
+                    return (
+                      <div key={c.id} style={{ border: "1px solid var(--pds-border)", borderRadius: 10, padding: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                          <div style={{ fontWeight: 600, color: "var(--pds-text)", fontSize: 13 }}>{authorLabel}</div>
+                          <div className="pds-text-muted" style={{ fontSize: 12 }}>
+                            {new Date(c.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                        <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--pds-text)" }}>{c.body}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <textarea
+                  className="pds-input"
+                  value={newBody}
+                  onChange={(e) => setNewBody(e.target.value)}
+                  placeholder="Write a message"
+                  style={{ minHeight: 110, resize: "vertical" }}
+                />
+
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    className="pds-btn pds-btn--solid pds-focus"
+                    onClick={() => void submitComment()}
+                    disabled={saving}
+                  >
+                    {saving ? "Sending..." : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="pds-panel" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 8 }}>Details</div>
+              <div className="pds-text-muted" style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div>Status: {ticket.status}</div>
+                <div>Priority: {ticket.priority}</div>
+                <div>Category: {ticket.category}</div>
+                <div>Updated: {new Date(ticket.updated_at).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </PlaceholderPage>
+  );
 }
 
 export function MyTicketNewPage() {
-  return <PlaceholderPage title="New request" subtitle="Customer portal" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function createTicket() {
+    if (!user) return;
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Title is required");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert({
+        title: trimmedTitle,
+        description: description.trim() || null,
+        priority: "medium",
+        category: "General",
+        requester_id: user.id,
+        created_by: user.id,
+        ticket_type: "itsm_incident",
+        channel: "portal",
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      setError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    const newId = (data as any)?.id as string | undefined;
+    if (!newId) {
+      setError("Ticket created but no id returned");
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
+    navigate(`/my-tickets/${newId}`);
+  }
+
+  return (
+    <PlaceholderPage title="New request" subtitle="Customer portal">
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate("/my-tickets")}>Return</button>
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          {error}
+        </div>
+      ) : null}
+
+      <div className="pds-panel" style={{ padding: 12, maxWidth: 880 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+              Subject
+            </div>
+            <input className="pds-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short summary" />
+          </div>
+          <div>
+            <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+              Details
+            </div>
+            <textarea
+              className="pds-input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the issue"
+              style={{ minHeight: 180, resize: "vertical" }}
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button type="button" className="pds-btn pds-btn--solid pds-focus" onClick={() => void createTicket()} disabled={saving || !user}>
+              {saving ? "Submitting..." : "Submit"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </PlaceholderPage>
+  );
 }
