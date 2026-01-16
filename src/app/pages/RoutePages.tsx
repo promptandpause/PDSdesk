@@ -534,8 +534,225 @@ export function NotificationsPage() {
 }
 
 export function TicketNewPage() {
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { templateId } = useParams();
-  return <PlaceholderPage title="New ticket" subtitle={templateId ? `Template: ${templateId}` : ""} />;
+
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
+  const [category, setCategory] = useState("General");
+  const [ticketType, setTicketType] = useState("itsm_incident");
+  const [requesterEmail, setRequesterEmail] = useState("");
+  const [requesterName, setRequesterName] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTemplate() {
+      if (!templateId) return;
+
+      setLoadingTemplate(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from("ticket_templates")
+        .select("id,name,defaults")
+        .eq("id", templateId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setLoadingTemplate(false);
+        return;
+      }
+
+      const defaults = (data as any)?.defaults as Record<string, unknown> | undefined;
+      if (defaults) {
+        if (typeof defaults.title === "string") setTitle(defaults.title);
+        if (typeof defaults.description === "string") setDescription(defaults.description);
+        if (typeof defaults.category === "string") setCategory(defaults.category);
+        if (typeof defaults.ticket_type === "string") setTicketType(defaults.ticket_type);
+        if (typeof defaults.requester_email === "string") setRequesterEmail(defaults.requester_email);
+        if (typeof defaults.requester_name === "string") setRequesterName(defaults.requester_name);
+
+        const p = defaults.priority;
+        if (p === "low" || p === "medium" || p === "high" || p === "urgent") {
+          setPriority(p);
+        }
+      }
+
+      setLoadingTemplate(false);
+    }
+
+    void loadTemplate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, templateId]);
+
+  async function createTicket() {
+    if (!user) return;
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError("Title is required");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const insertPayload: Record<string, unknown> = {
+      title: trimmedTitle,
+      description: description.trim() || null,
+      priority,
+      category: category.trim() || "General",
+      requester_id: user.id,
+      created_by: user.id,
+      ticket_type: ticketType,
+      channel: "web",
+    };
+
+    const re = requesterEmail.trim();
+    const rn = requesterName.trim();
+    if (re) insertPayload.requester_email = re;
+    if (rn) insertPayload.requester_name = rn;
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert(insertPayload)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      setError(error.message);
+      setSaving(false);
+      return;
+    }
+
+    const newId = (data as any)?.id as string | undefined;
+    if (!newId) {
+      setError("Ticket created but no id returned");
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
+    navigate(`/tickets/${newId}`);
+  }
+
+  return (
+    <PlaceholderPage title="New ticket" subtitle={templateId ? `Template: ${templateId}` : ""}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate("/tickets")}>Return</button>
+      </div>
+
+      {loadingTemplate ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          Loading template...
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 10 }}>
+          {error}
+        </div>
+      ) : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+        <div className="pds-panel" style={{ padding: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                Title
+              </div>
+              <input className="pds-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short summary" />
+            </div>
+
+            <div>
+              <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                Description
+              </div>
+              <textarea
+                className="pds-input"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Details"
+                style={{ minHeight: 160, resize: "vertical" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                type="button"
+                className="pds-btn pds-btn--solid pds-focus"
+                onClick={() => void createTicket()}
+                disabled={saving || !user}
+              >
+                {saving ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="pds-panel" style={{ padding: 12 }}>
+            <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 10 }}>Defaults</div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Ticket type
+                </div>
+                <input className="pds-input" value={ticketType} onChange={(e) => setTicketType(e.target.value)} placeholder="itsm_incident" />
+              </div>
+
+              <div>
+                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Category
+                </div>
+                <input className="pds-input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="General" />
+              </div>
+
+              <div>
+                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Priority
+                </div>
+                <select className="pds-input" value={priority} onChange={(e) => setPriority(e.target.value as any)}>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                  <option value="urgent">urgent</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Requester name
+                </div>
+                <input className="pds-input" value={requesterName} onChange={(e) => setRequesterName(e.target.value)} placeholder="Optional" />
+              </div>
+
+              <div>
+                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Requester email
+                </div>
+                <input className="pds-input" value={requesterEmail} onChange={(e) => setRequesterEmail(e.target.value)} placeholder="Optional" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </PlaceholderPage>
+  );
 }
 
 export function DashboardPage() {
