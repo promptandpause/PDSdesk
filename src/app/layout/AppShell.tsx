@@ -59,55 +59,102 @@ function NotificationsDrawer({
   onClose,
   sidebarWidth,
   onOpenTicket,
+  onUnreadCountChange,
 }: {
   visible: boolean;
   onClose: () => void;
   sidebarWidth: number;
   onOpenTicket: (ticketId: string) => void;
+  onUnreadCountChange?: (count: number) => void;
 }) {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const { user } = useAuth();
+  const drawerRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<UserNotificationRow[]>([]);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  const reload = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase
+      .from("user_notifications")
+      .select("id,ticket_id,title,body,event_type,is_read,created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      setError(error.message);
+      setRows([]);
+    } else {
+      const list = (data as UserNotificationRow[]) ?? [];
+      setRows(list);
+      onUnreadCountChange?.(list.filter((r) => !r.is_read).length);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      if (!user) return;
-      setLoading(true);
-      setError(null);
-
-      const { data, error } = await supabase
-        .from("user_notifications")
-        .select("id,ticket_id,title,body,event_type,is_read,created_at")
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
-        setRows([]);
-      } else {
-        setRows((data as UserNotificationRow[]) ?? []);
-      }
-      setLoading(false);
-    }
-
     if (visible) {
-      void load();
+      void reload();
     }
 
     return () => {
       cancelled = true;
     };
-  }, [supabase, user, visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node | null;
+      if (drawerRef.current && !drawerRef.current.contains(target)) {
+        const notifBtn = document.getElementById("notifications-btn");
+        if (notifBtn && notifBtn.contains(target)) return;
+        onClose();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [visible, onClose]);
+
+  const handleMarkAllRead = async () => {
+    if (!user) return;
+    setMarkingAll(true);
+
+    const unreadIds = rows.filter((r) => !r.is_read).map((r) => r.id);
+    if (unreadIds.length === 0) {
+      setMarkingAll(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("user_notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .in("id", unreadIds);
+
+    if (!error) {
+      setRows((prev) => prev.map((r) => ({ ...r, is_read: true })));
+      onUnreadCountChange?.(0);
+    }
+    setMarkingAll(false);
+  };
 
   if (!visible) return null;
 
+  const unreadCount = rows.filter((r) => !r.is_read).length;
+
   return (
-    <span
+    <div
+      ref={drawerRef}
       className="fixed z-10 h-screen overflow-auto bg-white"
       style={{
         boxShadow: "8px 0px 8px rgba(0, 0, 0, 0.1)",
@@ -118,9 +165,20 @@ function NotificationsDrawer({
     >
       <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-5 py-2.5">
         <span className="text-lg font-medium">Notifications</span>
-        <div>
-          <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={onClose}>
-            Close
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              className="pds-btn pds-btn--ghost pds-focus"
+              onClick={handleMarkAllRead}
+              disabled={markingAll}
+              title="Mark all as read"
+            >
+              ✓✓
+            </button>
+          ) : null}
+          <button type="button" className="pds-btn pds-btn--ghost pds-focus" onClick={onClose} title="Close">
+            ✕
           </button>
         </div>
       </div>
@@ -169,7 +227,7 @@ function NotificationsDrawer({
           ))}
         </div>
       )}
-    </span>
+    </div>
   );
 }
 
@@ -512,6 +570,7 @@ export function AppShell() {
         onClose={() => setShowNotifications(false)}
         sidebarWidth={sidebarWidth}
         onOpenTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+        onUnreadCountChange={(count) => setUnreadCount(count)}
       />
 
       <CommandPalette open={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
