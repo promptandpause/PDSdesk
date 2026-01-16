@@ -2011,16 +2011,451 @@ export function KnowledgeBaseArticlePage() {
   );
 }
 
+type CustomerRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+};
+
+type ContactRow = {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  customer_id: string | null;
+  created_at: string;
+};
+
 export function CustomersPage() {
-  return <PlaceholderPage title="Customers" subtitle="Customer list" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const navigate = useNavigate();
+
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      let q = supabase
+        .from("customers")
+        .select("id,name,email,phone,created_at", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      const trimmed = query.trim();
+      if (trimmed) {
+        q = q.or(`name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
+      }
+
+      const { data, error, count } = await q;
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setCustomers([]);
+        setTotalCount(0);
+      } else {
+        setCustomers((data as CustomerRow[]) ?? []);
+        setTotalCount(count ?? 0);
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query, supabase]);
+
+  return (
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <span className="pds-page-title">Customers</span>
+            <span className="pds-text-muted" style={{ fontSize: 12 }}>
+              {totalCount} total
+            </span>
+          </div>
+          <div className="pds-toolbar-actions">
+            <button type="button" className="pds-btn pds-btn--primary pds-focus">
+              + Create
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* View Controls */}
+      <div className="flex items-center gap-2 px-5 pb-4 pt-3">
+        <input
+          className="pds-input"
+          placeholder="Search customers..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ maxWidth: 280 }}
+        />
+      </div>
+
+      {/* Table */}
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
+          Loading...
+        </div>
+      ) : customers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>No customers found.</div>
+        </div>
+      ) : (
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
+              <tr>
+                <th className="pds-th">Name</th>
+                <th className="pds-th">Email</th>
+                <th className="pds-th">Phone</th>
+                <th className="pds-th">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((c) => (
+                <tr key={c.id} className="pds-row">
+                  <td className="pds-td" style={{ fontWeight: 500 }}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center justify-center rounded-full bg-gray-200 text-gray-600"
+                        style={{ width: 28, height: 28, fontSize: 12, fontWeight: 600 }}
+                      >
+                        {c.name?.charAt(0)?.toUpperCase() ?? "?"}
+                      </div>
+                      {c.name}
+                    </div>
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {c.email || "—"}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {c.phone || "—"}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
+                    {new Date(c.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Footer */}
+      {!loading && customers.length > 0 ? (
+        <div className="pds-statbar" style={{ marginTop: "auto" }}>
+          <div className="pds-stat">
+            <span className="pds-stat-label">Showing</span>
+            <span className="pds-stat-value">{customers.length}</span>
+          </div>
+          <div className="pds-stat">
+            <span className="pds-stat-label">of</span>
+            <span className="pds-stat-value">{totalCount}</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function ContactsPage() {
-  return <PlaceholderPage title="Contacts" subtitle="Contacts list" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      let q = supabase
+        .from("contacts")
+        .select("id,full_name,email,phone,customer_id,created_at", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      const trimmed = query.trim();
+      if (trimmed) {
+        q = q.or(`full_name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
+      }
+
+      const { data, error, count } = await q;
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setContacts([]);
+        setTotalCount(0);
+      } else {
+        setContacts((data as ContactRow[]) ?? []);
+        setTotalCount(count ?? 0);
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query, supabase]);
+
+  return (
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <span className="pds-page-title">Contacts</span>
+            <span className="pds-text-muted" style={{ fontSize: 12 }}>
+              {totalCount} total
+            </span>
+          </div>
+          <div className="pds-toolbar-actions">
+            <button type="button" className="pds-btn pds-btn--primary pds-focus">
+              + Create
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* View Controls */}
+      <div className="flex items-center gap-2 px-5 pb-4 pt-3">
+        <input
+          className="pds-input"
+          placeholder="Search contacts..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ maxWidth: 280 }}
+        />
+      </div>
+
+      {/* Table */}
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
+          Loading...
+        </div>
+      ) : contacts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>No contacts found.</div>
+        </div>
+      ) : (
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
+              <tr>
+                <th className="pds-th">Name</th>
+                <th className="pds-th">Email</th>
+                <th className="pds-th">Phone</th>
+                <th className="pds-th">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map((c) => (
+                <tr key={c.id} className="pds-row">
+                  <td className="pds-td" style={{ fontWeight: 500 }}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center justify-center rounded-full bg-gray-200 text-gray-600"
+                        style={{ width: 28, height: 28, fontSize: 12, fontWeight: 600 }}
+                      >
+                        {c.full_name?.charAt(0)?.toUpperCase() ?? "?"}
+                      </div>
+                      {c.full_name}
+                    </div>
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {c.email || "—"}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {c.phone || "—"}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
+                    {new Date(c.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Footer */}
+      {!loading && contacts.length > 0 ? (
+        <div className="pds-statbar" style={{ marginTop: "auto" }}>
+          <div className="pds-stat">
+            <span className="pds-stat-label">Showing</span>
+            <span className="pds-stat-value">{contacts.length}</span>
+          </div>
+          <div className="pds-stat">
+            <span className="pds-stat-label">of</span>
+            <span className="pds-stat-value">{totalCount}</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
+type CallLogRow = {
+  id: string;
+  caller: string | null;
+  receiver: string | null;
+  duration: number | null;
+  call_type: string | null;
+  created_at: string;
+};
+
 export function CallLogsPage() {
-  return <PlaceholderPage title="Call logs" subtitle="Telephony" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<CallLogRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      const { data, error, count } = await supabase
+        .from("call_logs")
+        .select("id,caller,receiver,duration,call_type,created_at", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setLogs([]);
+        setTotalCount(0);
+      } else {
+        setLogs((data as CallLogRow[]) ?? []);
+        setTotalCount(count ?? 0);
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  return (
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <span className="pds-page-title">Call Logs</span>
+            <span className="pds-text-muted" style={{ fontSize: 12 }}>
+              {totalCount} total
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, padding: 16 }}>
+          Loading...
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>No call logs found.</div>
+        </div>
+      ) : (
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
+              <tr>
+                <th className="pds-th">Caller</th>
+                <th className="pds-th">Receiver</th>
+                <th className="pds-th">Type</th>
+                <th className="pds-th">Duration</th>
+                <th className="pds-th">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((l) => (
+                <tr key={l.id} className="pds-row">
+                  <td className="pds-td" style={{ fontWeight: 500 }}>
+                    {l.caller || "—"}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {l.receiver || "—"}
+                  </td>
+                  <td className="pds-td">
+                    <span className="pds-badge pds-badge--neutral">{l.call_type || "—"}</span>
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 13 }}>
+                    {l.duration ? `${l.duration}s` : "—"}
+                  </td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
+                    {new Date(l.created_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Footer */}
+      {!loading && logs.length > 0 ? (
+        <div className="pds-statbar" style={{ marginTop: "auto" }}>
+          <div className="pds-stat">
+            <span className="pds-stat-label">Showing</span>
+            <span className="pds-stat-value">{logs.length}</span>
+          </div>
+          <div className="pds-stat">
+            <span className="pds-stat-label">of</span>
+            <span className="pds-stat-value">{totalCount}</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function MyTicketsPage() {
