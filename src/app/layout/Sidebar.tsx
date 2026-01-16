@@ -19,6 +19,7 @@ const agentNavigation: NavSection[] = [
       { label: 'Dashboard', to: '/dashboard', icon: '◫' },
       { label: 'Tickets', to: '/tickets', icon: '▤' },
       { label: 'Customer Queue', to: '/customer-queue', icon: '◆' },
+      { label: 'Problems', to: '/problems', icon: '⚠' },
     ],
   },
   {
@@ -31,9 +32,11 @@ const agentNavigation: NavSection[] = [
   {
     title: 'Resources',
     items: [
+      { label: 'Service Catalog', to: '/service-catalog', icon: '▧' },
       { label: 'Knowledge Base', to: '/kb', icon: '◉' },
       { label: 'Assets', to: '/assets', icon: '▣' },
       { label: 'Saved Replies', to: '/saved-replies', icon: '◈' },
+      { label: 'Templates', to: '/ticket-templates', icon: '◧' },
     ],
   },
   {

@@ -84,9 +84,9 @@ export function SettingsPage() {
                   to="/settings/routing-rules"
                 />
                 <SettingsLink
-                  title="Ticket Categories"
-                  description="Manage ticket categories and subcategories"
-                  to="/settings/categories"
+                  title="Audit Log"
+                  description="View system activity and change history"
+                  to="/settings/audit-log"
                 />
               </div>
             </Panel>

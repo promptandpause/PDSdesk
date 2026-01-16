@@ -13,4 +13,7 @@ export { AssetsPage } from './AssetsPage';
 export { SavedRepliesPage } from './SavedRepliesPage';
 export { PlannerPage } from './PlannerPage';
 export { KanbanBoardPage } from './KanbanBoardPage';
-export { OperatorGroupsPage, SLAPoliciesPage, RoutingRulesPage } from './admin';
+export { ProblemsPage } from './ProblemsPage';
+export { ServiceCatalogPage } from './ServiceCatalogPage';
+export { TicketTemplatesPage } from './TicketTemplatesPage';
+export { OperatorGroupsPage, SLAPoliciesPage, RoutingRulesPage, AuditLogPage } from './admin';

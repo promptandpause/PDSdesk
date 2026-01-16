@@ -16,9 +16,13 @@ import {
   SavedRepliesPage,
   PlannerPage,
   KanbanBoardPage,
+  ProblemsPage,
+  ServiceCatalogPage,
+  TicketTemplatesPage,
   OperatorGroupsPage,
   SLAPoliciesPage,
   RoutingRulesPage,
+  AuditLogPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
@@ -66,7 +70,11 @@ export const router = createBrowserRouter([
       { path: 'settings/operator-groups', element: <OperatorGroupsPage /> },
       { path: 'settings/sla-policies', element: <SLAPoliciesPage /> },
       { path: 'settings/routing-rules', element: <RoutingRulesPage /> },
+      { path: 'settings/audit-log', element: <AuditLogPage /> },
       { path: 'assets', element: <AssetsPage /> },
+      { path: 'problems', element: <ProblemsPage /> },
+      { path: 'service-catalog', element: <ServiceCatalogPage /> },
+      { path: 'ticket-templates', element: <TicketTemplatesPage /> },
       { path: 'my-tickets', element: <MyTicketsPage /> },
       { path: 'my-tickets/new', element: <TicketNewPage /> },
       { path: 'my-tickets/:id', element: <TicketDetailPage /> },
