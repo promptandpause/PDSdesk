@@ -1,0 +1,176 @@
+/*
+ * ITSM Design System - Base Styles
+ * Reset and foundational styles
+ */
+
+@import './tokens.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--itsm-font-sans);
+  font-size: var(--itsm-text-base);
+  line-height: var(--itsm-leading-normal);
+  color: var(--itsm-text-primary);
+  background-color: var(--itsm-surface-sunken);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TYPOGRAPHY UTILITIES
+   ───────────────────────────────────────────────────────────── */
+
+.itsm-heading-1 {
+  font-size: var(--itsm-text-2xl);
+  font-weight: var(--itsm-weight-semibold);
+  line-height: var(--itsm-leading-tight);
+  letter-spacing: var(--itsm-tracking-tight);
+  color: var(--itsm-text-primary);
+}
+
+.itsm-heading-2 {
+  font-size: var(--itsm-text-xl);
+  font-weight: var(--itsm-weight-semibold);
+  line-height: var(--itsm-leading-tight);
+  color: var(--itsm-text-primary);
+}
+
+.itsm-heading-3 {
+  font-size: var(--itsm-text-lg);
+  font-weight: var(--itsm-weight-medium);
+  line-height: var(--itsm-leading-tight);
+  color: var(--itsm-text-primary);
+}
+
+.itsm-label {
+  font-size: var(--itsm-text-xs);
+  font-weight: var(--itsm-weight-medium);
+  letter-spacing: var(--itsm-tracking-wider);
+  text-transform: uppercase;
+  color: var(--itsm-text-tertiary);
+}
+
+.itsm-body {
+  font-size: var(--itsm-text-base);
+  line-height: var(--itsm-leading-normal);
+  color: var(--itsm-text-primary);
+}
+
+.itsm-body-sm {
+  font-size: var(--itsm-text-sm);
+  line-height: var(--itsm-leading-normal);
+  color: var(--itsm-text-secondary);
+}
+
+.itsm-caption {
+  font-size: var(--itsm-text-xs);
+  line-height: var(--itsm-leading-normal);
+  color: var(--itsm-text-tertiary);
+}
+
+.itsm-mono {
+  font-family: var(--itsm-font-mono);
+  font-size: var(--itsm-text-sm);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   FOCUS STYLES
+   ───────────────────────────────────────────────────────────── */
+
+.itsm-focus:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--itsm-surface-base), 0 0 0 4px var(--itsm-border-focus);
+}
+
+.itsm-focus:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+.itsm-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--itsm-surface-base), 0 0 0 4px var(--itsm-border-focus);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCROLLBAR STYLING
+   ───────────────────────────────────────────────────────────── */
+
+.itsm-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--itsm-gray-300) transparent;
+}
+
+.itsm-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.itsm-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.itsm-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--itsm-gray-300);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.itsm-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--itsm-gray-400);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SELECTION
+   ───────────────────────────────────────────────────────────── */
+
+::selection {
+  background-color: var(--itsm-primary-200);
+  color: var(--itsm-primary-900);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LINKS
+   ───────────────────────────────────────────────────────────── */
+
+a {
+  color: var(--itsm-text-link);
+  text-decoration: none;
+  transition: color var(--itsm-transition-fast);
+}
+
+a:hover {
+  color: var(--itsm-text-link-hover);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   UTILITY CLASSES
+   ───────────────────────────────────────────────────────────── */
+
+.itsm-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itsm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

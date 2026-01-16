@@ -1,0 +1,9 @@
+export { DashboardPage } from './DashboardPage';
+export { TicketsPage } from './TicketsPage';
+export { TicketDetailPage } from './TicketDetailPage';
+export { TicketNewPage } from './TicketNewPage';
+export { KnowledgeBasePage } from './KnowledgeBasePage';
+export { CustomersPage } from './CustomersPage';
+export { ContactsPage } from './ContactsPage';
+export { SettingsPage } from './SettingsPage';
+export { MyTicketsPage } from './MyTicketsPage';

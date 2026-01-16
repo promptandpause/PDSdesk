@@ -1,0 +1,183 @@
+/*
+ * ITSM Design System - Visual Tokens
+ * Industrial / Enterprise tone - calm, confident, professional
+ * Neutral base with restrained accent usage
+ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────────
+     COLOR PALETTE
+     Graphite / Steel / Off-white base
+     ───────────────────────────────────────────────────────────── */
+  
+  /* Neutrals - Steel/Graphite scale */
+  --itsm-gray-50: #fafafa;
+  --itsm-gray-100: #f4f4f5;
+  --itsm-gray-200: #e4e4e7;
+  --itsm-gray-300: #d4d4d8;
+  --itsm-gray-400: #a1a1aa;
+  --itsm-gray-500: #71717a;
+  --itsm-gray-600: #52525b;
+  --itsm-gray-700: #3f3f46;
+  --itsm-gray-800: #27272a;
+  --itsm-gray-900: #18181b;
+  --itsm-gray-950: #09090b;
+
+  /* Primary - Slate blue (professional, calm) */
+  --itsm-primary-50: #f0f4f8;
+  --itsm-primary-100: #d9e2ec;
+  --itsm-primary-200: #bcccdc;
+  --itsm-primary-300: #9fb3c8;
+  --itsm-primary-400: #829ab1;
+  --itsm-primary-500: #627d98;
+  --itsm-primary-600: #486581;
+  --itsm-primary-700: #334e68;
+  --itsm-primary-800: #243b53;
+  --itsm-primary-900: #102a43;
+
+  /* Status Colors - Restrained, professional */
+  --itsm-status-open: #dc2626;
+  --itsm-status-open-bg: #fef2f2;
+  --itsm-status-in-progress: #d97706;
+  --itsm-status-in-progress-bg: #fffbeb;
+  --itsm-status-pending: #7c3aed;
+  --itsm-status-pending-bg: #f5f3ff;
+  --itsm-status-resolved: #059669;
+  --itsm-status-resolved-bg: #ecfdf5;
+  --itsm-status-closed: #6b7280;
+  --itsm-status-closed-bg: #f3f4f6;
+
+  /* Priority Colors */
+  --itsm-priority-critical: #991b1b;
+  --itsm-priority-critical-bg: #fef2f2;
+  --itsm-priority-high: #c2410c;
+  --itsm-priority-high-bg: #fff7ed;
+  --itsm-priority-medium: #a16207;
+  --itsm-priority-medium-bg: #fefce8;
+  --itsm-priority-low: #4d7c0f;
+  --itsm-priority-low-bg: #f7fee7;
+
+  /* SLA Colors */
+  --itsm-sla-breached: #dc2626;
+  --itsm-sla-warning: #d97706;
+  --itsm-sla-ok: #059669;
+
+  /* ─────────────────────────────────────────────────────────────
+     SEMANTIC TOKENS
+     ───────────────────────────────────────────────────────────── */
+  
+  /* Surfaces */
+  --itsm-surface-base: #ffffff;
+  --itsm-surface-raised: #fafafa;
+  --itsm-surface-sunken: #f4f4f5;
+  --itsm-surface-overlay: #ffffff;
+  --itsm-surface-sidebar: #18181b;
+  --itsm-surface-sidebar-hover: #27272a;
+  --itsm-surface-sidebar-active: #3f3f46;
+
+  /* Borders */
+  --itsm-border-subtle: #e4e4e7;
+  --itsm-border-default: #d4d4d8;
+  --itsm-border-strong: #a1a1aa;
+  --itsm-border-focus: #627d98;
+
+  /* Text */
+  --itsm-text-primary: #18181b;
+  --itsm-text-secondary: #52525b;
+  --itsm-text-tertiary: #71717a;
+  --itsm-text-muted: #a1a1aa;
+  --itsm-text-inverse: #fafafa;
+  --itsm-text-link: #334e68;
+  --itsm-text-link-hover: #102a43;
+
+  /* Interactive */
+  --itsm-interactive-primary: #334e68;
+  --itsm-interactive-primary-hover: #243b53;
+  --itsm-interactive-secondary: #627d98;
+  --itsm-interactive-secondary-hover: #486581;
+  --itsm-interactive-ghost-hover: #f4f4f5;
+  --itsm-interactive-danger: #dc2626;
+  --itsm-interactive-danger-hover: #b91c1c;
+
+  /* ─────────────────────────────────────────────────────────────
+     TYPOGRAPHY
+     Professional, deliberate, readable
+     ───────────────────────────────────────────────────────────── */
+  
+  --itsm-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --itsm-font-mono: "SF Mono", "Fira Code", "Fira Mono", Menlo, Monaco, Consolas, monospace;
+
+  /* Font Sizes - Compact for information density */
+  --itsm-text-xs: 0.6875rem;    /* 11px */
+  --itsm-text-sm: 0.75rem;      /* 12px */
+  --itsm-text-base: 0.8125rem;  /* 13px */
+  --itsm-text-md: 0.875rem;     /* 14px */
+  --itsm-text-lg: 1rem;         /* 16px */
+  --itsm-text-xl: 1.125rem;     /* 18px */
+  --itsm-text-2xl: 1.5rem;      /* 24px */
+  --itsm-text-3xl: 1.875rem;    /* 30px */
+
+  /* Line Heights */
+  --itsm-leading-tight: 1.25;
+  --itsm-leading-normal: 1.5;
+  --itsm-leading-relaxed: 1.625;
+
+  /* Font Weights */
+  --itsm-weight-normal: 400;
+  --itsm-weight-medium: 500;
+  --itsm-weight-semibold: 600;
+  --itsm-weight-bold: 700;
+
+  /* Letter Spacing */
+  --itsm-tracking-tight: -0.01em;
+  --itsm-tracking-normal: 0;
+  --itsm-tracking-wide: 0.025em;
+  --itsm-tracking-wider: 0.05em;
+
+  /* ─────────────────────────────────────────────────────────────
+     SPACING
+     Deliberate, consistent rhythm
+     ───────────────────────────────────────────────────────────── */
+  
+  --itsm-space-0: 0;
+  --itsm-space-1: 0.25rem;   /* 4px */
+  --itsm-space-2: 0.5rem;    /* 8px */
+  --itsm-space-3: 0.75rem;   /* 12px */
+  --itsm-space-4: 1rem;      /* 16px */
+  --itsm-space-5: 1.25rem;   /* 20px */
+  --itsm-space-6: 1.5rem;    /* 24px */
+  --itsm-space-8: 2rem;      /* 32px */
+  --itsm-space-10: 2.5rem;   /* 40px */
+  --itsm-space-12: 3rem;     /* 48px */
+
+  /* ─────────────────────────────────────────────────────────────
+     LAYOUT
+     ───────────────────────────────────────────────────────────── */
+  
+  --itsm-sidebar-width: 220px;
+  --itsm-sidebar-collapsed: 56px;
+  --itsm-header-height: 48px;
+  --itsm-panel-radius: 4px;
+  --itsm-input-radius: 3px;
+  --itsm-button-radius: 3px;
+
+  /* Shadows - Subtle, professional */
+  --itsm-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --itsm-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --itsm-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --itsm-shadow-overlay: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* Transitions */
+  --itsm-transition-fast: 100ms ease;
+  --itsm-transition-base: 150ms ease;
+  --itsm-transition-slow: 250ms ease;
+
+  /* Z-Index Scale */
+  --itsm-z-base: 0;
+  --itsm-z-dropdown: 100;
+  --itsm-z-sticky: 200;
+  --itsm-z-drawer: 300;
+  --itsm-z-modal: 400;
+  --itsm-z-toast: 500;
+  --itsm-z-tooltip: 600;
+}

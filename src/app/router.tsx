@@ -1,160 +1,62 @@
-import { Navigate } from "react-router-dom";
-import { createBrowserRouter } from "react-router-dom";
-import { AppShell } from "./layout/AppShell";
-import { RequireAuth } from "./layout/RequireAuth";
-import { LoginPage } from "./pages/LoginPage";
-import { NotFoundPage } from "./pages/NotFoundPage";
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { AppShell } from './layout/AppShell';
 import {
-  CallLogsPage,
-  ContactsPage,
-  CustomersPage,
   DashboardPage,
-  KnowledgeBaseAgentPage,
-  KnowledgeBaseArticlePage,
-  KnowledgeBasePublicCategoryPage,
-  KnowledgeBasePublicPage,
-  MyTicketNewPage,
-  MyTicketPage,
-  MyTicketsPage,
-  NotificationsPage,
-  SearchPage,
-  TicketNewPage,
-  TicketPage,
   TicketsPage,
-} from "./pages/RoutePages";
+  TicketDetailPage,
+  TicketNewPage,
+  KnowledgeBasePage,
+  CustomersPage,
+  ContactsPage,
+  SettingsPage,
+  MyTicketsPage,
+} from './pages';
+import { RequireAuth } from '../lib/auth/RequireAuth';
+
+function PlaceholderPage({ title }: { title: string }) {
+  return (
+    <div style={{ padding: 'var(--itsm-space-6)' }}>
+      <h1 style={{ fontSize: 'var(--itsm-text-xl)', fontWeight: 600, color: 'var(--itsm-text-primary)' }}>
+        {title}
+      </h1>
+      <p style={{ marginTop: 'var(--itsm-space-2)', color: 'var(--itsm-text-tertiary)' }}>
+        This page is under construction.
+      </p>
+    </div>
+  );
+}
 
 export const router = createBrowserRouter([
   {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/",
+    path: '/',
     element: (
       <RequireAuth>
         <AppShell />
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/tickets" replace /> },
-
-      {
-        path: "tickets",
-        element: (
-          <RequireAuth requireAgent>
-            <TicketsPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "tickets/new/:templateId?",
-        element: (
-          <RequireAuth requireAgent>
-            <TicketNewPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "tickets/:ticketId",
-        element: (
-          <RequireAuth requireAgent>
-            <TicketPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "notifications",
-        element: (
-          <RequireAuth requireAgent>
-            <NotificationsPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "dashboard",
-        element: (
-          <RequireAuth requireAgent>
-            <DashboardPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "kb",
-        element: (
-          <RequireAuth requireAgent>
-            <KnowledgeBaseAgentPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "kb/articles/:articleId",
-        element: (
-          <RequireAuth requireAgent>
-            <KnowledgeBaseArticlePage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "search",
-        element: (
-          <RequireAuth requireAgent>
-            <SearchPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "customers",
-        element: (
-          <RequireAuth requireAgent>
-            <CustomersPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "contacts",
-        element: (
-          <RequireAuth requireAgent>
-            <ContactsPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: "call-logs",
-        element: (
-          <RequireAuth requireAgent>
-            <CallLogsPage />
-          </RequireAuth>
-        ),
-      },
-
-      {
-        path: "my-tickets",
-        element: <MyTicketsPage />,
-      },
-      {
-        path: "my-tickets/new",
-        element: <MyTicketNewPage />,
-      },
-      {
-        path: "my-tickets/:ticketId",
-        element: <MyTicketPage />,
-      },
-      {
-        path: "kb-public",
-        element: <KnowledgeBasePublicPage />,
-      },
-      {
-        path: "kb-public/:categoryId",
-        element: <KnowledgeBasePublicCategoryPage />,
-      },
-      {
-        path: "kb-public/articles/:articleId",
-        element: <KnowledgeBaseArticlePage />,
-      },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'tickets', element: <TicketsPage /> },
+      { path: 'tickets/new', element: <TicketNewPage /> },
+      { path: 'tickets/:id', element: <TicketDetailPage /> },
+      { path: 'kb', element: <KnowledgeBasePage /> },
+      { path: 'kb/new', element: <PlaceholderPage title="New Article" /> },
+      { path: 'kb/:id', element: <PlaceholderPage title="Article Detail" /> },
+      { path: 'kb-public', element: <KnowledgeBasePage /> },
+      { path: 'saved-replies', element: <PlaceholderPage title="Saved Replies" /> },
+      { path: 'customers', element: <CustomersPage /> },
+      { path: 'contacts', element: <ContactsPage /> },
+      { path: 'call-logs', element: <PlaceholderPage title="Call Logs" /> },
+      { path: 'settings', element: <SettingsPage /> },
+      { path: 'my-tickets', element: <MyTicketsPage /> },
+      { path: 'my-tickets/new', element: <TicketNewPage /> },
+      { path: 'my-tickets/:id', element: <TicketDetailPage /> },
+      { path: 'search', element: <PlaceholderPage title="Search" /> },
     ],
   },
   {
-    path: "*",
-    element: <NotFoundPage />,
+    path: '/login',
+    element: <PlaceholderPage title="Login" />,
   },
 ]);
