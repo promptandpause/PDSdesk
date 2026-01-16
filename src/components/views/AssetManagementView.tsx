@@ -438,7 +438,7 @@ export function AssetManagementView() {
   };
 
   return (
-    <div className="flex-1 flex h-full bg-white overflow-hidden">
+    <div className="pds-page flex-1">
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -448,9 +448,11 @@ export function AssetManagementView() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Asset Tag</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Asset Tag
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createAssetTag}
                 onChange={(e) => setCreateAssetTag(e.target.value)}
                 placeholder="Asset tag"
@@ -458,9 +460,11 @@ export function AssetManagementView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Name
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
                 placeholder="Asset name"
@@ -468,9 +472,11 @@ export function AssetManagementView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Type
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createType}
                 onChange={(e) => setCreateType(e.target.value)}
                 placeholder="Asset type"
@@ -478,9 +484,11 @@ export function AssetManagementView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Status
+              </label>
               <select
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createStatus}
                 onChange={(e) => setCreateStatus(e.target.value)}
                 disabled={createSubmitting}
@@ -491,50 +499,60 @@ export function AssetManagementView() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Serial</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Serial
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createSerial}
                 onChange={(e) => setCreateSerial(e.target.value)}
                 disabled={createSubmitting}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Model
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createModel}
                 onChange={(e) => setCreateModel(e.target.value)}
                 disabled={createSubmitting}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Manufacturer</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Manufacturer
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createManufacturer}
                 onChange={(e) => setCreateManufacturer(e.target.value)}
                 disabled={createSubmitting}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Location
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createLocation}
                 onChange={(e) => setCreateLocation(e.target.value)}
                 disabled={createSubmitting}
               />
             </div>
             {createError && (
-              <div className="text-sm text-red-600">{createError}</div>
+              <div className="text-sm" style={{ color: "var(--pds-danger)" }}>
+                {createError}
+              </div>
             )}
           </div>
 
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => setCreateOpen(false)}
               disabled={createSubmitting}
             >
@@ -542,7 +560,7 @@ export function AssetManagementView() {
             </button>
             <button
               type="button"
-              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+              className="pds-btn pds-btn--primary pds-focus"
               onClick={() => void submitCreate()}
               disabled={createSubmitting}
             >
@@ -561,9 +579,11 @@ export function AssetManagementView() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Status
+              </label>
               <select
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -575,20 +595,24 @@ export function AssetManagementView() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Type
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
                 placeholder="all"
               />
-              <div className="text-xs text-gray-500 mt-1">Use “all” to include all types. Matches exact type.</div>
+              <div className="text-xs pds-text-muted mt-1">Use “all” to include all types. Matches exact type.</div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location contains</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Location contains
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
                 placeholder="HQ"
@@ -599,7 +623,7 @@ export function AssetManagementView() {
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => {
                 setFilterStatus("all");
                 setFilterType("all");
@@ -610,7 +634,7 @@ export function AssetManagementView() {
             </button>
             <button
               type="button"
-              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+              className="pds-btn pds-btn--primary pds-focus"
               onClick={() => setFiltersOpen(false)}
             >
               Apply
@@ -635,11 +659,15 @@ export function AssetManagementView() {
               ["status", "Status"],
               ["updated_at", "Updated"],
             ] as Array<[AssetColumn, string]>).map(([key, label]) => (
-              <label key={key} className="flex items-center justify-between gap-3 text-sm text-gray-700">
+              <label
+                key={key}
+                className="flex items-center justify-between gap-3 text-sm"
+                style={{ color: "var(--pds-text)" }}
+              >
                 <span>{label}</span>
                 <input
                   type="checkbox"
-                  className="rounded"
+                  className="rounded pds-focus"
                   checked={columnVisibility[key]}
                   onChange={(e) => setColumnVisibility((prev) => ({ ...prev, [key]: e.target.checked }))}
                 />
@@ -650,7 +678,7 @@ export function AssetManagementView() {
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => setViewSettingsOpen(false)}
             >
               Close
@@ -659,349 +687,365 @@ export function AssetManagementView() {
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
-      <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
-        <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#2d3e50]">
-            Asset Management
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus size={14} />
-              New Asset
-            </button>
-            <button
-              type="button"
-              className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
-              onClick={() => exportCsv()}
-            >
-              <Download size={14} />
-              Export
-            </button>
-            <button
-              type="button"
-              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-              onClick={() => setViewSettingsOpen(true)}
-              title="View settings"
-            >
-              <Settings size={16} className="text-[#2d3e50]" />
-            </button>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-300 px-4 py-3 flex items-center gap-3 bg-white">
-          <div className="flex-1 relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              placeholder="Search assets..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-            />
-          </div>
-          <button
-            type="button"
-            className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
-            onClick={() => setFiltersOpen(true)}
-          >
-            <Filter size={14} />
-            Filters
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-auto">
-          {error && (
-            <div className="m-4 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="p-4 text-sm text-gray-600">Loading...</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-[#f5f5f5] border-b border-gray-300 sticky top-0">
-                <tr>
-                  {columnVisibility.asset_tag && (
-                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Asset Tag</th>
-                  )}
-                  {columnVisibility.name && (
-                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Name</th>
-                  )}
-                  {columnVisibility.asset_type && (
-                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Type</th>
-                  )}
-                  {columnVisibility.location && (
-                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Location</th>
-                  )}
-                  {columnVisibility.status && (
-                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Status</th>
-                  )}
-                  {columnVisibility.updated_at && (
-                    <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">Updated</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssets.map((asset) => (
-                  <tr
-                    key={asset.id}
-                    className={`border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer transition-colors ${
-                      selectedAssetId === asset.id ? "bg-[#e6f2ff]" : ""
-                    }`}
-                    onClick={() => openAsset(asset.id)}
-                  >
-                    {columnVisibility.asset_tag && (
-                      <td className="px-4 py-3 text-[#4a9eff] font-medium">{asset.asset_tag}</td>
-                    )}
-                    {columnVisibility.name && <td className="px-4 py-3">{asset.name}</td>}
-                    {columnVisibility.asset_type && (
-                      <td className="px-4 py-3">{asset.asset_type ?? ""}</td>
-                    )}
-                    {columnVisibility.location && (
-                      <td className="px-4 py-3">{asset.location ?? ""}</td>
-                    )}
-                    {columnVisibility.status && (
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          {asset.status}
-                        </span>
-                      </td>
-                    )}
-                    {columnVisibility.updated_at && (
-                      <td className="px-4 py-3">
-                        {asset.updated_at ? new Date(asset.updated_at).toLocaleDateString() : ""}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {selectedAssetId && (
-        <div className="w-[440px] border-l border-gray-300 bg-white flex flex-col">
-          <div className="border-b border-gray-300 px-4 py-3 flex items-center justify-between bg-[#f5f5f5]">
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="pds-page-header px-4 py-3 flex items-center justify-between">
+            <h2 className="pds-page-title">Asset Management</h2>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#2d3e50]">
-                <Package size={14} className="text-[#4a9eff]" />
-                Asset
+              <button
+                type="button"
+                className="pds-btn pds-btn--primary pds-focus"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus size={14} />
+                New Asset
+              </button>
+              <button
+                type="button"
+                className="pds-btn pds-btn--outline pds-focus"
+                onClick={() => exportCsv()}
+              >
+                <Download size={14} />
+                Export
+              </button>
+              <button
+                type="button"
+                className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
+                onClick={() => setViewSettingsOpen(true)}
+                title="View settings"
+              >
+                <Settings size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="pds-panel">
+            <div className="pds-actionbar">
+              <div className="flex-1 relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--pds-text-muted)" }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search assets..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pds-input pds-focus w-full pl-10"
+                />
               </div>
-              {!selectedLoading && selectedAsset && (
-                <button
-                  type="button"
-                  className="px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-100"
-                  onClick={() => {
-                    if (editSubmitting) return;
-                    setEditMode((prev) => !prev);
-                  }}
-                >
-                  {editMode ? "View" : "Edit"}
-                </button>
+              <button
+                type="button"
+                className="pds-btn pds-btn--outline pds-focus"
+                onClick={() => setFiltersOpen(true)}
+              >
+                <Filter size={14} />
+                Filters
+              </button>
+            </div>
+
+            <div className="pds-table-wrap">
+              {error && (
+                <div className="pds-message" data-tone="danger">
+                  {error}
+                </div>
               )}
-              {editMode && (
-                <button
-                  type="button"
-                  className="px-2 py-1 bg-[#4a9eff] text-white rounded text-xs hover:bg-[#3a8eef]"
-                  onClick={() => void submitEdit()}
-                  disabled={editSubmitting}
-                >
-                  {editSubmitting ? "Saving..." : "Save"}
-                </button>
-              )}
-              {editMode && (
-                <button
-                  type="button"
-                  className="px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-100"
-                  onClick={() => {
-                    if (!selectedAsset) return;
-                    setEditMode(false);
-                    setEditAssetTag(selectedAsset.asset_tag ?? "");
-                    setEditName(selectedAsset.name ?? "");
-                    setEditType((selectedAsset.asset_type ?? "").trim());
-                    setEditStatus(selectedAsset.status ?? "active");
-                    setEditSerial((selectedAsset.serial_number ?? "").trim());
-                    setEditModel((selectedAsset.model ?? "").trim());
-                    setEditManufacturer((selectedAsset.manufacturer ?? "").trim());
-                    setEditLocation((selectedAsset.location ?? "").trim());
-                  }}
-                  disabled={editSubmitting}
-                >
-                  Cancel
-                </button>
+
+              {loading ? (
+                <div className="p-4 text-sm pds-text-muted">Loading...</div>
+              ) : (
+                <table className="pds-table">
+                  <thead className="pds-thead">
+                    <tr>
+                      {columnVisibility.asset_tag && <th className="pds-th">Asset Tag</th>}
+                      {columnVisibility.name && <th className="pds-th">Name</th>}
+                      {columnVisibility.asset_type && <th className="pds-th">Type</th>}
+                      {columnVisibility.location && <th className="pds-th">Location</th>}
+                      {columnVisibility.status && <th className="pds-th">Status</th>}
+                      {columnVisibility.updated_at && <th className="pds-th">Updated</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAssets.map((asset) => {
+                      const selected = selectedAssetId === asset.id;
+                      const tone =
+                        asset.status === "active"
+                          ? "success"
+                          : asset.status === "maintenance"
+                            ? "warning"
+                            : "muted";
+
+                      return (
+                        <tr
+                          key={asset.id}
+                          className="pds-row"
+                          data-selected={selected}
+                          onClick={() => openAsset(asset.id)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {columnVisibility.asset_tag && (
+                            <td className="pds-td">
+                              <span className="pds-link">{asset.asset_tag}</span>
+                            </td>
+                          )}
+                          {columnVisibility.name && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {asset.name}
+                            </td>
+                          )}
+                          {columnVisibility.asset_type && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {asset.asset_type ?? ""}
+                            </td>
+                          )}
+                          {columnVisibility.location && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {asset.location ?? ""}
+                            </td>
+                          )}
+                          {columnVisibility.status && (
+                            <td className="pds-td">
+                              <span className="pds-chip" data-tone={tone}>
+                                {asset.status}
+                              </span>
+                            </td>
+                          )}
+                          {columnVisibility.updated_at && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {asset.updated_at ? new Date(asset.updated_at).toLocaleDateString() : ""}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
-            <button
-              type="button"
-              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-              onClick={closeAsset}
-              title="Close"
-            >
-              <X size={16} className="text-[#2d3e50]" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-auto p-4">
-            {selectedError && (
-              <div className="mb-3 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
-                {selectedError}
-              </div>
-            )}
-
-            {selectedLoading || !selectedAsset ? (
-              <div className="text-sm text-gray-600">Loading...</div>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  {editMode ? (
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Name</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Asset Tag</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editAssetTag}
-                          onChange={(e) => setEditAssetTag(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Type</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editType}
-                          onChange={(e) => setEditType(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Status</label>
-                        <select
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editStatus}
-                          onChange={(e) => setEditStatus(e.target.value)}
-                          disabled={editSubmitting}
-                        >
-                          <option value="active">Active</option>
-                          <option value="retired">Retired</option>
-                          <option value="maintenance">Maintenance</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Serial</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editSerial}
-                          onChange={(e) => setEditSerial(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Model</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editModel}
-                          onChange={(e) => setEditModel(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Manufacturer</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editManufacturer}
-                          onChange={(e) => setEditManufacturer(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Location</label>
-                        <input
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
-                          value={editLocation}
-                          onChange={(e) => setEditLocation(e.target.value)}
-                          disabled={editSubmitting}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-lg font-semibold text-[#2d3e50]">
-                        {selectedAsset.name}
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {selectedAsset.asset_tag}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {!editMode && (
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-gray-500">Type</div>
-                      <div className="text-[#2d3e50]">{selectedAsset.asset_type ?? ""}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Status</div>
-                      <div className="text-[#2d3e50]">{selectedAsset.status}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Serial</div>
-                      <div className="text-[#2d3e50]">{selectedAsset.serial_number ?? ""}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Model</div>
-                      <div className="text-[#2d3e50]">{selectedAsset.model ?? ""}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Manufacturer</div>
-                      <div className="text-[#2d3e50]">{selectedAsset.manufacturer ?? ""}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500">Location</div>
-                      <div className="text-[#2d3e50]">{selectedAsset.location ?? ""}</div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="border-t border-gray-200 pt-3 space-y-2 text-xs text-gray-600">
-                  <div>
-                    <span className="text-gray-500">Purchased:</span>{" "}
-                    {selectedAsset.purchased_at ? new Date(selectedAsset.purchased_at).toLocaleDateString() : ""}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Warranty expires:</span>{" "}
-                    {selectedAsset.warranty_expires_at ? new Date(selectedAsset.warranty_expires_at).toLocaleDateString() : ""}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Updated:</span>{" "}
-                    {selectedAsset.updated_at ? new Date(selectedAsset.updated_at).toLocaleString() : ""}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
-      )}
+
+        {selectedAssetId && (
+          <div
+            className="w-[440px] pds-panel flex flex-col"
+            style={{ borderRadius: 0, borderLeft: "1px solid var(--pds-border)" }}
+          >
+            <div className="pds-actionbar">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
+                  <Package size={14} style={{ color: "var(--pds-accent)" }} />
+                  Asset
+                </div>
+                {!selectedLoading && selectedAsset && (
+                  <button
+                    type="button"
+                    className="pds-btn pds-btn--sm pds-btn--outline pds-focus"
+                    onClick={() => {
+                      if (editSubmitting) return;
+                      setEditMode((prev) => !prev);
+                    }}
+                  >
+                    {editMode ? "View" : "Edit"}
+                  </button>
+                )}
+                {editMode && (
+                  <button
+                    type="button"
+                    className="pds-btn pds-btn--sm pds-btn--primary pds-focus"
+                    onClick={() => void submitEdit()}
+                    disabled={editSubmitting}
+                  >
+                    {editSubmitting ? "Saving..." : "Save"}
+                  </button>
+                )}
+                {editMode && (
+                  <button
+                    type="button"
+                    className="pds-btn pds-btn--sm pds-btn--outline pds-focus"
+                    onClick={() => {
+                      if (!selectedAsset) return;
+                      setEditMode(false);
+                      setEditAssetTag(selectedAsset.asset_tag ?? "");
+                      setEditName(selectedAsset.name ?? "");
+                      setEditType((selectedAsset.asset_type ?? "").trim());
+                      setEditStatus(selectedAsset.status ?? "active");
+                      setEditSerial((selectedAsset.serial_number ?? "").trim());
+                      setEditModel((selectedAsset.model ?? "").trim());
+                      setEditManufacturer((selectedAsset.manufacturer ?? "").trim());
+                      setEditLocation((selectedAsset.location ?? "").trim());
+                    }}
+                    disabled={editSubmitting}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
+                onClick={closeAsset}
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {selectedError && (
+                <div className="pds-message" data-tone="danger">
+                  {selectedError}
+                </div>
+              )}
+
+              {selectedLoading || !selectedAsset ? (
+                <div className="text-sm pds-text-muted">Loading...</div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    {editMode ? (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Name</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Asset Tag</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editAssetTag}
+                            onChange={(e) => setEditAssetTag(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Type</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editType}
+                            onChange={(e) => setEditType(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Status</label>
+                          <select
+                            className="pds-input pds-focus"
+                            value={editStatus}
+                            onChange={(e) => setEditStatus(e.target.value)}
+                            disabled={editSubmitting}
+                          >
+                            <option value="active">Active</option>
+                            <option value="retired">Retired</option>
+                            <option value="maintenance">Maintenance</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Serial</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editSerial}
+                            onChange={(e) => setEditSerial(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Model</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editModel}
+                            onChange={(e) => setEditModel(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Manufacturer</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editManufacturer}
+                            onChange={(e) => setEditManufacturer(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs pds-text-muted mb-1">Location</label>
+                          <input
+                            className="pds-input pds-focus"
+                            value={editLocation}
+                            onChange={(e) => setEditLocation(e.target.value)}
+                            disabled={editSubmitting}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-lg font-semibold" style={{ color: "var(--pds-text)" }}>
+                          {selectedAsset.name}
+                        </div>
+                        <div className="mt-1 text-xs pds-text-muted">{selectedAsset.asset_tag}</div>
+                      </>
+                    )}
+                  </div>
+
+                  {!editMode && (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs pds-text-muted">Type</div>
+                        <div style={{ color: "var(--pds-text)" }}>{selectedAsset.asset_type ?? ""}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs pds-text-muted">Status</div>
+                        <div style={{ color: "var(--pds-text)" }}>{selectedAsset.status}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs pds-text-muted">Serial</div>
+                        <div style={{ color: "var(--pds-text)" }}>{selectedAsset.serial_number ?? ""}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs pds-text-muted">Model</div>
+                        <div style={{ color: "var(--pds-text)" }}>{selectedAsset.model ?? ""}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs pds-text-muted">Manufacturer</div>
+                        <div style={{ color: "var(--pds-text)" }}>{selectedAsset.manufacturer ?? ""}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs pds-text-muted">Location</div>
+                        <div style={{ color: "var(--pds-text)" }}>{selectedAsset.location ?? ""}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className="pt-3 space-y-2 text-xs pds-text-muted"
+                    style={{ borderTop: "1px solid var(--pds-border)" }}
+                  >
+                    <div>
+                      <span className="pds-text-muted">Purchased:</span>{" "}
+                      {selectedAsset.purchased_at ? new Date(selectedAsset.purchased_at).toLocaleDateString() : ""}
+                    </div>
+                    <div>
+                      <span className="pds-text-muted">Warranty expires:</span>{" "}
+                      {selectedAsset.warranty_expires_at
+                        ? new Date(selectedAsset.warranty_expires_at).toLocaleDateString()
+                        : ""}
+                    </div>
+                    <div>
+                      <span className="pds-text-muted">Updated:</span>{" "}
+                      {selectedAsset.updated_at ? new Date(selectedAsset.updated_at).toLocaleString() : ""}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

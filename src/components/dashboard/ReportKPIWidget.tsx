@@ -30,49 +30,48 @@ export function ReportKPIWidget({
     const safeGauges = Array.isArray(gauges) ? gauges : [];
 
     return (
-      <div className="bg-white border border-gray-300 rounded shadow-sm">
-        <div className="bg-[#f5f5f5] border-b border-gray-300 px-3 py-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#2d3e50]">
-            {title}
-          </h3>
+      <div className="pds-panel">
+        <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{title}</h3>
           <div className="flex items-center gap-1">
             <button
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              type="button"
+              className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
               title="Settings"
               onClick={onSettings}
             >
-              <Settings size={14} className="text-[#2d3e50]" />
+              <Settings size={14} />
             </button>
             <button
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              type="button"
+              className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
+              title="Maximize"
               onClick={onMaximize}
             >
-              <Maximize2 size={14} className="text-[#2d3e50]" />
+              <Maximize2 size={14} />
             </button>
           </div>
         </div>
 
-        <div className="p-4">
-          <p className="text-xs text-gray-600 mb-4">
-            {subtitle}
-          </p>
-          {safeGauges.length === 0 ? (
-            <div className="text-xs text-gray-600">No KPI data yet.</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {safeGauges.slice(0, 2).map((g) => (
-                <CleanGauge
-                  key={g.title}
-                  title={g.title}
-                  now={g.now}
-                  min={g.min}
-                  norm={g.norm}
-                  max={g.max}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <p className="text-xs pds-text-muted" style={{ marginBottom: 12 }}>
+          {subtitle}
+        </p>
+        {safeGauges.length === 0 ? (
+          <div className="text-xs pds-text-muted">No KPI data yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            {safeGauges.slice(0, 2).map((g) => (
+              <CleanGauge
+                key={g.title}
+                title={g.title}
+                now={g.now}
+                min={g.min}
+                norm={g.norm}
+                max={g.max}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -81,40 +80,39 @@ export function ReportKPIWidget({
   const kpiData = Array.isArray(cards) ? cards : [];
 
   return (
-    <div className="bg-white border border-gray-300 rounded shadow-sm">
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-3 py-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#2d3e50]">
-          {title}
-        </h3>
+    <div className="pds-panel">
+      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+        <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{title}</h3>
         <div className="flex items-center gap-1">
           <button
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            type="button"
+            className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
             title="Settings"
             onClick={onSettings}
           >
-            <Settings size={14} className="text-[#2d3e50]" />
+            <Settings size={14} />
           </button>
           <button
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            type="button"
+            className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
+            title="Maximize"
             onClick={onMaximize}
           >
-            <Maximize2 size={14} className="text-[#2d3e50]" />
+            <Maximize2 size={14} />
           </button>
         </div>
       </div>
 
-      <div className="p-4">
-        <p className="text-xs text-gray-600 mb-4">{subtitle}</p>
-        {kpiData.length === 0 ? (
-          <div className="text-xs text-gray-600">No KPI data yet.</div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {kpiData.map((kpi) => (
-              <KPICard key={kpi.label} {...kpi} />
-            ))}
-          </div>
-        )}
-      </div>
+      <p className="text-xs pds-text-muted" style={{ marginBottom: 12 }}>{subtitle}</p>
+      {kpiData.length === 0 ? (
+        <div className="text-xs pds-text-muted">No KPI data yet.</div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpiData.map((kpi) => (
+            <KPICard key={kpi.label} {...kpi} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -138,7 +136,7 @@ function CleanGauge({
 
   return (
     <div className="flex flex-col items-center">
-      <p className="text-xs text-[#4a9eff] font-medium mb-4 text-center">
+      <p className="text-xs font-medium mb-4 text-center" style={{ color: "var(--pds-accent)" }}>
         {title}
       </p>
 
@@ -150,7 +148,7 @@ function CleanGauge({
             cx="64"
             cy="64"
             r="56"
-            stroke="#e0e0e0"
+            stroke="var(--pds-border)"
             strokeWidth="8"
             fill="none"
           />
@@ -161,10 +159,10 @@ function CleanGauge({
             r="56"
             stroke={
               isDanger
-                ? "#d32f2f"
+                ? "var(--pds-danger)"
                 : isWarning
-                  ? "#ff9800"
-                  : "#4caf50"
+                  ? "var(--pds-warning)"
+                  : "var(--pds-success)"
             }
             strokeWidth="8"
             fill="none"
@@ -177,10 +175,10 @@ function CleanGauge({
         {/* Center value */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-2xl font-bold text-[#2d3e50]">
+            <div className="text-2xl font-bold" style={{ color: "var(--pds-text)" }}>
               {now}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs pds-text-muted">
               of {norm}
             </div>
           </div>
@@ -190,20 +188,20 @@ function CleanGauge({
       {/* Values */}
       <div className="flex items-center justify-center gap-4 text-xs">
         <div className="text-center">
-          <div className="text-gray-500 mb-0.5">Min.</div>
-          <div className="font-semibold text-[#2d3e50]">
+          <div className="pds-text-muted mb-0.5">Min.</div>
+          <div className="font-semibold" style={{ color: "var(--pds-text)" }}>
             {min}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-gray-500 mb-0.5">Norm</div>
-          <div className="font-semibold text-[#2d3e50]">
+          <div className="pds-text-muted mb-0.5">Norm</div>
+          <div className="font-semibold" style={{ color: "var(--pds-text)" }}>
             {norm}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-gray-500 mb-0.5">Max.</div>
-          <div className="font-semibold text-[#2d3e50]">
+          <div className="pds-text-muted mb-0.5">Max.</div>
+          <div className="font-semibold" style={{ color: "var(--pds-text)" }}>
             {max}
           </div>
         </div>
@@ -212,13 +210,13 @@ function CleanGauge({
       {/* Status indicator */}
       <div className="mt-3 text-xs font-medium">
         {isDanger && (
-          <span className="text-red-600">Above norm</span>
+          <span style={{ color: "var(--pds-danger)" }}>Above norm</span>
         )}
         {isWarning && !isDanger && (
-          <span className="text-orange-600">Below minimum</span>
+          <span style={{ color: "var(--pds-warning)" }}>Below minimum</span>
         )}
         {!isWarning && !isDanger && (
-          <span className="text-green-600">Within range</span>
+          <span style={{ color: "var(--pds-success)" }}>Within range</span>
         )}
       </div>
     </div>
@@ -240,21 +238,22 @@ function KPICard({
   const isPositive = safeTrend ? safeTrend.startsWith("+") : true;
 
   return (
-    <div className="flex flex-col items-center p-4 bg-gray-50 rounded border border-gray-200">
+    <div className="pds-panel flex flex-col items-center p-4" style={{ background: "var(--pds-surface-2)" }}>
       <div
         className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-        style={{ backgroundColor: `${color}20` }}
+        style={{ background: `color-mix(in srgb, ${color} 16%, transparent)` }}
       >
         <div className="text-lg font-bold" style={{ color }}>
           {value}
         </div>
       </div>
-      <div className="text-xs text-gray-600 text-center mb-1">
+      <div className="text-xs pds-text-muted text-center mb-1">
         {label}
       </div>
       {safeTrend ? (
         <div
-          className={`text-xs font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}
+          className="text-xs font-medium"
+          style={{ color: isPositive ? "var(--pds-success)" : "var(--pds-danger)" }}
         >
           {safeTrend}
         </div>

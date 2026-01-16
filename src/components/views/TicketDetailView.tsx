@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Star,
   RotateCw,
@@ -48,6 +48,15 @@ interface TicketDetailViewProps {
   isNewTicket?: boolean;
   onBack?: () => void;
   initialNotice?: string;
+  onCreated?: (ticketId: string) => void;
+  newTicketDefaults?: {
+    ticket_type?: string;
+    channel?: string;
+    mailbox?: string;
+    category?: string;
+    priority?: string;
+    assignment_group_id?: string;
+  };
 }
 
 // TODO: Fetch ticket data from Supabase
@@ -56,6 +65,8 @@ export function TicketDetailView({
   isNewTicket = false,
   onBack,
   initialNotice,
+  onCreated,
+  newTicketDefaults,
 }: TicketDetailViewProps) {
   const { user, roles, operatorGroups: operatorGroupKeys } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
@@ -64,6 +75,7 @@ export function TicketDetailView({
     roles.includes("global_admin") ||
     roles.includes("service_desk_admin") ||
     roles.includes("operator") ||
+    operatorGroupKeys.includes("it_services") ||
     operatorGroupKeys.includes("customer_service");
 
   const [activeTab, setActiveTab] = useState("general");
@@ -126,7 +138,22 @@ export function TicketDetailView({
   const [operatorMembersLoading, setOperatorMembersLoading] = useState(false);
   const [operatorMembersError, setOperatorMembersError] = useState<string | null>(null);
 
+  const isDraft = Boolean(isNewTicket && !ticket);
   const effectiveTicketId = ticket?.id ?? (isNewTicket ? null : ticketId ?? null);
+
+  const didInitDraftRef = useRef(false);
+  useEffect(() => {
+    if (!isDraft) {
+      didInitDraftRef.current = false;
+      return;
+    }
+    if (didInitDraftRef.current) return;
+    didInitDraftRef.current = true;
+
+    if (newTicketDefaults?.category) setEditCategory(newTicketDefaults.category);
+    if (newTicketDefaults?.priority) setEditPriority(newTicketDefaults.priority);
+    if (newTicketDefaults?.assignment_group_id) setEditAssignmentGroupId(newTicketDefaults.assignment_group_id);
+  }, [isDraft, newTicketDefaults?.assignment_group_id, newTicketDefaults?.category, newTicketDefaults?.priority]);
 
   const [isFavorite, setIsFavorite] = useState(false);
 
@@ -297,7 +324,7 @@ export function TicketDetailView({
 
   const loadTicket = useCallback(async () => {
     if (!user) return;
-    if (isNewTicket) {
+    if (isDraft) {
       setTicket(null);
       setTicketLoading(false);
       return;
@@ -449,7 +476,7 @@ export function TicketDetailView({
       }
     }
 
-    if (isNewTicket) {
+    if (isDraft) {
       const inserted = await supabase
         .from("tickets")
         .insert({
@@ -460,12 +487,13 @@ export function TicketDetailView({
           category: editCategory || "General",
           external_number: editExternalNumber.trim() || null,
           ...(dueAt ? { due_at: dueAt } : {}),
-          assignment_group_id: editAssignmentGroupId || null,
+          assignment_group_id: (editAssignmentGroupId || newTicketDefaults?.assignment_group_id || null) as any,
           assignee_id: editAssigneeId || null,
           requester_id: user.id,
           created_by: user.id,
-          ticket_type: "itsm_incident",
-          channel: "manual",
+          ticket_type: (newTicketDefaults?.ticket_type ?? "itsm_incident") as any,
+          channel: (newTicketDefaults?.channel ?? "manual") as any,
+          mailbox: (newTicketDefaults?.mailbox ?? null) as any,
         })
         .select(
           "id,ticket_number,title,description,status,priority,category,due_at,external_number,assignment_group_id,assignee_id,ticket_type,channel,mailbox,requester_name,requester_email,requester:requester_id(full_name,email),assignee:assignee_id(full_name,email)",
@@ -513,6 +541,11 @@ export function TicketDetailView({
             title: row.title,
           },
         });
+
+      onCreated?.(row.id);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("pdsdesk:refresh"));
+      }
 
       setSaveLoading(false);
       return;
@@ -592,7 +625,7 @@ export function TicketDetailView({
     }
 
     setSaveLoading(false);
-  }, [editAssignmentGroupId, editAssigneeId, editCategory, editDescription, editDueDate, editDueTime, editExternalNumber, editPriority, editStatus, editTitle, isNewTicket, supabase, ticket, ticketId, user]);
+  }, [editAssigneeId, editAssignmentGroupId, editCategory, editDescription, editDueDate, editDueTime, editExternalNumber, editPriority, editStatus, editTitle, isDraft, newTicketDefaults?.assignment_group_id, newTicketDefaults?.channel, newTicketDefaults?.mailbox, newTicketDefaults?.ticket_type, onCreated, supabase, ticket, ticketId, user]);
 
   const copyText = async (text: string) => {
     const value = text.trim();
@@ -641,7 +674,7 @@ export function TicketDetailView({
 
   const loadTimeEntries = useCallback(async () => {
     if (!user) return;
-    if (!effectiveTicketId) {
+    if (!effectiveTicketId && !isDraft) {
       setTimeEntries([]);
       setTimeEntriesError(null);
       return;
@@ -673,7 +706,7 @@ export function TicketDetailView({
 
     setTimeEntries(normalized as unknown as TicketTimeEntryRow[]);
     setTimeEntriesLoading(false);
-  }, [effectiveTicketId, supabase, user]);
+  }, [effectiveTicketId, isDraft, supabase, user]);
 
   useEffect(() => {
     void loadTimeEntries();
@@ -2464,36 +2497,37 @@ export function TicketDetailView({
   ];
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-full overflow-hidden">
+    <div className="pds-page flex-1 overflow-hidden">
       {/* Header */}
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-              title="Back"
-            >
-              <ArrowLeft size={16} className="text-[#2d3e50]" />
-            </button>
-          )}
-          <h2 className="text-lg font-semibold text-[#2d3e50]">
-            {isNewTicket
-              ? "New Incident"
-              : ticketLoading
-                ? "Loading..."
-                : ticket
-                  ? `${ticket.ticket_number} ${ticket.title}`
-                  : ticketId
-                    ? `Ticket ${ticketId}`
-                    : "Ticket"}
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="pds-page-header flex-shrink-0">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="pds-icon-btn pds-focus"
+                title="Back"
+              >
+                <ArrowLeft size={16} className="pds-header-icon" />
+              </button>
+            )}
+            <h2 className="pds-page-title">
+              {isDraft
+                ? "New Incident"
+                : ticketLoading
+                  ? "Loading..."
+                  : ticket
+                    ? `${ticket.ticket_number} ${ticket.title}`
+                    : ticketId
+                      ? `Ticket ${ticketId}`
+                      : "Ticket"}
+            </h2>
+          </div>
+          <div className="pds-toolbar-actions">
           <button
             type="button"
-            className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
+            className="pds-btn pds-btn--primary pds-focus"
             onClick={() => void handleSave()}
             disabled={saveLoading}
           >
@@ -2502,24 +2536,24 @@ export function TicketDetailView({
           </button>
           <button
             type="button"
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="pds-icon-btn pds-focus"
             onClick={toggleFavorite}
             title={isFavorite ? "Unfavorite" : "Favorite"}
             disabled={!effectiveTicketId}
           >
-            <Star size={16} className={isFavorite ? "text-yellow-600" : "text-[#2d3e50]"} />
+            <Star size={16} className={isFavorite ? "text-yellow-600" : "pds-header-icon"} />
           </button>
           <button
             type="button"
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="pds-icon-btn pds-focus"
             onClick={refreshAll}
             title="Refresh"
           >
-            <RotateCw size={16} className="text-[#2d3e50]" />
+            <RotateCw size={16} className="pds-header-icon" />
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+            className="pds-btn pds-btn--outline pds-focus"
             onClick={() => void handleEscalate()}
             disabled={!effectiveTicketId}
           >
@@ -2532,7 +2566,7 @@ export function TicketDetailView({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                className="pds-btn pds-btn--outline pds-focus"
               >
                 Create <ChevronDown size={14} />
               </button>
@@ -2560,7 +2594,7 @@ export function TicketDetailView({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                className="pds-btn pds-btn--outline pds-focus"
               >
                 <MoreHorizontal size={14} />
                 <ChevronDown size={14} />
@@ -2600,6 +2634,7 @@ export function TicketDetailView({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        </div>
       </div>
 
       <Dialog open={escalateOpen} onOpenChange={setEscalateOpen}>
@@ -2612,15 +2647,15 @@ export function TicketDetailView({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="border border-gray-200 rounded p-3 bg-gray-50">
-              <div className="text-xs text-gray-600">Routing</div>
-              <div className="mt-1 text-sm text-[#2d3e50]">
+            <div className="pds-panel p-3" style={{ background: "var(--pds-surface-2)" }}>
+              <div className="text-xs pds-text-muted">Routing</div>
+              <div className="mt-1 text-sm" style={{ color: "var(--pds-text)" }}>
                 <span className="font-medium">From:</span>{" "}
                 {ticket?.assignment_group_id
                   ? operatorGroups.find((g) => g.id === ticket.assignment_group_id)?.name ?? "Current queue"
                   : "Unassigned"}
                 {" "}
-                <span className="text-gray-500">→</span>{" "}
+                <span className="pds-text-muted">→</span>{" "}
                 <span className="font-medium">To:</span>{" "}
                 {escalateGroupId
                   ? operatorGroups.find((g) => g.id === escalateGroupId)?.name ?? "Selected queue"
@@ -2629,11 +2664,11 @@ export function TicketDetailView({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium" style={{ color: "var(--pds-text)" }}>
                 Escalate to
               </label>
               <select
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus w-full"
                 value={escalateGroupId}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -2655,14 +2690,14 @@ export function TicketDetailView({
                 ))}
               </select>
               {operatorGroupsError && (
-                <div className="mt-1 text-xs text-red-600">{operatorGroupsError}</div>
+                <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>{operatorGroupsError}</div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Assign to</label>
+              <label className="block text-sm font-medium" style={{ color: "var(--pds-text)" }}>Assign to</label>
               <select
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus w-full"
                 value={escalateAssigneeId}
                 onChange={(e) => setEscalateAssigneeId(e.target.value)}
                 disabled={escalateSubmitting || !escalateGroupId || escalateMembersLoading}
@@ -2678,11 +2713,11 @@ export function TicketDetailView({
                     </option>
                   ))}
               </select>
-              {escalateMembersError && <div className="mt-1 text-xs text-red-600">{escalateMembersError}</div>}
+              {escalateMembersError && <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>{escalateMembersError}</div>}
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm" style={{ color: "var(--pds-text)" }}>
                 <input
                   type="checkbox"
                   checked={escalateNotifyAssignee}
@@ -2694,7 +2729,7 @@ export function TicketDetailView({
                 />
                 Notify new assignee by email
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm" style={{ color: "var(--pds-text)" }}>
                 <input
                   type="checkbox"
                   checked={escalateNotifyGroup}
@@ -2706,18 +2741,18 @@ export function TicketDetailView({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium" style={{ color: "var(--pds-text)" }}>
                 Note
               </label>
               <textarea
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus w-full"
                 rows={4}
                 value={escalateNote}
                 onChange={(e) => setEscalateNote(e.target.value)}
                 placeholder="Add context for the receiving team (optional)"
                 disabled={escalateSubmitting}
               />
-              <label className="flex items-center gap-2 text-sm text-gray-700 mt-2">
+              <label className="flex items-center gap-2 text-sm mt-2" style={{ color: "var(--pds-text)" }}>
                 <input
                   type="checkbox"
                   checked={escalateAddInternalNote}
@@ -2728,7 +2763,7 @@ export function TicketDetailView({
               </label>
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm" style={{ color: "var(--pds-text)" }}>
               <input
                 type="checkbox"
                 checked={escalateMakeUrgent}
@@ -2739,14 +2774,14 @@ export function TicketDetailView({
             </label>
 
             {escalateError && (
-              <div className="text-sm text-red-600">{escalateError}</div>
+              <div className="text-sm" style={{ color: "var(--pds-danger)" }}>{escalateError}</div>
             )}
           </div>
 
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => setEscalateOpen(false)}
               disabled={escalateSubmitting}
             >
@@ -2754,7 +2789,7 @@ export function TicketDetailView({
             </button>
             <button
               type="button"
-              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
+              className="pds-btn pds-btn--primary pds-focus"
               onClick={() => void submitEscalation()}
               disabled={
                 escalateSubmitting ||
@@ -2780,11 +2815,11 @@ export function TicketDetailView({
       </Dialog>
 
       {notice && (
-        <div className="px-4 py-2 text-sm border-b text-green-700 bg-green-50 border-green-200 flex items-center justify-between">
-          <div>{notice}</div>
+        <div className="pds-message" data-tone="success">
+          <div className="flex-1">{notice}</div>
           <button
             type="button"
-            className="p-1 hover:bg-green-100 rounded"
+            className="pds-icon-btn pds-focus"
             onClick={() => setNotice(null)}
             title="Dismiss"
           >
@@ -2794,17 +2829,14 @@ export function TicketDetailView({
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-300 flex flex-wrap items-center gap-1 px-4 py-1 bg-white flex-shrink-0 relative z-20 pointer-events-auto">
+      <div className="pds-subtabs flex-shrink-0 relative z-20 pointer-events-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? "text-[#4a9eff] border-b-2 border-[#4a9eff]"
-                : "text-gray-600 hover:text-[#2d3e50]"
-            }`}
+            className="pds-subtab pds-focus"
+            data-active={activeTab === tab.id ? "true" : "false"}
           >
             {tab.label}
           </button>
@@ -2814,38 +2846,48 @@ export function TicketDetailView({
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Form Fields */}
-        <div className="w-96 border-r border-gray-300 overflow-y-auto p-4 bg-white">
+        <div className="w-96 border-r border-[var(--pds-border)] overflow-y-auto p-4" style={{ background: "var(--pds-surface)" }}>
           {ticketError && (
-            <div className="mb-4 text-sm text-red-600">{ticketError}</div>
+            <div
+              className="pds-panel mb-4 p-3 text-sm"
+              style={{ background: "rgba(180, 35, 24, 0.06)", color: "var(--pds-danger)" }}
+            >
+              {ticketError}
+            </div>
           )}
           {saveError && (
-            <div className="mb-4 text-sm text-red-600">{saveError}</div>
+            <div
+              className="pds-panel mb-4 p-3 text-sm"
+              style={{ background: "rgba(180, 35, 24, 0.06)", color: "var(--pds-danger)" }}
+            >
+              {saveError}
+            </div>
           )}
           {/* Caller Section */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-[#2d3e50]">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
                 Caller
               </h3>
-              <button className="text-xs text-[#4a9eff] hover:underline">
+              <button className="pds-btn pds-btn--link pds-focus" type="button">
                 Share with others
               </button>
             </div>
-            <div className="flex items-start gap-3 p-3 bg-[#f5f5f5] rounded border border-gray-200">
-              <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                <UserIcon size={24} className="text-gray-600" />
+            <div className="pds-panel flex items-start gap-3 p-3" style={{ background: "var(--pds-surface-2)" }}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(17, 20, 24, 0.10)" }}>
+                <UserIcon size={24} className="pds-text-muted" />
               </div>
               <div className="flex-1 text-sm">
-                <div className="font-semibold text-[#2d3e50] mb-1">
+                <div className="font-semibold mb-1" style={{ color: "var(--pds-text)" }}>
                   {ticket?.requester?.full_name ?? ticket?.requester_name ?? ticket?.requester?.email ?? ticket?.requester_email ?? "-"}
                 </div>
-                <div className="text-xs text-gray-600 space-y-0.5">
+                <div className="text-xs pds-text-muted space-y-0.5">
                   {!ticket?.requester && (ticket?.requester_name || ticket?.requester_email) && (
                     <div>External requester</div>
                   )}
 
                   {(ticket?.requester?.email ?? ticket?.requester_email) && (
-                    <div className="text-[#4a9eff]">
+                    <div style={{ color: "var(--pds-accent)" }}>
                       {ticket?.requester?.email ?? ticket?.requester_email}
                     </div>
                   )}
@@ -2857,42 +2899,42 @@ export function TicketDetailView({
           {/* Incident Details */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-[#2d3e50]">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
                 {editTitle || "Incident"}
               </h3>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Failure
                 </label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Software
                 </label>
                 <input
                   type="text"
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   External Number
                 </label>
                 <input
                   type="text"
                   value={editExternalNumber}
                   onChange={(e) => setEditExternalNumber(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
             </div>
@@ -2900,16 +2942,16 @@ export function TicketDetailView({
 
           {/* Planning Section */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>
               Planning
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Priority
                 </label>
                 <select
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                   value={editPriority}
                   onChange={(e) => setEditPriority(e.target.value)}
                 >
@@ -2920,11 +2962,11 @@ export function TicketDetailView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Duration
                 </label>
                 <select
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                   value={durationPreset}
                   onChange={(e) => applyDurationPreset(e.target.value)}
                 >
@@ -2936,7 +2978,7 @@ export function TicketDetailView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Target Date
                 </label>
                 <div className="flex gap-2">
@@ -2944,13 +2986,13 @@ export function TicketDetailView({
                     type="date"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                    className="pds-input pds-focus flex-1"
                   />
                   <input
                     type="time"
                     value={editDueTime}
                     onChange={(e) => setEditDueTime(e.target.value)}
-                    className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                    className="pds-input pds-focus w-24"
                   />
                 </div>
               </div>
@@ -2958,7 +3000,7 @@ export function TicketDetailView({
                 <input
                   type="checkbox"
                   id="on-hold"
-                  className="rounded"
+                  className="pds-focus"
                   checked={editStatus === "pending"}
                   onChange={(e) => {
                     if (e.target.checked) {
@@ -2972,7 +3014,8 @@ export function TicketDetailView({
                 />
                 <label
                   htmlFor="on-hold"
-                  className="text-sm text-gray-700"
+                  className="text-sm"
+                  style={{ color: "var(--pds-text)" }}
                 >
                   On Hold
                 </label>
@@ -2982,16 +3025,16 @@ export function TicketDetailView({
 
           {/* Processing Section */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>
               Processing
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Operator Group
                 </label>
                 <select
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                   value={editAssignmentGroupId}
                   onChange={(e) => setEditAssignmentGroupId(e.target.value)}
                   disabled={operatorGroupsLoading}
@@ -3004,15 +3047,15 @@ export function TicketDetailView({
                   ))}
                 </select>
                 {operatorGroupsError && (
-                  <div className="mt-1 text-xs text-red-600">{operatorGroupsError}</div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>{operatorGroupsError}</div>
                 )}
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Operator
                 </label>
                 <select
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                   value={editAssigneeId}
                   onChange={(e) => setEditAssigneeId(e.target.value)}
                   disabled={operatorMembersLoading}
@@ -3046,15 +3089,15 @@ export function TicketDetailView({
                   )}
                 </select>
                 {operatorMembersError && (
-                  <div className="mt-1 text-xs text-red-600">{operatorMembersError}</div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>{operatorMembersError}</div>
                 )}
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Status
                 </label>
                 <select
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value)}
                 >
@@ -3067,12 +3110,12 @@ export function TicketDetailView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Closed
                 </label>
                 <input
                   type="checkbox"
-                  className="rounded"
+                  className="pds-focus"
                   checked={editStatus === "closed"}
                   onChange={(e) => {
                     if (e.target.checked) {
@@ -3086,7 +3129,7 @@ export function TicketDetailView({
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Time Spent
                 </label>
                 <div className="flex gap-2 items-center">
@@ -3094,18 +3137,18 @@ export function TicketDetailView({
                     type="text"
                     value={String(totalTimeHours)}
                     readOnly
-                    className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                    className="pds-input pds-focus w-20"
                   />
-                  <span className="text-gray-500">:</span>
+                  <span className="pds-text-muted">:</span>
                   <input
                     type="text"
                     value={String(totalTimeRemainderMinutes).padStart(2, "0")}
                     readOnly
-                    className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                    className="pds-input pds-focus w-20"
                   />
                 </div>
                 {timeEntriesError && (
-                  <div className="mt-1 text-xs text-red-600">{timeEntriesError}</div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>{timeEntriesError}</div>
                 )}
               </div>
             </div>
@@ -3113,29 +3156,29 @@ export function TicketDetailView({
         </div>
 
         {/* Right Panel - Messages/Activity */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 bg-[#fafafa]">
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--pds-bg)" }}>
+          <div className="flex-1 overflow-y-auto p-4">
             {activeTab === "audit-trail" ? (
               <div className="space-y-4">
                 {!effectiveTicketId ? (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Save the ticket to view audit trail.
                   </div>
                 ) : (
                   <>
                     {auditEventsError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {auditEventsError}
                       </div>
                     )}
                     {auditEventsLoading && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         Loading audit trail...
                       </div>
                     )}
 
                     {!auditEventsLoading && !auditEventsError && auditEvents.length === 0 && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         No audit events yet.
                       </div>
                     )}
@@ -3213,19 +3256,19 @@ export function TicketDetailView({
                           })();
 
                           return (
-                            <div key={e.id} className="bg-white p-3 rounded border border-gray-300">
+                            <div key={e.id} className="pds-panel p-3">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <div className="text-sm font-semibold text-[#2d3e50]">{e.event_type}</div>
-                                  <div className="text-xs text-gray-500">{who}</div>
+                                  <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{e.event_type}</div>
+                                  <div className="text-xs pds-text-muted">{who}</div>
                                 </div>
-                                <div className="text-xs text-gray-600">{new Date(e.created_at).toLocaleString()}</div>
+                                <div className="text-xs pds-text-muted">{new Date(e.created_at).toLocaleString()}</div>
                               </div>
 
                               {Array.isArray(changesArr) && changesArr.length > 0 && (
                                 <div className="mt-2 space-y-1">
                                   {changesArr.map((c, idx) => (
-                                    <div key={idx} className="text-xs text-gray-700">
+                                    <div key={idx} className="text-xs" style={{ color: "var(--pds-text)" }}>
                                       <span className="font-semibold">{c.field}</span>: {formatAuditValue(c.field, c.from)} → {formatAuditValue(c.field, c.to)}
                                     </div>
                                   ))}
@@ -3235,7 +3278,7 @@ export function TicketDetailView({
                               {(!Array.isArray(changesArr) || changesArr.length === 0) && payloadDetails.length > 0 && (
                                 <div className="mt-2 space-y-1">
                                   {payloadDetails.map((d) => (
-                                    <div key={d.key} className="text-xs text-gray-700">
+                                    <div key={d.key} className="text-xs" style={{ color: "var(--pds-text)" }}>
                                       <span className="font-semibold">{d.key}</span>: {d.value}
                                     </div>
                                   ))}
@@ -3252,41 +3295,41 @@ export function TicketDetailView({
             ) : activeTab === "procedure" ? (
               <div className="space-y-4">
                 {!effectiveTicketId ? (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Save the ticket to manage procedure articles.
                   </div>
                 ) : (
                   <>
                     {procedureLinkedError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {procedureLinkedError}
                       </div>
                     )}
 
-                    <div className="bg-white rounded-lg border border-gray-300 p-4">
-                      <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">Linked knowledge articles</h3>
+                    <div className="pds-panel p-4">
+                      <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>Linked knowledge articles</h3>
 
                       {procedureLinkedLoading && (
-                        <div className="text-sm text-gray-600">Loading...</div>
+                        <div className="text-sm pds-text-muted">Loading...</div>
                       )}
 
                       {!procedureLinkedLoading && procedureLinkedArticles.length === 0 && (
-                        <div className="text-sm text-gray-600">No linked articles yet.</div>
+                        <div className="text-sm pds-text-muted">No linked articles yet.</div>
                       )}
 
                       {procedureLinkedArticles.length > 0 && (
                         <div className="space-y-2">
                           {procedureLinkedArticles.map((a) => (
-                            <div key={a.id} className="flex items-start justify-between p-3 border border-gray-200 rounded">
+                            <div key={a.id} className="pds-panel flex items-start justify-between p-3" style={{ background: "var(--pds-surface-2)" }}>
                               <div>
-                                <div className="text-sm font-semibold text-[#2d3e50]">{a.title}</div>
-                                <div className="text-xs text-gray-500">{a.slug}</div>
+                                <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{a.title}</div>
+                                <div className="text-xs pds-text-muted">{a.slug}</div>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => void handleUnlinkProcedureArticle(a.id)}
                                 disabled={procedureBusyId === a.id}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                className="pds-btn pds-btn--outline pds-btn--sm pds-focus"
                               >
                                 {procedureBusyId === a.id ? "Working..." : "Unlink"}
                               </button>
@@ -3296,26 +3339,26 @@ export function TicketDetailView({
                       )}
                     </div>
 
-                    <div className="bg-white rounded-lg border border-gray-300 p-4">
-                      <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">Search knowledge base</h3>
+                    <div className="pds-panel p-4">
+                      <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>Search knowledge base</h3>
                       <input
                         type="text"
                         value={procedureSearchQuery}
                         onChange={(e) => setProcedureSearchQuery(e.target.value)}
                         placeholder="Search articles to link..."
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                        className="pds-input pds-focus w-full"
                       />
 
                       {procedureSearchError && (
-                        <div className="mt-2 text-sm text-red-600">{procedureSearchError}</div>
+                        <div className="mt-2 text-sm" style={{ color: "var(--pds-danger)" }}>{procedureSearchError}</div>
                       )}
 
                       {procedureSearchLoading && (
-                        <div className="mt-2 text-sm text-gray-600">Searching...</div>
+                        <div className="mt-2 text-sm pds-text-muted">Searching...</div>
                       )}
 
                       {!procedureSearchLoading && !procedureSearchError && procedureSearchQuery.trim() && procedureSearchResults.length === 0 && (
-                        <div className="mt-2 text-sm text-gray-600">No results.</div>
+                        <div className="mt-2 text-sm pds-text-muted">No results.</div>
                       )}
 
                       {procedureSearchResults.length > 0 && (
@@ -3323,17 +3366,17 @@ export function TicketDetailView({
                           {procedureSearchResults.map((a) => {
                             const isLinked = procedureLinkedArticles.some((l) => l.id === a.id);
                             return (
-                              <div key={a.id} className="flex items-start justify-between p-3 border border-gray-200 rounded">
+                              <div key={a.id} className="pds-panel flex items-start justify-between p-3" style={{ background: "var(--pds-surface-2)" }}>
                                 <div>
-                                  <div className="text-sm font-semibold text-[#2d3e50]">{a.title}</div>
-                                  <div className="text-xs text-gray-500">{a.slug}</div>
+                                  <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{a.title}</div>
+                                  <div className="text-xs pds-text-muted">{a.slug}</div>
                                 </div>
                                 {isLinked ? (
                                   <button
                                     type="button"
                                     onClick={() => void handleUnlinkProcedureArticle(a.id)}
                                     disabled={procedureBusyId === a.id}
-                                    className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                    className="pds-btn pds-btn--outline pds-btn--sm pds-focus"
                                   >
                                     {procedureBusyId === a.id ? "Working..." : "Unlink"}
                                   </button>
@@ -3342,7 +3385,7 @@ export function TicketDetailView({
                                     type="button"
                                     onClick={() => void handleLinkProcedureArticle(a.id)}
                                     disabled={procedureBusyId === a.id}
-                                    className="px-2 py-1 text-xs bg-[#4a9eff] text-white rounded hover:bg-[#3a8eef] transition-colors disabled:opacity-50"
+                                    className="pds-btn pds-btn--primary pds-btn--sm pds-focus"
                                   >
                                     {procedureBusyId === a.id ? "Working..." : "Link"}
                                   </button>
@@ -3359,27 +3402,27 @@ export function TicketDetailView({
             ) : activeTab === "customer-satisfaction" ? (
               <div className="space-y-4">
                 {!effectiveTicketId ? (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Save the ticket to submit customer satisfaction.
                   </div>
                 ) : (
                   <>
                     {satisfactionError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {satisfactionError}
                       </div>
                     )}
                     {satisfactionSaveError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {satisfactionSaveError}
                       </div>
                     )}
 
-                    <div className="bg-white rounded-lg border border-gray-300 p-4">
+                    <div className="pds-panel p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-[#2d3e50]">Your rating</h3>
+                        <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>Your rating</h3>
                         {avgSatisfaction !== null && (
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs pds-text-muted">
                             Average: {avgSatisfaction.toFixed(1)} / 5 ({satisfactionRows.length})
                           </div>
                         )}
@@ -3394,17 +3437,22 @@ export function TicketDetailView({
                             className="p-1"
                             title={`${n}`}
                           >
-                            <Star size={18} className={n <= myRating ? "text-yellow-500" : "text-gray-300"} />
+                            <Star
+                              size={18}
+                              style={{
+                                color: n <= myRating ? "var(--pds-warning)" : "var(--pds-text-muted)",
+                              }}
+                            />
                           </button>
                         ))}
                       </div>
 
                       <div className="mt-3">
-                        <label className="block text-xs text-gray-600 mb-1">Comment (optional)</label>
+                        <label className="block text-xs pds-text-muted mb-1">Comment (optional)</label>
                         <textarea
                           value={myComment}
                           onChange={(e) => setMyComment(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff] resize-none"
+                          className="pds-input pds-focus w-full"
                           rows={3}
                         />
                       </div>
@@ -3414,7 +3462,7 @@ export function TicketDetailView({
                           type="button"
                           onClick={() => void handleSaveSatisfaction()}
                           disabled={satisfactionSaving}
-                          className="px-3 py-1.5 text-sm bg-[#4a9eff] text-white rounded hover:bg-[#3a8eef] transition-colors disabled:opacity-50"
+                          className="pds-btn pds-btn--primary pds-focus"
                         >
                           {satisfactionSaving ? "Saving..." : "Save"}
                         </button>
@@ -3422,37 +3470,43 @@ export function TicketDetailView({
                     </div>
 
                     {satisfactionLoading && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         Loading ratings...
                       </div>
                     )}
 
                     {!satisfactionLoading && !satisfactionError && satisfactionRows.length === 0 && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         No ratings yet.
                       </div>
                     )}
 
                     {satisfactionRows.length > 0 && (
-                      <div className="bg-white rounded-lg border border-gray-300 p-4">
-                        <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">All ratings</h3>
+                      <div className="pds-panel p-4">
+                        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>All ratings</h3>
                         <div className="space-y-2">
                           {satisfactionRows.map((r) => {
                             const who = r.user?.full_name ?? r.user?.email ?? "Unknown";
                             return (
-                              <div key={r.id} className="p-3 border border-gray-200 rounded">
+                              <div key={r.id} className="pds-panel p-3" style={{ background: "var(--pds-surface-2)" }}>
                                 <div className="flex items-start justify-between">
                                   <div>
-                                    <div className="text-sm font-semibold text-[#2d3e50]">{who}</div>
-                                    <div className="text-xs text-gray-500">{new Date(r.updated_at).toLocaleString()}</div>
+                                    <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{who}</div>
+                                    <div className="text-xs pds-text-muted">{new Date(r.updated_at).toLocaleString()}</div>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     {[1, 2, 3, 4, 5].map((n) => (
-                                      <Star key={n} size={14} className={n <= r.rating ? "text-yellow-500" : "text-gray-300"} />
+                                      <Star
+                                        key={n}
+                                        size={14}
+                                        style={{
+                                          color: n <= r.rating ? "var(--pds-warning)" : "var(--pds-text-muted)",
+                                        }}
+                                      />
                                     ))}
                                   </div>
                                 </div>
-                                {r.comment && <div className="text-sm text-gray-700 mt-2">{r.comment}</div>}
+                                {r.comment && <div className="text-sm mt-2" style={{ color: "var(--pds-text)" }}>{r.comment}</div>}
                               </div>
                             );
                           })}
@@ -3465,31 +3519,31 @@ export function TicketDetailView({
             ) : activeTab === "sla" ? (
               <div className="space-y-4">
                 {!effectiveTicketId ? (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Save the ticket to view SLA.
                   </div>
                 ) : (
                   <>
                     {slaError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {slaError}
                       </div>
                     )}
 
                     {slaLoading && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         Loading SLA...
                       </div>
                     )}
 
                     {!slaLoading && !ticketSla && (
-                      <div className="bg-white rounded-lg border border-gray-300 p-4">
-                        <div className="text-sm text-gray-700 mb-3">No SLA is currently applied to this ticket.</div>
+                      <div className="pds-panel p-4">
+                        <div className="text-sm" style={{ color: "var(--pds-text)" }}>No SLA is currently applied to this ticket.</div>
                         <button
                           type="button"
                           onClick={() => void handleApplySla()}
                           disabled={slaBusy}
-                          className="px-3 py-1.5 text-sm bg-[#4a9eff] text-white rounded hover:bg-[#3a8eef] transition-colors disabled:opacity-50"
+                          className="pds-btn pds-btn--primary pds-focus mt-3"
                         >
                           {slaBusy ? "Applying..." : "Apply SLA"}
                         </button>
@@ -3498,46 +3552,46 @@ export function TicketDetailView({
 
                     {ticketSla && (
                       <>
-                        <div className="bg-white rounded-lg border border-gray-300 p-4">
-                          <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">SLA</h3>
+                        <div className="pds-panel p-4">
+                          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>SLA</h3>
                           <div className="space-y-2 text-sm">
                             <div>
-                              <span className="text-gray-500">Policy:</span>{" "}
-                              <span className="font-semibold text-[#2d3e50]">{ticketSla.sla_policy?.name ?? ticketSla.sla_policy_id ?? "-"}</span>
+                              <span className="pds-text-muted">Policy:</span>{" "}
+                              <span className="font-semibold" style={{ color: "var(--pds-text)" }}>{ticketSla.sla_policy?.name ?? ticketSla.sla_policy_id ?? "-"}</span>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div className="p-3 border border-gray-200 rounded">
-                                <div className="text-xs text-gray-500 mb-1">First response</div>
-                                <div className="text-sm font-semibold text-[#2d3e50]">
+                              <div className="pds-panel p-3" style={{ background: "var(--pds-surface-2)" }}>
+                                <div className="text-xs pds-text-muted mb-1">First response</div>
+                                <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
                                   {ticketSla.first_response_at ? "Completed" : ticketSla.first_response_due_at ? formatCountdown(ticketSla.first_response_due_at) : "Not configured"}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
+                                <div className="text-xs pds-text-muted mt-1">
                                   Due: {ticketSla.first_response_due_at ? new Date(ticketSla.first_response_due_at).toLocaleString() : "-"}
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs pds-text-muted">
                                   At: {ticketSla.first_response_at ? new Date(ticketSla.first_response_at).toLocaleString() : "-"}
                                 </div>
                                 {ticketSla.first_response_breached && (
-                                  <div className="mt-1 text-xs text-red-600">
+                                  <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>
                                     Breached{ticketSla.first_response_breached_at ? ` at ${new Date(ticketSla.first_response_breached_at).toLocaleString()}` : ""}
                                   </div>
                                 )}
                               </div>
 
-                              <div className="p-3 border border-gray-200 rounded">
-                                <div className="text-xs text-gray-500 mb-1">Resolution</div>
-                                <div className="text-sm font-semibold text-[#2d3e50]">
+                              <div className="pds-panel p-3" style={{ background: "var(--pds-surface-2)" }}>
+                                <div className="text-xs pds-text-muted mb-1">Resolution</div>
+                                <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
                                   {ticketSla.resolved_at ? "Completed" : ticketSla.resolution_due_at ? formatCountdown(ticketSla.resolution_due_at) : "Not configured"}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
+                                <div className="text-xs pds-text-muted mt-1">
                                   Due: {ticketSla.resolution_due_at ? new Date(ticketSla.resolution_due_at).toLocaleString() : "-"}
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs pds-text-muted">
                                   At: {ticketSla.resolved_at ? new Date(ticketSla.resolved_at).toLocaleString() : "-"}
                                 </div>
                                 {ticketSla.resolution_breached && (
-                                  <div className="mt-1 text-xs text-red-600">
+                                  <div className="mt-1 text-xs" style={{ color: "var(--pds-danger)" }}>
                                     Breached{ticketSla.resolution_breached_at ? ` at ${new Date(ticketSla.resolution_breached_at).toLocaleString()}` : ""}
                                   </div>
                                 )}
@@ -3551,7 +3605,7 @@ export function TicketDetailView({
                                 type="button"
                                 onClick={() => void handleMarkFirstResponse()}
                                 disabled={slaBusy}
-                                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                className="pds-btn pds-btn--outline pds-focus"
                               >
                                 {slaBusy ? "Working..." : "Mark first response"}
                               </button>
@@ -3561,7 +3615,7 @@ export function TicketDetailView({
                                 type="button"
                                 onClick={() => void handleMarkResolved()}
                                 disabled={slaBusy}
-                                className="px-3 py-1.5 text-sm bg-[#4a9eff] text-white rounded hover:bg-[#3a8eef] transition-colors disabled:opacity-50"
+                                className="pds-btn pds-btn--primary pds-focus"
                               >
                                 {slaBusy ? "Working..." : "Mark resolved"}
                               </button>
@@ -3570,14 +3624,14 @@ export function TicketDetailView({
                         </div>
 
                         {slaEvents.length > 0 && (
-                          <div className="bg-white rounded-lg border border-gray-300 p-4">
-                            <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">SLA events</h3>
+                          <div className="pds-panel p-4">
+                            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>SLA events</h3>
                             <div className="space-y-2">
                               {slaEvents.map((e) => (
-                                <div key={e.id} className="p-3 border border-gray-200 rounded">
+                                <div key={e.id} className="pds-panel p-3" style={{ background: "var(--pds-surface-2)" }}>
                                   <div className="flex items-start justify-between">
-                                    <div className="text-sm font-semibold text-[#2d3e50]">{e.event_type}</div>
-                                    <div className="text-xs text-gray-500">{new Date(e.created_at).toLocaleString()}</div>
+                                    <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{e.event_type}</div>
+                                    <div className="text-xs pds-text-muted">{new Date(e.created_at).toLocaleString()}</div>
                                   </div>
                                 </div>
                               ))}
@@ -3592,29 +3646,29 @@ export function TicketDetailView({
             ) : activeTab === "links" ? (
               <div className="space-y-4">
                 {!effectiveTicketId ? (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Save the ticket before adding links.
                   </div>
                 ) : (
                   <>
                     {addLinkError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {addLinkError}
                       </div>
                     )}
                     {linksError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {linksError}
                       </div>
                     )}
 
-                    <div className="bg-white rounded-lg border border-gray-300 p-4">
-                      <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">Add link</h3>
+                    <div className="pds-panel p-4">
+                      <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>Add link</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">Type</label>
+                          <label className="block text-xs pds-text-muted mb-1">Type</label>
                           <select
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus w-full"
                             value={newLinkType}
                             onChange={(e) => setNewLinkType(e.target.value)}
                           >
@@ -3625,12 +3679,12 @@ export function TicketDetailView({
                           </select>
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-xs text-gray-600 mb-1">Target (ticket number or id)</label>
+                          <label className="block text-xs pds-text-muted mb-1">Target (ticket number or id)</label>
                           <input
                             type="text"
                             value={newLinkTarget}
                             onChange={(e) => setNewLinkTarget(e.target.value)}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus w-full"
                           />
                         </div>
                       </div>
@@ -3640,7 +3694,7 @@ export function TicketDetailView({
                           type="button"
                           onClick={() => void handleAddLink()}
                           disabled={addLinkLoading}
-                          className="px-3 py-1.5 text-sm bg-[#4a9eff] text-white rounded hover:bg-[#3a8eef] transition-colors disabled:opacity-50"
+                          className="pds-btn pds-btn--primary pds-focus"
                         >
                           {addLinkLoading ? "Adding..." : "Add"}
                         </button>
@@ -3648,20 +3702,20 @@ export function TicketDetailView({
                     </div>
 
                     {linksLoading && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         Loading links...
                       </div>
                     )}
 
                     {!linksLoading && !linksError && links.length === 0 && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         No links yet.
                       </div>
                     )}
 
                     {links.length > 0 && (
-                      <div className="bg-white rounded-lg border border-gray-300 p-4">
-                        <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">Links ({links.length})</h3>
+                      <div className="pds-panel p-4">
+                        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>Links ({links.length})</h3>
                         <div className="space-y-2">
                           {links.map((l) => {
                             const isFrom = l.from_ticket_id === effectiveTicketId;
@@ -3670,11 +3724,12 @@ export function TicketDetailView({
                             return (
                               <div
                                 key={l.id}
-                                className="flex items-start justify-between p-3 border border-gray-200 rounded"
+                                className="pds-panel flex items-start justify-between p-3"
+                                style={{ background: "var(--pds-surface-2)" }}
                               >
                                 <div>
-                                  <div className="text-sm font-semibold text-[#2d3e50]">{otherLabel}</div>
-                                  <div className="text-xs text-gray-500">
+                                  <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{otherLabel}</div>
+                                  <div className="text-xs pds-text-muted">
                                     {l.link_type} · {new Date(l.created_at).toLocaleString()}
                                   </div>
                                 </div>
@@ -3682,7 +3737,7 @@ export function TicketDetailView({
                                   type="button"
                                   onClick={() => void handleDeleteLink(l.id)}
                                   disabled={deleteLinkBusyId === l.id}
-                                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                  className="pds-btn pds-btn--outline pds-btn--sm pds-focus"
                                 >
                                   {deleteLinkBusyId === l.id ? "Deleting..." : "Delete"}
                                 </button>
@@ -3698,53 +3753,53 @@ export function TicketDetailView({
             ) : activeTab === "time-registration" ? (
               <div className="space-y-4">
                 {!effectiveTicketId ? (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Save the ticket before logging time.
                   </div>
                 ) : (
                   <>
                     {addTimeError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {addTimeError}
                       </div>
                     )}
 
-                    <div className="bg-white rounded-lg border border-gray-300 p-4">
-                      <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">
+                    <div className="pds-panel p-4">
+                      <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>
                         Log time
                       </h3>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">Minutes</label>
+                          <label className="block text-xs pds-text-muted mb-1">Minutes</label>
                           <input
                             type="number"
                             min={1}
                             value={newTimeMinutes}
                             onChange={(e) => setNewTimeMinutes(e.target.value)}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus w-full"
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-xs text-gray-600 mb-1">Note</label>
+                          <label className="block text-xs pds-text-muted mb-1">Note</label>
                           <input
                             type="text"
                             value={newTimeNote}
                             onChange={(e) => setNewTimeNote(e.target.value)}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus w-full"
                           />
                         </div>
                       </div>
 
                       <div className="mt-3 flex items-center justify-between">
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs pds-text-muted">
                           Total: {totalTimeHours}:{String(totalTimeRemainderMinutes).padStart(2, "0")}
                         </div>
                         <button
                           type="button"
                           onClick={() => void handleAddTimeEntry()}
                           disabled={addTimeLoading}
-                          className="px-3 py-1.5 text-sm bg-[#4a9eff] text-white rounded hover:bg-[#3a8eef] transition-colors disabled:opacity-50"
+                          className="pds-btn pds-btn--primary pds-focus"
                         >
                           {addTimeLoading ? "Logging..." : "Log time"}
                         </button>
@@ -3752,42 +3807,42 @@ export function TicketDetailView({
                     </div>
 
                     {timeEntriesError && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                      <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                         {timeEntriesError}
                       </div>
                     )}
 
                     {timeEntriesLoading && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         Loading time entries...
                       </div>
                     )}
 
                     {!timeEntriesLoading && !timeEntriesError && timeEntries.length === 0 && (
-                      <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                      <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                         No time entries yet.
                       </div>
                     )}
 
                     {timeEntries.length > 0 && (
-                      <div className="bg-white rounded-lg border border-gray-300 p-4">
-                        <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">
+                      <div className="pds-panel p-4">
+                        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>
                           Time entries ({timeEntries.length})
                         </h3>
                         <div className="space-y-2">
                           {timeEntries.map((e) => {
                             const who = e.user?.full_name ?? e.user?.email ?? "Unknown";
                             return (
-                              <div key={e.id} className="p-3 border border-gray-200 rounded">
+                              <div key={e.id} className="pds-panel p-3" style={{ background: "var(--pds-surface-2)" }}>
                                 <div className="flex items-start justify-between">
                                   <div>
-                                    <div className="text-sm font-semibold text-[#2d3e50]">{who}</div>
-                                    <div className="text-xs text-gray-500">{new Date(e.created_at).toLocaleString()}</div>
+                                    <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{who}</div>
+                                    <div className="text-xs pds-text-muted">{new Date(e.created_at).toLocaleString()}</div>
                                   </div>
-                                  <div className="text-sm font-semibold text-[#2d3e50]">{e.minutes}m</div>
+                                  <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{e.minutes}m</div>
                                 </div>
                                 {e.note && (
-                                  <div className="text-sm text-gray-700 mt-2">{e.note}</div>
+                                  <div className="text-sm mt-2" style={{ color: "var(--pds-text)" }}>{e.note}</div>
                                 )}
                               </div>
                             );
@@ -3801,7 +3856,10 @@ export function TicketDetailView({
             ) : activeTab === "attachments" ? (
               <div className="space-y-4">
                 {/* Upload Area */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 bg-white hover:border-[#4a9eff] transition-colors">
+                <div
+                  className="pds-panel p-8"
+                  style={{ borderStyle: "dashed", borderWidth: 2 }}
+                >
                   <input
                     type="file"
                     id="file-upload"
@@ -3816,15 +3874,16 @@ export function TicketDetailView({
                   >
                     <Upload
                       size={48}
-                      className="text-gray-400 mb-3"
+                      className="mb-3"
+                      style={{ color: "var(--pds-text-muted)" }}
                     />
-                    <p className="text-sm font-medium text-[#2d3e50] mb-1">
+                    <p className="text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
                       Click to upload files
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs pds-text-muted">
                       or drag and drop
                     </p>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs pds-text-muted mt-2">
                       Images, PDFs, Documents (Max 10MB each)
                     </p>
                   </label>
@@ -3832,70 +3891,77 @@ export function TicketDetailView({
 
                 {/* Uploaded Files */}
                 {attachmentsError && (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                  <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                     {attachmentsError}
                   </div>
                 )}
 
                 {attachmentsLoading && (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Loading attachments...
                   </div>
                 )}
 
                 {attachments.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-300 p-4">
-                    <h3 className="text-sm font-semibold text-[#2d3e50] mb-3">
+                  <div className="pds-panel p-4">
+                    <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--pds-text)" }}>
                       Attachments ({attachments.length})
                     </h3>
                     <div className="space-y-2">
                       {attachments.map((file) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50 transition-colors"
+                          className="pds-panel flex items-center justify-between p-3"
+                          style={{ background: "var(--pds-surface-2)" }}
                         >
                           <div className="flex items-center gap-3">
                             {(file.mime_type ?? "").startsWith("image/") ? (
-                              <div className="w-12 h-12 rounded bg-blue-100 flex items-center justify-center">
+                              <div
+                                className="w-12 h-12 rounded flex items-center justify-center"
+                                style={{ background: "var(--pds-accent-soft)" }}
+                              >
                                 <ImageIcon
                                   size={20}
-                                  className="text-[#4a9eff]"
+                                  style={{ color: "var(--pds-accent)" }}
                                 />
                               </div>
                             ) : (
-                              <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center">
+                              <div
+                                className="w-12 h-12 rounded flex items-center justify-center"
+                                style={{ background: "var(--pds-surface)" }}
+                              >
                                 <File
                                   size={20}
-                                  className="text-gray-600"
+                                  style={{ color: "var(--pds-text-muted)" }}
                                 />
                               </div>
                             )}
                             <div>
-                              <p className="text-sm font-medium text-[#2d3e50]">
+                              <p className="text-sm font-medium" style={{ color: "var(--pds-text)" }}>
                                 {file.file_name}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs pds-text-muted">
                                 {formatBytes(file.size_bytes)}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
-                              className="text-xs text-[#4a9eff] hover:underline"
+                              className="pds-btn pds-btn--link pds-focus text-xs"
                               onClick={() => void openAttachment(file)}
                               disabled={attachmentsBusyId === file.id}
                             >
                               {attachmentsBusyId === file.id ? "Opening..." : "View"}
                             </button>
                             <button
-                              className="p-1 hover:bg-red-100 rounded transition-colors"
+                              className="pds-btn pds-btn--ghost pds-btn--icon pds-focus"
                               onClick={() => void removeFile(file.id)}
                               title="Remove file"
                               disabled={attachmentsBusyId === file.id}
                             >
                               <X
                                 size={14}
-                                className="text-red-600"
+                                style={{ color: "var(--pds-danger)" }}
                               />
                             </button>
                           </div>
@@ -3906,7 +3972,7 @@ export function TicketDetailView({
                 )}
 
                 {!attachmentsLoading && !attachmentsError && attachments.length === 0 && (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     No attachments yet.
                   </div>
                 )}
@@ -3914,13 +3980,13 @@ export function TicketDetailView({
             ) : !isNewTicket ? (
               <div className="space-y-4">
                 {(activeTab === "worklog" ? worklogsError : commentsError) && (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+                  <div className="pds-panel px-4 py-3 text-sm" style={{ color: "var(--pds-danger)" }}>
                     {activeTab === "worklog" ? worklogsError : commentsError}
                   </div>
                 )}
 
                 {(activeTab === "worklog" ? worklogsLoading : commentsLoading) && (
-                  <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-gray-600">
+                  <div className="pds-panel px-4 py-3 text-sm pds-text-muted">
                     Loading...
                   </div>
                 )}
@@ -3933,31 +3999,38 @@ export function TicketDetailView({
                     return (
                       <div
                         key={w.id}
-                        className={`bg-white p-3 rounded border border-gray-300 ${
-                          isInternal ? "border-l-4 border-l-[#9c27b0]" : ""
-                        }`}
+                        className="pds-panel p-3"
+                        style={
+                          isInternal
+                            ? {
+                                borderLeftWidth: 4,
+                                borderLeftStyle: "solid",
+                                borderLeftColor: "var(--pds-accent)",
+                              }
+                            : undefined
+                        }
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                              <UserIcon size={16} className="text-gray-600" />
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--pds-surface-2)" }}>
+                              <UserIcon size={16} style={{ color: "var(--pds-text-muted)" }} />
                             </div>
                             <div>
-                              <div className="font-semibold text-sm text-[#2d3e50]">
+                              <div className="font-semibold text-sm" style={{ color: "var(--pds-text)" }}>
                                 {authorLabel}
                               </div>
                               {isInternal && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs pds-text-muted">
                                   Invisible to caller
                                 </span>
                               )}
                             </div>
                           </div>
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs pds-text-muted">
                             {new Date(w.created_at).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{message}</p>
+                        <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--pds-text)" }}>{message}</p>
                       </div>
                     );
                   })
@@ -3968,139 +4041,155 @@ export function TicketDetailView({
                     return (
                       <div
                         key={c.id}
-                        className={`p-3 rounded border ${
-                          isInternal ? "bg-white border-gray-300 border-l-4 border-l-[#9c27b0]" : "bg-[#d6eeff] border-[#b3d9ff]"
-                        }`}
+                        className="pds-panel p-3"
+                        style={
+                          isInternal
+                            ? {
+                                borderLeftWidth: 4,
+                                borderLeftStyle: "solid",
+                                borderLeftColor: "var(--pds-accent)",
+                              }
+                            : { background: "var(--pds-surface-2)" }
+                        }
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                              <UserIcon size={16} className="text-gray-600" />
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--pds-surface)" }}>
+                              <UserIcon size={16} style={{ color: "var(--pds-text-muted)" }} />
                             </div>
                             <div>
-                              <div className="font-semibold text-sm text-[#2d3e50]">
+                              <div className="font-semibold text-sm" style={{ color: "var(--pds-text)" }}>
                                 {authorLabel}
                               </div>
                               {isInternal && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs pds-text-muted">
                                   Invisible to caller
                                 </span>
                               )}
                             </div>
                           </div>
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs pds-text-muted">
                             {new Date(c.created_at).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{c.body}</p>
+                        <p className="text-sm whitespace-pre-wrap" style={{ color: "var(--pds-text)" }}>{c.body}</p>
                       </div>
                     );
                   })
                 )}
 
                 {!commentsLoading && !commentsError && activeTab !== "worklog" && comments.length === 0 && (
-                  <div className="text-center text-gray-500 py-8">No messages yet.</div>
+                  <div className="text-center pds-text-muted py-8">No messages yet.</div>
                 )}
                 {!worklogsLoading && !worklogsError && activeTab === "worklog" && worklogs.length === 0 && (
-                  <div className="text-center text-gray-500 py-8">No worklog entries yet.</div>
+                  <div className="text-center pds-text-muted py-8">No worklog entries yet.</div>
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-500 py-8">
+              <div className="text-center pds-text-muted py-8">
                 Enter ticket details in the form on the left
               </div>
             )}
           </div>
 
           {/* Message Input */}
-          <div className="border-t border-gray-300 p-3 bg-white flex-shrink-0">
+          <div
+            className="pds-panel p-3 flex-shrink-0"
+            style={{ borderLeft: "none", borderRight: "none", borderBottom: "none", borderRadius: 0 }}
+          >
             {/* Helper Tools Bar */}
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-              <button 
-                onClick={() => setShowKnowledgeBase(!showKnowledgeBase)}
-                className="px-2 py-1 text-xs bg-[#f5f5f5] hover:bg-gray-200 rounded flex items-center gap-1 transition-colors"
-              >
-                <BookOpen size={14} className="text-[#4a9eff]" />
-                Knowledge Base
-              </button>
-              <button 
-                onClick={() => setShowTemplates(!showTemplates)}
-                className="px-2 py-1 text-xs bg-[#f5f5f5] hover:bg-gray-200 rounded flex items-center gap-1 transition-colors"
-              >
-                <MessageSquare size={14} className="text-[#9c27b0]" />
-                Templates ({savedTemplates.length}/5)
-              </button>
+            <div className="pds-subtoolbar mb-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowKnowledgeBase(!showKnowledgeBase)}
+                  className="pds-btn pds-btn--secondary pds-btn--sm pds-focus"
+                  type="button"
+                >
+                  <BookOpen size={14} style={{ color: "var(--pds-accent)" }} />
+                  Knowledge Base
+                </button>
+                <button
+                  onClick={() => setShowTemplates(!showTemplates)}
+                  className="pds-btn pds-btn--secondary pds-btn--sm pds-focus"
+                  type="button"
+                >
+                  <MessageSquare size={14} style={{ color: "var(--pds-accent)" }} />
+                  Templates ({savedTemplates.length}/5)
+                </button>
+              </div>
             </div>
 
             {/* Knowledge Base Panel */}
             {showKnowledgeBase && (
-              <div className="mb-3 border border-[#4a9eff] rounded-lg bg-blue-50 p-3">
+              <div className="mb-3 pds-panel p-3" style={{ borderColor: "color-mix(in srgb, var(--pds-accent) 22%, var(--pds-border))", background: "var(--pds-accent-soft)" }}>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold text-[#2d3e50] flex items-center gap-2">
-                    <BookOpen size={16} className="text-[#4a9eff]" />
+                  <h4 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--pds-text)" }}>
+                    <BookOpen size={16} style={{ color: "var(--pds-accent)" }} />
                     Knowledge Base Search
                   </h4>
-                  <button 
+                  <button
                     onClick={() => setShowKnowledgeBase(false)}
-                    className="p-1 hover:bg-red-100 rounded transition-colors"
+                    className="pds-btn pds-btn--ghost pds-btn--icon pds-focus"
+                    type="button"
                   >
-                    <X size={14} className="text-gray-600" />
+                    <X size={14} style={{ color: "var(--pds-text-muted)" }} />
                   </button>
                 </div>
                 
                 <div className="relative mb-2">
-                  <Search size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                  <Search size={14} className="absolute left-2 top-2.5" style={{ color: "var(--pds-text-muted)" }} />
                   <input
                     type="text"
                     placeholder="Search knowledge base articles..."
                     value={kbSearchQuery}
                     onChange={(e) => setKbSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                    className="pds-input pds-focus w-full pl-8"
                   />
                 </div>
 
                 <div className="max-h-64 overflow-y-auto space-y-1">
                   {kbError && (
-                    <div className="text-center py-4 text-xs text-red-600">{kbError}</div>
+                    <div className="text-center py-4 text-xs" style={{ color: "var(--pds-danger)" }}>{kbError}</div>
                   )}
 
                   {kbLoading && (
-                    <div className="text-center py-4 text-xs text-gray-500">Loading...</div>
+                    <div className="text-center py-4 text-xs pds-text-muted">Loading...</div>
                   )}
 
                   {!kbLoading && !kbError && kbArticles.length > 0 ? (
                     kbArticles.map((article) => (
                       <div
                         key={article.id}
-                        className="p-2 bg-white border border-gray-200 rounded hover:border-[#4a9eff] cursor-pointer transition-colors"
+                        className="pds-panel p-2 cursor-pointer"
+                        style={{ background: "var(--pds-surface)" }}
                         onClick={() => {
                           handleUseKbArticle(article);
                         }}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="text-xs font-semibold text-[#2d3e50]">
+                            <p className="text-xs font-semibold" style={{ color: "var(--pds-text)" }}>
                               {article.title}
                             </p>
-                            <p className="text-xs text-gray-600 mt-0.5">
+                            <p className="text-xs mt-0.5" style={{ color: "var(--pds-text)" }}>
                               {article.body.length > 120 ? `${article.body.slice(0, 120)}...` : article.body}
                             </p>
                           </div>
                           {article.tags?.[0] && (
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded ml-2 whitespace-nowrap">
+                            <span className="text-xs pds-text-muted px-2 py-0.5 rounded ml-2 whitespace-nowrap" style={{ background: "var(--pds-surface-2)" }}>
                               {article.tags[0]}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs pds-text-muted">
                             Updated {new Date(article.updated_at).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-4 text-xs text-gray-500">
+                    <div className="text-center py-4 text-xs pds-text-muted">
                       No articles found
                     </div>
                   )}
@@ -4110,28 +4199,29 @@ export function TicketDetailView({
 
             {/* Message Templates Panel */}
             {showTemplates && (
-              <div className="mb-3 border border-[#9c27b0] rounded-lg bg-purple-50 p-3">
+              <div className="mb-3 pds-panel p-3" style={{ borderColor: "color-mix(in srgb, var(--pds-accent) 22%, var(--pds-border))", background: "var(--pds-surface-2)" }}>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold text-[#2d3e50] flex items-center gap-2">
-                    <MessageSquare size={16} className="text-[#9c27b0]" />
+                  <h4 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--pds-text)" }}>
+                    <MessageSquare size={16} style={{ color: "var(--pds-accent)" }} />
                     Quick Message Templates
                   </h4>
-                  <button 
+                  <button
                     onClick={() => setShowTemplates(false)}
-                    className="p-1 hover:bg-red-100 rounded transition-colors"
+                    className="pds-btn pds-btn--ghost pds-btn--icon pds-focus"
+                    type="button"
                   >
-                    <X size={14} className="text-gray-600" />
+                    <X size={14} style={{ color: "var(--pds-text-muted)" }} />
                   </button>
                 </div>
 
                 {templatesError && (
-                  <div className="mb-2 bg-white border border-gray-300 rounded px-3 py-2 text-xs text-red-600">
+                  <div className="mb-2 pds-panel px-3 py-2 text-xs" style={{ background: "var(--pds-surface)", color: "var(--pds-danger)" }}>
                     {templatesError}
                   </div>
                 )}
 
                 {templatesLoading && (
-                  <div className="mb-2 bg-white border border-gray-300 rounded px-3 py-2 text-xs text-gray-600">
+                  <div className="mb-2 pds-panel px-3 py-2 text-xs pds-text-muted" style={{ background: "var(--pds-surface)" }}>
                     Loading templates...
                   </div>
                 )}
@@ -4140,27 +4230,30 @@ export function TicketDetailView({
                   {savedTemplates.map((template) => (
                     <div
                       key={template.id}
-                      className="p-2 bg-white border border-gray-200 rounded hover:border-[#9c27b0] transition-colors"
+                      className="pds-panel p-2"
+                      style={{ background: "var(--pds-surface)" }}
                     >
                       <div className="flex items-start justify-between mb-1">
-                        <p className="text-xs font-semibold text-[#2d3e50]">
+                        <p className="text-xs font-semibold" style={{ color: "var(--pds-text)" }}>
                           {template.name}
                         </p>
                         <button
                           onClick={() => handleDeleteTemplate(template.id)}
-                          className="p-0.5 hover:bg-red-100 rounded transition-colors"
+                          className="pds-btn pds-btn--ghost pds-btn--icon pds-focus"
+                          type="button"
                           title="Delete template"
                           disabled={templatesBusyId === template.id}
                         >
-                          <Trash2 size={12} className="text-red-600" />
+                          <Trash2 size={12} style={{ color: "var(--pds-danger)" }} />
                         </button>
                       </div>
-                      <p className="text-xs text-gray-600 mb-2">
+                      <p className="text-xs mb-2" style={{ color: "var(--pds-text)" }}>
                         {template.content}
                       </p>
                       <button
                         onClick={() => handleInsertTemplate(template)}
-                        className="text-xs text-[#4a9eff] hover:underline"
+                        className="pds-btn pds-btn--link pds-focus text-xs"
+                        type="button"
                       >
                         Use Template
                       </button>
@@ -4170,7 +4263,7 @@ export function TicketDetailView({
 
                 {/* Add New Template */}
                 {savedTemplates.length < 5 && (
-                  <div className="border-t border-purple-200 pt-2 mt-2">
+                  <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--pds-border)" }}>
                     {editingTemplate === "new" ? (
                       <div className="space-y-2">
                         <input
@@ -4178,19 +4271,20 @@ export function TicketDetailView({
                           placeholder="Template name..."
                           value={newTemplateName}
                           onChange={(e) => setNewTemplateName(e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                          className="pds-input pds-focus w-full"
                         />
                         <textarea
                           placeholder="Template content..."
                           value={newTemplateContent}
                           onChange={(e) => setNewTemplateContent(e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff] resize-none"
+                          className="pds-input pds-focus w-full resize-none"
                           rows={3}
                         />
                         <div className="flex gap-2">
                           <button
                             onClick={() => void handleSaveNewTemplate()}
-                            className="px-2 py-1 bg-[#4a9eff] text-white text-xs rounded hover:bg-[#3a8eef] transition-colors"
+                            className="pds-btn pds-btn--primary pds-btn--sm pds-focus"
+                            type="button"
                             disabled={templatesLoading}
                           >
                             {templatesLoading ? "Saving..." : "Save Template"}
@@ -4201,7 +4295,8 @@ export function TicketDetailView({
                               setNewTemplateName("");
                               setNewTemplateContent("");
                             }}
-                            className="px-2 py-1 border border-gray-300 text-xs rounded hover:bg-gray-100 transition-colors"
+                            className="pds-btn pds-btn--outline pds-btn--sm pds-focus"
+                            type="button"
                             disabled={templatesLoading}
                           >
                             Cancel
@@ -4211,7 +4306,9 @@ export function TicketDetailView({
                     ) : (
                       <button
                         onClick={() => setEditingTemplate("new")}
-                        className="w-full px-2 py-1.5 text-xs bg-white border border-dashed border-[#9c27b0] text-[#9c27b0] rounded hover:bg-purple-100 transition-colors flex items-center justify-center gap-1"
+                        className="pds-btn pds-btn--outline pds-focus w-full"
+                        style={{ borderStyle: "dashed" }}
+                        type="button"
                       >
                         <Plus size={14} />
                         Add New Template
@@ -4221,7 +4318,7 @@ export function TicketDetailView({
                 )}
 
                 {savedTemplates.length >= 5 && (
-                  <p className="text-xs text-gray-500 text-center mt-2 italic">
+                  <p className="text-xs pds-text-muted text-center mt-2 italic">
                     Maximum templates reached (5/5). Delete one to add new.
                   </p>
                 )}
@@ -4229,19 +4326,16 @@ export function TicketDetailView({
             )}
 
             {sendError && (
-              <div className="mb-2 text-xs text-red-600">{sendError}</div>
+              <div className="mb-2 text-xs" style={{ color: "var(--pds-danger)" }}>{sendError}</div>
             )}
 
             <div className="flex items-center gap-2 mb-2">
-              <div className="inline-flex rounded border border-gray-300 overflow-hidden">
+              <div className="pds-segmented">
                 <button
                   type="button"
                   onClick={() => setComposerMode("message")}
-                  className={`px-2 py-1 text-xs transition-colors ${
-                    composerMode === "message"
-                      ? "bg-[#4a9eff] text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className="pds-segment pds-focus"
+                  data-active={composerMode === "message"}
                   disabled={activeTab === "worklog"}
                   title={activeTab === "worklog" ? "Switch to a non-worklog tab to send messages" : undefined}
                 >
@@ -4250,17 +4344,14 @@ export function TicketDetailView({
                 <button
                   type="button"
                   onClick={() => setComposerMode("worklog")}
-                  className={`px-2 py-1 text-xs transition-colors ${
-                    composerMode === "worklog"
-                      ? "bg-[#9c27b0] text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className="pds-segment pds-focus"
+                  data-active={composerMode === "worklog"}
                 >
                   Worklog
                 </button>
               </div>
 
-              <div className="text-xs text-gray-500">
+              <div className="text-xs pds-text-muted">
                 {composerMode === "worklog" ? "Internal log entry" : "Message thread"}
               </div>
             </div>
@@ -4269,13 +4360,14 @@ export function TicketDetailView({
               <input
                 type="checkbox"
                 id="invisible"
-                className="rounded"
+                className="rounded pds-focus"
                 checked={invisibleToCaller}
                 onChange={(e) => setInvisibleToCaller(e.target.checked)}
               />
               <label
                 htmlFor="invisible"
-                className="text-xs text-gray-700"
+                className="text-xs"
+                style={{ color: "var(--pds-text)" }}
               >
                 Make invisible to caller
               </label>
@@ -4286,7 +4378,7 @@ export function TicketDetailView({
                   ? "Add a worklog entry..."
                   : "Type your message here..."
               }
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff] resize-none"
+              className="pds-input pds-focus w-full resize-none"
               rows={3}
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
@@ -4294,7 +4386,7 @@ export function TicketDetailView({
             <div className="flex items-center justify-between mt-2">
               <button
                 type="button"
-                className="text-xs text-[#4a9eff] hover:underline flex items-center gap-1 disabled:opacity-50"
+                className="pds-btn pds-btn--link pds-focus text-xs disabled:opacity-50"
                 onClick={() => void copyText(messageText)}
                 disabled={!messageText.trim()}
               >
@@ -4302,9 +4394,10 @@ export function TicketDetailView({
                 Copy
               </button>
               <button
-                className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+                className="pds-btn pds-btn--primary pds-focus"
                 onClick={() => void handleSend()}
                 disabled={sendLoading || !messageText.trim()}
+                type="button"
               >
                 {sendLoading
                   ? "Sending..."

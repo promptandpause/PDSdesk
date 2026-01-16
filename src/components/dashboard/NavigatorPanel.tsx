@@ -73,53 +73,55 @@ export function NavigatorPanel({
   const [activeModuleId, setActiveModuleId] = useState(modules[0]?.id ?? "call-management");
 
   return (
-    <div className="w-56 bg-white border-r border-gray-300 flex flex-col flex-shrink-0">
-      {/* Header */}
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-3 py-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#2d3e50]">
+    <div
+      className="w-56 pds-panel flex flex-col flex-shrink-0"
+      style={{ borderRadius: 0, borderRight: "1px solid var(--pds-border)", padding: 0 }}
+    >
+      <div
+        className="flex items-center justify-between"
+        style={{ padding: "8px 12px", borderBottom: "1px solid var(--pds-border)" }}
+      >
+        <h2 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
           Navigator
         </h2>
         <button
+          type="button"
           onClick={onClose}
-          className="p-1 hover:bg-gray-200 rounded transition-colors"
+          className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
           title="Hide Navigator"
         >
-          <ChevronLeft size={16} className="text-[#2d3e50]" />
+          <ChevronLeft size={16} />
         </button>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {/* Dashboards Section */}
-        <div className="border-b border-gray-200">
-          <div className="px-3 py-2 bg-[#f5f5f5]">
-            <div className="flex items-center gap-2 text-[#4a9eff]">
+        <div style={{ borderBottom: "1px solid var(--pds-border)" }}>
+          <div style={{ padding: "8px 12px" }}>
+            <div className="flex items-center gap-2" style={{ color: "var(--pds-accent)" }}>
               <BarChart3 size={14} />
-              <span className="text-xs font-semibold">
-                Service Desk KPI's
-              </span>
+              <span className="text-xs font-semibold">Service Desk KPI's</span>
             </div>
           </div>
-          <div className="py-1">
+          <div className="py-1" style={{ padding: "0 6px 6px" }}>
             {dashboards.map((dashboard) => (
               <button
                 key={dashboard.id}
+                type="button"
                 onClick={() => {
                   setActiveDashboardId(dashboard.id);
                   onOpenTab(dashboard.module, dashboard.name);
                 }}
-                className={`w-full px-6 py-1.5 text-left text-xs hover:bg-gray-100 transition-colors ${
-                  activeDashboardId === dashboard.id ? "bg-gray-100" : ""
-                }`}
+                className="pds-btn pds-btn--ghost pds-btn--sm pds-focus w-full"
+                style={{
+                  justifyContent: "flex-start",
+                  background: activeDashboardId === dashboard.id ? "var(--pds-accent-soft)" : undefined,
+                }}
               >
                 <div className="flex items-center gap-2">
-                  <dashboard.icon
-                    size={12}
-                    className="text-[#4a9eff]"
-                  />
-                  <span className="text-[#2d3e50]">
-                    {dashboard.name}
-                  </span>
+                  <dashboard.icon size={12} style={{ color: "var(--pds-accent)" }} />
+                  <span style={{ color: "var(--pds-text)" }}>{dashboard.name}</span>
                 </div>
               </button>
             ))}
@@ -127,25 +129,26 @@ export function NavigatorPanel({
         </div>
 
         {/* Modules Section */}
-        <div className="py-1">
+        <div className="py-1" style={{ padding: "6px" }}>
           {modules.map((module) => (
             <button
               key={module.id}
+              type="button"
               onClick={() => {
                 setActiveModuleId(module.id);
                 onOpenTab(module.module, module.name);
               }}
-              className={`w-full px-3 py-1.5 text-left text-xs hover:bg-[#e6f2ff] transition-colors ${
-                activeModuleId === module.id ? "bg-[#cce5ff]" : ""
-              }`}
+              className="pds-btn pds-btn--ghost pds-btn--sm pds-focus w-full"
+              style={{
+                justifyContent: "flex-start",
+                background: activeModuleId === module.id ? "var(--pds-accent-soft)" : undefined,
+              }}
             >
               <div className="flex items-center gap-2">
                 {module.icon && (
-                  <module.icon size={12} className="text-[#4a9eff]" />
+                  <module.icon size={12} style={{ color: "var(--pds-accent)" }} />
                 )}
-                <span
-                  className={`${activeModuleId === module.id ? "text-[#2d3e50] font-semibold" : "text-[#2d3e50]"}`}
-                >
+                <span style={{ color: "var(--pds-text)", fontWeight: activeModuleId === module.id ? 650 : 500 }}>
                   {module.name}
                 </span>
               </div>

@@ -32,7 +32,15 @@ type RoutingRuleRow = {
   created_at: string;
 };
 
-export function TicketRoutingRulesManager() {
+type TicketRoutingRulesManagerProps = {
+  showHeader?: boolean;
+  onChanged?: () => void;
+};
+
+export function TicketRoutingRulesManager({
+  showHeader = true,
+  onChanged,
+}: TicketRoutingRulesManagerProps) {
   const { user, isGlobalAdmin } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
@@ -193,14 +201,42 @@ export function TicketRoutingRulesManager() {
     }
 
     await loadRules();
+    onChanged?.();
     cancelEdit();
   };
 
   const requestDelete = (id: string) => {
     if (!isGlobalAdmin) return;
-    setPendingDeleteId(id);
-    setDeleteDialogOpen(true);
+
+    const ok = window.confirm(
+      "Delete routing rule? This action cannot be undone.",
+    );
+    if (!ok) return;
+
+    void deleteRuleById(id);
   };
+
+  const deleteRuleById = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      if (!isGlobalAdmin) return;
+
+      setRulesError(null);
+      setDeleting(true);
+
+      const del = await supabase.from("ticket_routing_rules").delete().eq("id", id);
+      if (del.error) {
+        setRulesError(del.error.message);
+        setDeleting(false);
+        return;
+      }
+
+      setDeleting(false);
+      await loadRules();
+      onChanged?.();
+    },
+    [isGlobalAdmin, loadRules, onChanged, supabase, user],
+  );
 
   const confirmDelete = useCallback(async () => {
     if (!user) return;
@@ -225,49 +261,59 @@ export function TicketRoutingRulesManager() {
     setPendingDeleteId(null);
     setDeleting(false);
     await loadRules();
-  }, [isGlobalAdmin, loadRules, pendingDeleteId, supabase, user]);
+    onChanged?.();
+  }, [isGlobalAdmin, loadRules, onChanged, pendingDeleteId, supabase, user]);
 
   const groupNameById = useMemo(() => {
     return new Map(groups.map((g) => [g.id, g.name] as const));
   }, [groups]);
 
   return (
-    <div className="max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-[#2d3e50] mb-1">
-            Queue Management
-          </h3>
-          <p className="text-sm text-gray-600">
-            Manage ticket routing rules to link mailboxes and ticket types to team queues.
-          </p>
+    <div className={showHeader ? "max-w-4xl" : "w-full"}>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-1" style={{ color: "var(--pds-text)" }}>
+              Queue Management
+            </h3>
+            <p className="text-sm pds-text-muted">
+              Manage ticket routing rules to link mailboxes and ticket types to team queues.
+            </p>
+          </div>
+          <button
+            onClick={startAdd}
+            disabled={!isGlobalAdmin}
+            className="pds-btn pds-btn--primary pds-focus disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+          >
+            <Plus size={16} />
+            Add Routing Rule
+          </button>
         </div>
-        <button
-          onClick={startAdd}
-          disabled={!isGlobalAdmin}
-          className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus size={16} />
-          Add Routing Rule
-        </button>
-      </div>
+      )}
 
       {(groupsError || rulesError) && (
-        <div className="mb-4 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+        <div className="mb-4 pds-panel p-3 text-sm" style={{ color: "var(--pds-danger)" }}>
           {groupsError ?? rulesError}
         </div>
       )}
 
       {(isAdding || editingId) && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
-          <h4 className="font-medium text-sm text-[#2d3e50] mb-3">
+        <div
+          className="pds-panel p-4 mb-4"
+          style={{
+            borderColor: "color-mix(in srgb, var(--pds-accent) 22%, var(--pds-border))",
+            background: "var(--pds-accent-soft)",
+          }}
+        >
+          <h4 className="font-medium text-sm mb-3" style={{ color: "var(--pds-text)" }}>
             {editingId ? "Edit Routing Rule" : "New Routing Rule"}
           </h4>
 
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Rule Key
                 </label>
                 <input
@@ -279,12 +325,12 @@ export function TicketRoutingRulesManager() {
                       rule_key: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Priority
                 </label>
                 <input
@@ -296,12 +342,12 @@ export function TicketRoutingRulesManager() {
                       priority: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Match Mailbox
                 </label>
                 <input
@@ -314,12 +360,12 @@ export function TicketRoutingRulesManager() {
                     })
                   }
                   placeholder=""
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Match Ticket Type
                 </label>
                 <input
@@ -332,12 +378,12 @@ export function TicketRoutingRulesManager() {
                     })
                   }
                   placeholder=""
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Match Category
                 </label>
                 <input
@@ -350,12 +396,12 @@ export function TicketRoutingRulesManager() {
                     })
                   }
                   placeholder=""
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs pds-text-muted mb-1">
                   Assignment Group
                 </label>
                 <select
@@ -367,7 +413,7 @@ export function TicketRoutingRulesManager() {
                     })
                   }
                   disabled={groupsLoading}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full"
                 >
                   <option value="">Unassigned</option>
                   {groups
@@ -381,7 +427,7 @@ export function TicketRoutingRulesManager() {
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm" style={{ color: "var(--pds-text)" }}>
               <input
                 type="checkbox"
                 checked={formData.is_active}
@@ -391,6 +437,7 @@ export function TicketRoutingRulesManager() {
                     is_active: e.target.checked,
                   })
                 }
+                className="rounded pds-focus"
               />
               Active
             </label>
@@ -399,14 +446,16 @@ export function TicketRoutingRulesManager() {
               <button
                 onClick={handleSave}
                 disabled={!isGlobalAdmin}
-                className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="pds-btn pds-btn--primary pds-focus disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
               >
                 <Save size={14} />
                 Save
               </button>
               <button
                 onClick={cancelEdit}
-                className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-2"
+                className="pds-btn pds-btn--outline pds-focus"
+                type="button"
               >
                 <X size={14} />
                 Cancel
@@ -416,74 +465,85 @@ export function TicketRoutingRulesManager() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-300">
+      <div className="pds-panel">
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Key</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Priority</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Active</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Mailbox</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Ticket Type</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Category</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Queue</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">Actions</th>
+              <th className="pds-th">Key</th>
+              <th className="pds-th">Priority</th>
+              <th className="pds-th">Active</th>
+              <th className="pds-th">Mailbox</th>
+              <th className="pds-th">Ticket Type</th>
+              <th className="pds-th">Category</th>
+              <th className="pds-th">Queue</th>
+              <th className="pds-th">Actions</th>
             </tr>
-          </thead>
-          <tbody>
+            </thead>
+            <tbody>
             {rulesLoading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-sm text-gray-600">
+                <td colSpan={8} className="pds-td pds-text-muted">
                   Loading...
                 </td>
               </tr>
             ) : rules.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-sm text-gray-600">
+                <td colSpan={8} className="pds-td pds-text-muted">
                   No routing rules found.
                 </td>
               </tr>
             ) : (
               rules.map((rule) => (
-                <tr key={rule.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-700">{rule.rule_key}</td>
-                  <td className="px-4 py-3 text-gray-700">{rule.priority}</td>
-                  <td className="px-4 py-3 text-gray-700">{rule.is_active ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3 text-gray-600">{rule.match_mailbox ?? ""}</td>
-                  <td className="px-4 py-3 text-gray-600">{rule.match_ticket_type ?? ""}</td>
-                  <td className="px-4 py-3 text-gray-600">{rule.match_category ?? ""}</td>
-                  <td className="px-4 py-3 text-gray-700">
+                <tr key={rule.id} className="pds-row">
+                  <td className="pds-td" style={{ color: "var(--pds-text)" }}>{rule.rule_key}</td>
+                  <td className="pds-td" style={{ color: "var(--pds-text)" }}>{rule.priority}</td>
+                  <td className="pds-td">
+                    {rule.is_active ? (
+                      <span className="pds-chip" data-tone="success">Active</span>
+                    ) : (
+                      <span className="pds-chip" data-tone="muted">Inactive</span>
+                    )}
+                  </td>
+                  <td className="pds-td pds-text-muted">{rule.match_mailbox ?? ""}</td>
+                  <td className="pds-td pds-text-muted">{rule.match_ticket_type ?? ""}</td>
+                  <td className="pds-td pds-text-muted">{rule.match_category ?? ""}</td>
+                  <td className="pds-td" style={{ color: "var(--pds-text)" }}>
                     {rule.assignment_group_id
                       ? (groupNameById.get(rule.assignment_group_id) ?? "")
                       : "Unassigned"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="pds-td">
                     {isGlobalAdmin ? (
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => startEdit(rule)}
-                          className="text-blue-600 hover:underline flex items-center gap-1"
+                          className="pds-btn pds-btn--link pds-focus text-xs"
+                          type="button"
                         >
                           <Edit size={14} />
                           Edit
                         </button>
                         <button
                           onClick={() => requestDelete(rule.id)}
-                          className="text-red-600 hover:underline flex items-center gap-1"
+                          className="pds-btn pds-btn--link pds-focus text-xs"
+                          type="button"
+                          style={{ color: "var(--pds-danger)" }}
                         >
                           <Trash2 size={14} />
                           Delete
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">Read-only</span>
+                      <span className="text-xs pds-text-muted">Read-only</span>
                     )}
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <AlertDialog
@@ -511,7 +571,7 @@ export function TicketRoutingRulesManager() {
                 e.preventDefault();
                 void confirmDelete();
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className="pds-btn--destructive"
             >
               Delete
             </AlertDialogAction>

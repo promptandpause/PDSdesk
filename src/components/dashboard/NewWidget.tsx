@@ -16,72 +16,80 @@ export function NewWidget({
   onAddWidget?: () => void;
 }) {
   return (
-    <div className="bg-white border border-gray-300 rounded shadow-sm">
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-3 py-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#2d3e50]">
-          New
-        </h3>
+    <div className="pds-panel">
+      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+        <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>New</h3>
         <div className="flex items-center gap-1">
           <button
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            type="button"
+            className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
             title="Settings"
             onClick={onSettings}
           >
-            <Settings size={14} className="text-[#2d3e50]" />
+            <Settings size={14} />
           </button>
           <button
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            type="button"
+            className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
+            title="Maximize"
             onClick={onMaximize}
           >
-            <Maximize2 size={14} className="text-[#2d3e50]" />
+            <Maximize2 size={14} />
           </button>
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            className="flex flex-col items-center gap-2 p-4 bg-[#4a9eff] hover:bg-[#3d8fe6] rounded transition-colors"
-            onClick={onAddWidget}
+      <div className="grid grid-cols-3 gap-3">
+        <button
+          type="button"
+          className="pds-btn pds-btn--outline pds-focus w-full flex flex-col items-center gap-2"
+          style={{ height: "auto", padding: "12px 10px" }}
+          onClick={onAddWidget}
+        >
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center"
+            style={{ background: "var(--pds-accent-soft)", color: "var(--pds-accent)" }}
           >
-            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-              <FileText size={24} className="text-[#4a9eff]" />
-            </div>
-            <span className="text-xs text-white font-medium">
-              Reports
-              <br />
-              calls
-            </span>
-          </button>
+            <FileText size={24} />
+          </div>
+          <span className="text-xs" style={{ fontWeight: 650 }}>
+            Reports
+          </span>
+        </button>
 
-          <button
-            className="flex flex-col items-center gap-2 p-4 bg-[#4a9eff] hover:bg-[#3d8fe6] rounded transition-colors"
-            onClick={onAddWidget}
+        <button
+          type="button"
+          className="pds-btn pds-btn--outline pds-focus w-full flex flex-col items-center gap-2"
+          style={{ height: "auto", padding: "12px 10px" }}
+          onClick={onAddWidget}
+        >
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center"
+            style={{ background: "var(--pds-accent-soft)", color: "var(--pds-accent)" }}
           >
-            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-              <BarChart3 size={24} className="text-[#4a9eff]" />
-            </div>
-            <span className="text-xs text-white font-medium">
-              KPIs
-              <br />
-              calls
-            </span>
-          </button>
+            <BarChart3 size={24} />
+          </div>
+          <span className="text-xs" style={{ fontWeight: 650 }}>
+            KPIs
+          </span>
+        </button>
 
-          <button
-            className="flex flex-col items-center gap-2 p-4 bg-[#4a9eff] hover:bg-[#3d8fe6] rounded transition-colors"
-            onClick={onAddWidget}
+        <button
+          type="button"
+          className="pds-btn pds-btn--outline pds-focus w-full flex flex-col items-center gap-2"
+          style={{ height: "auto", padding: "12px 10px" }}
+          onClick={onAddWidget}
+        >
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center"
+            style={{ background: "var(--pds-accent-soft)", color: "var(--pds-accent)" }}
           >
-            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-              <Filter size={24} className="text-[#4a9eff]" />
-            </div>
-            <span className="text-xs text-white font-medium">
-              Selection
-              <br />
-              calls
-            </span>
-          </button>
-        </div>
+            <Filter size={24} />
+          </div>
+          <span className="text-xs" style={{ fontWeight: 650 }}>
+            Selections
+          </span>
+        </button>
       </div>
     </div>
   );

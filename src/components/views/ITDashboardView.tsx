@@ -109,73 +109,55 @@ export function ITDashboardView() {
   }, [supabase, user]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white">
+    <div className="pds-page flex-1">
       {/* Header */}
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3">
-        <h2 className="text-lg font-semibold text-[#2d3e50]">
-          IT Infrastructure Dashboard
-        </h2>
+      <div className="pds-page-header">
+        <h2 className="pds-page-title">IT Infrastructure Dashboard</h2>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
         {error && (
-          <div className="mb-4 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+          <div className="pds-message" data-tone="danger">
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-4 gap-4 mb-6">
           {/* System Uptime */}
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-600">
-                System Uptime
-              </span>
-              <Server size={16} className="text-green-600" />
+              <span className="text-xs pds-text-muted">System Uptime</span>
+              <Server size={16} style={{ color: "var(--pds-success)" }} />
             </div>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold" style={{ color: "var(--pds-success)" }}>
               {loading ? "…" : "N/A"}
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              &nbsp;
-            </div>
+            <div className="text-xs pds-text-muted mt-1">&nbsp;</div>
           </div>
 
           {/* Active Servers */}
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-600">
-                Active Servers
-              </span>
-              <CheckCircle
-                size={16}
-                className="text-blue-600"
-              />
+              <span className="text-xs pds-text-muted">Active Servers</span>
+              <CheckCircle size={16} style={{ color: "var(--pds-info)" }} />
             </div>
-            <div className="text-2xl font-bold text-[#2d3e50]">
+            <div className="text-2xl font-bold" style={{ color: "var(--pds-text)" }}>
               {loading ? "…" : "N/A"}
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              &nbsp;
-            </div>
+            <div className="text-xs pds-text-muted mt-1">&nbsp;</div>
           </div>
 
           {/* Active Incidents */}
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-600">
-                Active Incidents
-              </span>
-              <AlertCircle
-                size={16}
-                className="text-orange-600"
-              />
+              <span className="text-xs pds-text-muted">Active Incidents</span>
+              <AlertCircle size={16} style={{ color: "var(--pds-warning)" }} />
             </div>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold" style={{ color: "var(--pds-warning)" }}>
               {loading ? "…" : (activeIncidents ?? 0)}
             </div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs pds-text-muted mt-1">
               {loading
                 ? ""
                 : resolvedToday != null
@@ -185,32 +167,28 @@ export function ITDashboardView() {
           </div>
 
           {/* Avg Response Time */}
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-600">
-                Avg Response Time
-              </span>
-              <Clock size={16} className="text-purple-600" />
+              <span className="text-xs pds-text-muted">Avg Response Time</span>
+              <Clock size={16} style={{ color: "var(--pds-info)" }} />
             </div>
-            <div className="text-2xl font-bold text-[#2d3e50]">
+            <div className="text-2xl font-bold" style={{ color: "var(--pds-text)" }}>
               {loading
                 ? "…"
                 : avgFirstResponseMinutes != null
                   ? `${avgFirstResponseMinutes} min`
                   : "N/A"}
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              &nbsp;
-            </div>
+            <div className="text-xs pds-text-muted mt-1">&nbsp;</div>
           </div>
         </div>
 
         {/* Resource Usage */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Cpu size={18} className="text-blue-600" />
+                <Cpu size={18} style={{ color: "var(--pds-info)" }} />
                 <span className="font-medium text-sm">
                   CPU Usage
                 </span>
@@ -219,18 +197,18 @@ export function ITDashboardView() {
                 {loading ? "…" : "N/A"}
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full rounded-full h-2" style={{ background: "var(--pds-border)" }}>
               <div
-                className="bg-blue-600 h-2 rounded-full"
-                style={{ width: "0%" }}
+                className="h-2 rounded-full"
+                style={{ background: "var(--pds-info)", width: "0%" }}
               ></div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Server size={18} className="text-orange-600" />
+                <Server size={18} style={{ color: "var(--pds-warning)" }} />
                 <span className="font-medium text-sm">
                   Memory Usage
                 </span>
@@ -239,18 +217,18 @@ export function ITDashboardView() {
                 {loading ? "…" : "N/A"}
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full rounded-full h-2" style={{ background: "var(--pds-border)" }}>
               <div
-                className="bg-orange-600 h-2 rounded-full"
-                style={{ width: "0%" }}
+                className="h-2 rounded-full"
+                style={{ background: "var(--pds-warning)", width: "0%" }}
               ></div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="pds-panel">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <HardDrive size={18} className="text-red-600" />
+                <HardDrive size={18} style={{ color: "var(--pds-danger)" }} />
                 <span className="font-medium text-sm">
                   Storage Usage
                 </span>
@@ -259,35 +237,35 @@ export function ITDashboardView() {
                 {loading ? "…" : "N/A"}
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full rounded-full h-2" style={{ background: "var(--pds-border)" }}>
               <div
-                className="bg-red-600 h-2 rounded-full"
-                style={{ width: "0%" }}
+                className="h-2 rounded-full"
+                style={{ background: "var(--pds-danger)", width: "0%" }}
               ></div>
             </div>
           </div>
         </div>
 
         {/* Network Status */}
-        <div className="bg-white border border-gray-300 rounded p-4 mb-6">
+        <div className="pds-panel">
           <div className="flex items-center gap-2 mb-4">
-            <Wifi size={18} className="text-green-600" />
+            <Wifi size={18} style={{ color: "var(--pds-success)" }} />
             <h3 className="font-semibold text-sm">
               Network Status
             </h3>
           </div>
           <div className="grid grid-cols-4 gap-4">
-            <div className="col-span-4 text-xs text-gray-600">No network telemetry connected.</div>
+            <div className="col-span-4 text-xs pds-text-muted">No network telemetry connected.</div>
           </div>
         </div>
 
         {/* Recent Events */}
-        <div className="bg-white border border-gray-300 rounded p-4">
+        <div className="pds-panel">
           <h3 className="font-semibold text-sm mb-3">
             Recent System Events
           </h3>
           <div className="space-y-2">
-            <div className="text-xs text-gray-600">No system telemetry connected.</div>
+            <div className="text-xs pds-text-muted">No system telemetry connected.</div>
           </div>
         </div>
       </div>

@@ -29,40 +29,37 @@ export function KPIWidget({
   const isDanger = mainKPI ? mainKPI.now > mainKPI.norm : false;
 
   return (
-    <div className="bg-white border border-gray-300 rounded shadow-sm">
-      {/* Widget Header */}
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-3 py-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#2d3e50]">
-          {title ?? "KPI"}
-        </h3>
+    <div className="pds-panel">
+      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+        <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>{title ?? "KPI"}</h3>
         <div className="flex items-center gap-1">
           <button
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            type="button"
+            className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
             title="Settings"
             onClick={onSettings}
           >
-            <Settings size={14} className="text-[#2d3e50]" />
+            <Settings size={14} />
           </button>
           <button
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            type="button"
+            className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
             title="Maximize"
             onClick={onMaximize}
           >
-            <Maximize2 size={14} className="text-[#2d3e50]" />
+            <Maximize2 size={14} />
           </button>
         </div>
       </div>
 
       {message && (
-        <div className="px-3 py-2 text-xs text-red-600 border-b border-gray-200">
-          {message}
-        </div>
+        <div className="pds-message" data-tone="danger">{message}</div>
       )}
 
       {/* Widget Content */}
-      <div className="p-4">
+      <div>
         {error ? (
-          <div className="text-sm text-red-600">{error}</div>
+          <div className="pds-message" data-tone="danger">{error}</div>
         ) : loading ? (
           <div className="space-y-4">
             <div className="flex flex-col lg:flex-row items-center gap-6">
@@ -75,7 +72,7 @@ export function KPIWidget({
             </div>
           </div>
         ) : kpiTableData.length === 0 ? (
-          <div className="text-xs text-gray-600">No KPI data yet.</div>
+          <div className="text-xs pds-text-muted">No KPI data yet.</div>
         ) : (
         <div className="flex flex-col lg:flex-row items-center gap-6">
           {/* Circular Progress Gauge */}
@@ -86,7 +83,7 @@ export function KPIWidget({
                 cx="56"
                 cy="56"
                 r="48"
-                stroke="#e0e0e0"
+                stroke="var(--pds-border)"
                 strokeWidth="8"
                 fill="none"
               />
@@ -97,10 +94,10 @@ export function KPIWidget({
                 r="48"
                 stroke={
                   isDanger
-                    ? "#d32f2f"
+                    ? "var(--pds-danger)"
                     : isWarning
-                      ? "#ff9800"
-                      : "#4caf50"
+                      ? "var(--pds-warning)"
+                      : "var(--pds-success)"
                 }
                 strokeWidth="8"
                 fill="none"
@@ -113,10 +110,10 @@ export function KPIWidget({
             {/* Center value */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-2xl font-bold text-[#2d3e50]">
+                <div className="text-2xl font-bold" style={{ color: "var(--pds-text)" }}>
                   {mainKPI?.now}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs pds-text-muted">
                   of {mainKPI?.norm}
                 </div>
               </div>
@@ -125,39 +122,24 @@ export function KPIWidget({
 
           {/* Stats Table */}
           <div className="flex-1 w-full overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-gray-600">
-                  <th className="pb-2 font-normal">
-                    Indicator
-                  </th>
-                  <th className="pb-2 font-normal text-center">
-                    Graphic
-                  </th>
-                  <th className="pb-2 font-normal text-right">
-                    Now
-                  </th>
-                  <th className="pb-2 font-normal text-right">
-                    Min.
-                  </th>
-                  <th className="pb-2 font-normal text-right">
-                    Max.
-                  </th>
-                  <th className="pb-2 font-normal text-right">
-                    Norm
-                  </th>
+            <table className="pds-table">
+              <thead className="pds-thead">
+                <tr>
+                  <th className="pds-th">Indicator</th>
+                  <th className="pds-th" style={{ textAlign: "center" }}>Graphic</th>
+                  <th className="pds-th" style={{ textAlign: "right" }}>Now</th>
+                  <th className="pds-th" style={{ textAlign: "right" }}>Min.</th>
+                  <th className="pds-th" style={{ textAlign: "right" }}>Max.</th>
+                  <th className="pds-th" style={{ textAlign: "right" }}>Norm</th>
                 </tr>
               </thead>
               <tbody>
                 {kpiTableData.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-t border-gray-100"
-                  >
-                    <td className="py-2 text-[#4a9eff] hover:underline cursor-pointer">
-                      {row.indicator}
+                  <tr key={idx} className="pds-row">
+                    <td className="pds-td">
+                      <span className="pds-link">{row.indicator}</span>
                     </td>
-                    <td className="text-center">
+                    <td className="pds-td" style={{ textAlign: "center" }}>
                       <div className="flex justify-center">
                         <MiniBar
                           value={row.now}
@@ -165,12 +147,12 @@ export function KPIWidget({
                         />
                       </div>
                     </td>
-                    <td className="text-right font-medium">
+                    <td className="pds-td" style={{ textAlign: "right", fontWeight: 650 }}>
                       {row.now}
                     </td>
-                    <td className="text-right">{row.min}</td>
-                    <td className="text-right">{row.max}</td>
-                    <td className="text-right">{row.norm}</td>
+                    <td className="pds-td" style={{ textAlign: "right" }}>{row.min}</td>
+                    <td className="pds-td" style={{ textAlign: "right" }}>{row.max}</td>
+                    <td className="pds-td" style={{ textAlign: "right" }}>{row.norm}</td>
                   </tr>
                 ))}
               </tbody>
@@ -178,7 +160,7 @@ export function KPIWidget({
             <div className="mt-3">
               <button
                 type="button"
-                className="text-xs text-[#4a9eff] hover:underline"
+                className="pds-link text-xs"
                 onClick={() => setMessage("Full KPI view is not implemented yet.")}
               >
                 All KPIs
@@ -202,13 +184,13 @@ function MiniBar({
   const percentage = Math.min(100, (value / max) * 100);
   const color =
     percentage > 100
-      ? "#d32f2f"
+      ? "var(--pds-danger)"
       : percentage < 50
-        ? "#ff9800"
-        : "#4caf50";
+        ? "var(--pds-warning)"
+        : "var(--pds-success)";
 
   return (
-    <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+    <div className="w-16 h-2 rounded-full overflow-hidden" style={{ background: "var(--pds-border)" }}>
       <div
         className="h-full rounded-full transition-all duration-300"
         style={{

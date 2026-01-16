@@ -37,7 +37,7 @@ export function ModuleLayout({
   };
 
   return (
-    <div className="flex h-screen bg-[#e8e8e8] overflow-hidden">
+    <div className="flex h-screen overflow-hidden pds-app-shell">
       <ModuleSidebar
         onOpenTab={onOpenTab}
         activeModule={activeModule}
@@ -54,7 +54,7 @@ export function ModuleLayout({
           onOpenSettings={handleOpenSettings}
           onRefresh={onRefresh}
         />
-        <main className="flex-1 overflow-auto bg-[#e8e8e8]">
+        <main className="flex-1 overflow-auto pds-app-content">
           {children}
         </main>
       </div>

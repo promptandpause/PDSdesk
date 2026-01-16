@@ -20,13 +20,14 @@ import {
 
 // TODO: Fetch change requests from Supabase
 export function ChangeManagementView() {
-  const { user, roles } = useAuth();
+  const { user, roles, isInOperatorGroup } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
   const canWorkTickets =
     roles.includes("global_admin") ||
     roles.includes("service_desk_admin") ||
-    roles.includes("operator");
+    roles.includes("operator") ||
+    isInOperatorGroup("it_services");
 
   type TicketRow = {
     id: string;

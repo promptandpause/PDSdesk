@@ -514,7 +514,7 @@ export function KnowledgeBaseView() {
   };
 
   return (
-    <div className="flex-1 flex h-full bg-white overflow-hidden">
+    <div className="pds-page flex-1">
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -524,9 +524,11 @@ export function KnowledgeBaseView() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Slug
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createSlug}
                 onChange={(e) => setCreateSlug(e.target.value)}
                 placeholder="article-slug"
@@ -534,9 +536,11 @@ export function KnowledgeBaseView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Title
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createTitle}
                 onChange={(e) => setCreateTitle(e.target.value)}
                 placeholder="Article title"
@@ -544,9 +548,11 @@ export function KnowledgeBaseView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Category
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createCategory}
                 onChange={(e) => setCreateCategory(e.target.value)}
                 placeholder="Category"
@@ -554,9 +560,11 @@ export function KnowledgeBaseView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Tags (comma separated)
+              </label>
               <input
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createTags}
                 onChange={(e) => setCreateTags(e.target.value)}
                 placeholder="tag1, tag2"
@@ -564,9 +572,11 @@ export function KnowledgeBaseView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Status
+              </label>
               <select
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={createStatus}
                 onChange={(e) => setCreateStatus(e.target.value)}
                 disabled={createSubmitting}
@@ -576,9 +586,11 @@ export function KnowledgeBaseView() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Body
+              </label>
               <textarea
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 rows={8}
                 value={createBody}
                 onChange={(e) => setCreateBody(e.target.value)}
@@ -586,14 +598,16 @@ export function KnowledgeBaseView() {
               />
             </div>
             {createError && (
-              <div className="text-sm text-red-600">{createError}</div>
+              <div className="text-sm" style={{ color: "var(--pds-danger)" }}>
+                {createError}
+              </div>
             )}
           </div>
 
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => setCreateOpen(false)}
               disabled={createSubmitting}
             >
@@ -601,7 +615,7 @@ export function KnowledgeBaseView() {
             </button>
             <button
               type="button"
-              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+              className="pds-btn pds-btn--primary pds-focus"
               onClick={() => void submitCreate()}
               disabled={createSubmitting}
             >
@@ -620,15 +634,21 @@ export function KnowledgeBaseView() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Drafts</label>
-              <div className="flex items-center justify-between gap-3 p-3 border border-gray-300 rounded">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Drafts
+              </label>
+              <div className="pds-panel flex items-center justify-between gap-3 p-3">
                 <div>
-                  <div className="text-sm font-medium text-[#2d3e50]">Include drafts</div>
-                  <div className="text-xs text-gray-600">Show draft articles alongside published.</div>
+                  <div className="text-sm font-medium" style={{ color: "var(--pds-text)" }}>
+                    Include drafts
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--pds-text-muted)" }}>
+                    Show draft articles alongside published.
+                  </div>
                 </div>
                 <input
                   type="checkbox"
-                  className="w-4 h-4 text-[#4a9eff] border-gray-300 rounded focus:ring-[#4a9eff]"
+                  className="rounded pds-focus"
                   checked={includeDrafts}
                   onChange={(e) => {
                     setIncludeDrafts(e.target.checked);
@@ -640,9 +660,11 @@ export function KnowledgeBaseView() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--pds-text)" }}>
+                Status
+              </label>
               <select
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus"
                 value={statusFilter}
                 onChange={(e) => {
                   const v = e.target.value === "draft_only" ? "draft_only" : "any";
@@ -659,7 +681,7 @@ export function KnowledgeBaseView() {
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => {
                 setIncludeDrafts(true);
                 setStatusFilter("any");
@@ -669,7 +691,7 @@ export function KnowledgeBaseView() {
             </button>
             <button
               type="button"
-              className="px-3 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors"
+              className="pds-btn pds-btn--primary pds-focus"
               onClick={() => setFiltersOpen(false)}
             >
               Apply
@@ -686,20 +708,20 @@ export function KnowledgeBaseView() {
           </DialogHeader>
 
           <div className="space-y-2">
-            <label className="flex items-center justify-between gap-3 text-sm text-gray-700">
+            <label className="flex items-center justify-between gap-3 text-sm" style={{ color: "var(--pds-text)" }}>
               <span>Show tags</span>
               <input
                 type="checkbox"
-                className="rounded"
+                className="rounded pds-focus"
                 checked={showTagsInList}
                 onChange={(e) => setShowTagsInList(e.target.checked)}
               />
             </label>
-            <label className="flex items-center justify-between gap-3 text-sm text-gray-700">
+            <label className="flex items-center justify-between gap-3 text-sm" style={{ color: "var(--pds-text)" }}>
               <span>Show stats (views, likes, updated)</span>
               <input
                 type="checkbox"
-                className="rounded"
+                className="rounded pds-focus"
                 checked={showStatsInList}
                 onChange={(e) => setShowStatsInList(e.target.checked)}
               />
@@ -709,7 +731,7 @@ export function KnowledgeBaseView() {
           <DialogFooter>
             <button
               type="button"
-              className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
+              className="pds-btn pds-btn--outline pds-focus"
               onClick={() => setViewSettingsOpen(false)}
             >
               Close
@@ -719,9 +741,9 @@ export function KnowledgeBaseView() {
       </Dialog>
 
       {/* Sidebar - Categories */}
-      <div className="w-64 border-r border-gray-300 flex flex-col">
-        <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3">
-          <h3 className="text-sm font-semibold text-[#2d3e50]">
+      <div className="w-64 pds-panel flex flex-col" style={{ borderRadius: 0, borderRight: "1px solid var(--pds-border)" }}>
+        <div className="pds-panel px-4 py-3" style={{ borderRadius: 0, border: 0, borderBottom: "1px solid var(--pds-border)" }}>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
             Categories
           </h3>
         </div>
@@ -731,12 +753,11 @@ export function KnowledgeBaseView() {
               key={category.name}
               type="button"
               onClick={() => setSelectedCategory(category.name)}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded transition-colors flex items-center justify-between"
+              className="pds-btn pds-btn--outline pds-focus w-full justify-between"
+              style={{ justifyContent: "space-between" }}
             >
-              <span className="text-[#2d3e50]">
-                {category.name}
-              </span>
-              <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
+              <span style={{ color: "var(--pds-text)", fontWeight: 650 }}>{category.name}</span>
+              <span className="pds-chip" data-tone="muted">
                 {category.count}
               </span>
             </button>
@@ -747,14 +768,12 @@ export function KnowledgeBaseView() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[#2d3e50]">
-              Knowledge Base
-            </h2>
+          <div className="pds-page-header px-4 py-3 flex items-center justify-between">
+            <h2 className="pds-page-title">Knowledge Base</h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
+                className="pds-btn pds-btn--primary pds-focus"
                 onClick={() => setCreateOpen(true)}
               >
                 <Plus size={14} />
@@ -762,7 +781,7 @@ export function KnowledgeBaseView() {
               </button>
               <button
                 type="button"
-                className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                className="pds-btn pds-btn--outline pds-focus"
                 onClick={() => exportCsv()}
               >
                 <Download size={14} />
@@ -770,33 +789,30 @@ export function KnowledgeBaseView() {
               </button>
               <button
                 type="button"
-                className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
                 onClick={() => setViewSettingsOpen(true)}
                 title="View settings"
               >
-                <Settings size={16} className="text-[#2d3e50]" />
+                <Settings size={16} />
               </button>
             </div>
           </div>
 
-          <div className="border-b border-gray-300 px-4 py-3 bg-white">
+          <div className="pds-panel">
             <div className="flex items-center gap-3">
               <div className="relative flex-1">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--pds-text-muted)" }} />
                 <input
                   type="text"
                   placeholder="Search knowledge base..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                  className="pds-input pds-focus w-full pl-10"
                 />
               </div>
               <button
                 type="button"
-                className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                className="pds-btn pds-btn--outline pds-focus"
                 onClick={() => setFiltersOpen(true)}
               >
                 <Filter size={14} />
@@ -805,87 +821,123 @@ export function KnowledgeBaseView() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto p-4">
+          <div className="pds-panel flex-1 overflow-auto p-0">
             {error && (
-              <div className="mb-3 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+              <div className="pds-panel px-3 py-2 text-sm" style={{ color: "var(--pds-danger)" }}>
                 {error}
               </div>
             )}
 
             {loading ? (
-              <div className="text-sm text-gray-600">Loading...</div>
-            ) : (
-              <div className="space-y-3">
-                {filteredArticles.map((article) => {
-                  const category = (article.category ?? "Uncategorized").trim() || "Uncategorized";
-                  return (
-                    <button
-                      key={article.id}
-                      type="button"
-                      onClick={() => openArticle(article.id)}
-                      className={`w-full text-left bg-white border border-gray-300 rounded p-4 hover:shadow-md transition-shadow ${
-                        selectedArticleId === article.id ? "ring-2 ring-[#4a9eff]" : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <BookOpen
-                              size={16}
-                              className="text-[#4a9eff]"
-                            />
-                            <h3 className="text-sm font-semibold text-[#2d3e50]">
-                              {article.title}
-                            </h3>
-                          </div>
-                          <p className="text-xs text-gray-500 mb-2">
-                            {category}
-                          </p>
-                          {showStatsInList && (
-                            <div className="flex items-center gap-3 text-xs text-gray-600">
-                              <span className="flex items-center gap-1">
-                                <Eye size={12} />
-                                {article.view_count} views
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <ThumbsUp size={12} />
-                                {article.like_count} likes
-                              </span>
-                              <span>Updated: {new Date(article.updated_at).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                        </div>
-                    </div>
-                    {showTagsInList && (
-                      <div className="flex gap-1 flex-wrap">
-                        {(article.tags ?? []).map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded"
-                          >
-                            <Tag size={10} />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+              <div className="p-4 text-sm" style={{ color: "var(--pds-text-muted)" }}>
+                Loading...
               </div>
+            ) : (
+              <table className="pds-table">
+                <thead className="pds-thead">
+                  <tr>
+                    <th className="pds-th">Title</th>
+                    <th className="pds-th">Category</th>
+                    <th className="pds-th">Status</th>
+                    {showStatsInList && <th className="pds-th">Views</th>}
+                    {showStatsInList && <th className="pds-th">Likes</th>}
+                    {showStatsInList && <th className="pds-th">Updated</th>}
+                    {showTagsInList && <th className="pds-th">Tags</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredArticles.length === 0 ? (
+                    <tr className="pds-row">
+                      <td
+                        className="pds-td"
+                        colSpan={3 + (showStatsInList ? 3 : 0) + (showTagsInList ? 1 : 0)}
+                        style={{ color: "var(--pds-text-muted)" }}
+                      >
+                        No articles found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredArticles.map((article) => {
+                      const category = (article.category ?? "Uncategorized").trim() || "Uncategorized";
+                      const selected = selectedArticleId === article.id;
+                      const tone = String(article.status ?? "").trim().toLowerCase() === "published" ? "success" : "muted";
+
+                      return (
+                        <tr
+                          key={article.id}
+                          className="pds-row pds-focus"
+                          data-selected={selected}
+                          aria-selected={selected}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openArticle(article.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openArticle(article.id);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td className="pds-td">
+                            <span className="inline-flex items-center gap-2" style={{ color: "var(--pds-text)" }}>
+                              <BookOpen size={14} style={{ color: "var(--pds-accent)" }} />
+                              <span style={{ fontWeight: 650 }}>{article.title}</span>
+                            </span>
+                          </td>
+                          <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                            {category}
+                          </td>
+                          <td className="pds-td">
+                            <span className="pds-chip" data-tone={tone}>
+                              {article.status}
+                            </span>
+                          </td>
+                          {showStatsInList && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {article.view_count}
+                            </td>
+                          )}
+                          {showStatsInList && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {article.like_count}
+                            </td>
+                          )}
+                          {showStatsInList && (
+                            <td className="pds-td" style={{ color: "var(--pds-text)" }}>
+                              {new Date(article.updated_at).toLocaleDateString()}
+                            </td>
+                          )}
+                          {showTagsInList && (
+                            <td className="pds-td">
+                              <div className="flex gap-1 flex-wrap">
+                                {(article.tags ?? []).slice(0, 6).map((tag) => (
+                                  <span key={tag} className="pds-chip" data-tone="muted">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
 
         {selectedArticleId && (
-          <div className="w-[440px] border-l border-gray-300 bg-white flex flex-col">
-            <div className="border-b border-gray-300 px-4 py-3 flex items-center justify-between bg-[#f5f5f5]">
+          <div className="w-[440px] pds-panel flex flex-col" style={{ borderRadius: 0, borderLeft: "1px solid var(--pds-border)" }}>
+            <div className="pds-panel px-4 py-3 flex items-center justify-between" style={{ borderRadius: 0, border: 0, borderBottom: "1px solid var(--pds-border)" }}>
               <div className="flex items-center gap-2">
-                <div className="text-sm font-semibold text-[#2d3e50]">Article</div>
+                <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>Article</div>
                 {!selectedLoading && selectedArticle && (
                   <button
                     type="button"
-                    className="px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-100"
+                    className="pds-btn pds-btn--sm pds-btn--outline pds-focus"
                     onClick={() => {
                       if (editSubmitting) return;
                       setEditMode((prev) => !prev);
@@ -897,7 +949,7 @@ export function KnowledgeBaseView() {
                 {editMode && (
                   <button
                     type="button"
-                    className="px-2 py-1 bg-[#4a9eff] text-white rounded text-xs hover:bg-[#3a8eef]"
+                    className="pds-btn pds-btn--sm pds-btn--primary pds-focus"
                     onClick={() => void submitEdit()}
                     disabled={editSubmitting}
                   >
@@ -907,7 +959,7 @@ export function KnowledgeBaseView() {
                 {editMode && (
                   <button
                     type="button"
-                    className="px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-100"
+                    className="pds-btn pds-btn--sm pds-btn--outline pds-focus"
                     onClick={() => {
                       if (!selectedArticle) return;
                       setEditMode(false);
@@ -926,68 +978,68 @@ export function KnowledgeBaseView() {
               </div>
               <button
                 type="button"
-                className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
                 onClick={closeArticle}
                 title="Close"
               >
-                <X size={16} className="text-[#2d3e50]" />
+                <X size={16} />
               </button>
             </div>
 
             <div className="flex-1 overflow-auto p-4">
               {selectedError && (
-                <div className="mb-3 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+                <div className="pds-panel px-3 py-2 text-sm" style={{ color: "var(--pds-danger)" }}>
                   {selectedError}
                 </div>
               )}
 
               {selectedLoading || !selectedArticle ? (
-                <div className="text-sm text-gray-600">Loading...</div>
+                <div className="text-sm" style={{ color: "var(--pds-text-muted)" }}>Loading...</div>
               ) : (
                 <div className="space-y-3">
                   <div>
                     {editMode ? (
                       <div className="space-y-2">
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Title</label>
+                          <label className="block text-xs mb-1" style={{ color: "var(--pds-text-muted)" }}>Title</label>
                           <input
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus"
                             value={editTitle}
                             onChange={(e) => setEditTitle(e.target.value)}
                             disabled={editSubmitting}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Slug</label>
+                          <label className="block text-xs mb-1" style={{ color: "var(--pds-text-muted)" }}>Slug</label>
                           <input
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus"
                             value={editSlug}
                             onChange={(e) => setEditSlug(e.target.value)}
                             disabled={editSubmitting}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Category</label>
+                          <label className="block text-xs mb-1" style={{ color: "var(--pds-text-muted)" }}>Category</label>
                           <input
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus"
                             value={editCategory}
                             onChange={(e) => setEditCategory(e.target.value)}
                             disabled={editSubmitting}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Tags (comma separated)</label>
+                          <label className="block text-xs mb-1" style={{ color: "var(--pds-text-muted)" }}>Tags (comma separated)</label>
                           <input
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus"
                             value={editTags}
                             onChange={(e) => setEditTags(e.target.value)}
                             disabled={editSubmitting}
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Status</label>
+                          <label className="block text-xs mb-1" style={{ color: "var(--pds-text-muted)" }}>Status</label>
                           <select
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                            className="pds-input pds-focus"
                             value={editStatus}
                             onChange={(e) => setEditStatus(e.target.value)}
                             disabled={editSubmitting}
@@ -999,10 +1051,10 @@ export function KnowledgeBaseView() {
                       </div>
                     ) : (
                       <>
-                        <div className="text-lg font-semibold text-[#2d3e50]">
+                        <div className="text-lg font-semibold" style={{ color: "var(--pds-text)" }}>
                           {selectedArticle.title}
                         </div>
-                        <div className="mt-1 text-xs text-gray-500">
+                        <div className="mt-1 text-xs" style={{ color: "var(--pds-text-muted)" }}>
                           {selectedArticle.slug}
                         </div>
                       </>
@@ -1010,52 +1062,44 @@ export function KnowledgeBaseView() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs" style={{ color: "var(--pds-text-muted)" }}>
                       Updated: {new Date(selectedArticle.updated_at).toLocaleString()}
                     </div>
                     <button
                       type="button"
                       onClick={() => void toggleLike()}
-                      className={`px-3 py-1.5 border rounded text-xs flex items-center gap-1 transition-colors ${
-                        likedByMe
-                          ? "bg-[#e6f2ff] border-[#4a9eff] text-[#2d3e50]"
-                          : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                      }`}
+                      className={`pds-btn pds-btn--sm pds-focus ${likedByMe ? "pds-btn--secondary" : "pds-btn--outline"}`}
                     >
                       <ThumbsUp size={12} />
                       {likedByMe ? "Liked" : "Like"}
-                      <span className="text-gray-500">({selectedArticle.like_count})</span>
+                      <span style={{ color: "var(--pds-text-muted)" }}>({selectedArticle.like_count})</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <div className="flex items-center gap-3 text-xs" style={{ color: "var(--pds-text-muted)" }}>
                     <span className="flex items-center gap-1">
                       <Eye size={12} />
                       {selectedArticle.view_count} views
                     </span>
-                    <span className="text-gray-500">
+                    <span>
                       {(selectedArticle.category ?? "Uncategorized").trim() || "Uncategorized"}
                     </span>
                   </div>
 
                   <div className="flex gap-1 flex-wrap">
                     {(selectedArticle.tags ?? []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded"
-                      >
-                        <Tag size={10} />
+                      <span key={tag} className="pds-chip" data-tone="muted">
                         {tag}
                       </span>
                     ))}
                   </div>
 
-                  <div className="border-t border-gray-200 pt-3">
+                  <div className="pt-3" style={{ borderTop: "1px solid var(--pds-border)" }}>
                     {editMode ? (
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Body</label>
+                        <label className="block text-xs mb-1" style={{ color: "var(--pds-text-muted)" }}>Body</label>
                         <textarea
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                          className="pds-input pds-focus"
                           rows={10}
                           value={editBody}
                           onChange={(e) => setEditBody(e.target.value)}
@@ -1063,7 +1107,7 @@ export function KnowledgeBaseView() {
                         />
                       </div>
                     ) : (
-                      <div className="text-sm text-[#2d3e50] whitespace-pre-wrap">
+                      <div className="text-sm whitespace-pre-wrap" style={{ color: "var(--pds-text)" }}>
                         {selectedArticle.body}
                       </div>
                     )}

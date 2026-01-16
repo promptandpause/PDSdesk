@@ -117,12 +117,13 @@ export function TicketDetailViewV1({
   onNewTicket?: () => void;
 }) {
   const supabase = useMemo(() => getSupabaseClient(), []);
-  const { user, roles } = useAuth();
+  const { user, roles, isInOperatorGroup } = useAuth();
 
   const canWorkTickets =
     roles.includes("global_admin") ||
     roles.includes("service_desk_admin") ||
-    roles.includes("operator");
+    roles.includes("operator") ||
+    isInOperatorGroup("it_services");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

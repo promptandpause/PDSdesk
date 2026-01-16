@@ -750,31 +750,31 @@ export function DashboardView({
       {
         label: "Total Tickets",
         value: metrics?.totalTickets ?? 0,
-        color: "#4a9eff",
+        color: "var(--pds-accent)",
         key: "totalTickets",
       },
       {
         label: "Open",
         value: metrics?.openTickets ?? 0,
-        color: "#ff9800",
+        color: "var(--pds-warning)",
         key: "openTickets",
       },
       {
         label: "Resolved",
         value: metrics?.resolvedTickets ?? 0,
-        color: "#4caf50",
+        color: "var(--pds-success)",
         key: "resolvedTickets",
       },
       {
         label: "Customer Support",
         value: metrics?.customerSupport ?? 0,
-        color: "#9c27b0",
+        color: "var(--pds-info)",
         key: "customerSupport",
       },
       {
         label: "Assigned to me",
         value: metrics?.assignedToMe ?? 0,
-        color: "#607d8b",
+        color: "var(--pds-text)",
         key: "assignedToMe",
       },
     ];
@@ -904,7 +904,8 @@ export function DashboardView({
   }, [dashboardError, dashboardLoading, metrics, metricsError, metricsLoading, openReport, openSelection, openWidgetSettings, savedListsError, savedListsLoading, savedReports, savedSelections, widgets]);
 
   return (
-    <div className="flex h-full">
+    <div className="pds-page flex-1">
+      <div className="flex h-full">
       {showNavigator && (
         <NavigatorPanel
           onClose={() => setShowNavigator(false)}
@@ -913,44 +914,49 @@ export function DashboardView({
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white border-b border-gray-300 px-4 py-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="pds-page-header">
+          <div className="pds-toolbar">
             <div className="flex items-center gap-3">
               {!showNavigator && (
                 <button
+                  type="button"
                   onClick={() => setShowNavigator(true)}
-                  className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                  className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
                   title="Show Navigator"
                 >
-                  <ChevronRight size={16} className="text-[#2d3e50]" />
+                  <ChevronRight size={16} />
                 </button>
               )}
-              <h1 className="text-lg font-normal text-[#2d3e50]">
-                Dashboard <span className="font-semibold">Service Desk</span>
-              </h1>
+              <h1 className="pds-page-title">Dashboard</h1>
+              <span className="pds-text-muted" style={{ fontSize: 13 }}>
+                Service Desk
+              </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="pds-toolbar-actions">
               <button
-                className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-[#2d3e50] flex items-center gap-1.5"
+                type="button"
+                className="pds-btn pds-btn--outline pds-focus"
                 onClick={() => onOpenTab("settings", "Settings")}
               >
                 <Settings size={14} />
                 Settings
               </button>
               <button
-                className="px-3 py-1.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors text-[#2d3e50] flex items-center gap-1.5"
+                type="button"
+                className="pds-btn pds-btn--primary pds-focus"
                 onClick={() => setAddWidgetOpen(true)}
               >
                 <Plus size={14} />
                 Add widget
               </button>
               <button
-                className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                type="button"
+                className="pds-btn pds-btn--outline pds-btn--icon pds-focus"
                 title="Refresh"
                 onClick={() => window.dispatchEvent(new CustomEvent("pdsdesk:refresh"))}
               >
-                <RefreshCw size={14} className="text-[#2d3e50]" />
+                <RefreshCw size={14} />
               </button>
             </div>
           </div>
@@ -962,32 +968,33 @@ export function DashboardView({
               {quickActions.map((action) => (
                 <button
                   key={action.module}
+                  type="button"
                   onClick={() => onOpenTab(action.module, action.title)}
-                  className="text-left bg-white border border-gray-300 rounded p-4 hover:bg-gray-50 transition-colors"
+                  className="pds-panel pds-focus text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-[#2d3e50]">
+                      <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>
                         {action.title}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs pds-text-muted" style={{ marginTop: 2 }}>
                         {action.subtitle}
                       </div>
                     </div>
-                    <action.icon size={18} className="text-[#4a9eff]" />
+                    <action.icon size={18} style={{ color: "var(--pds-accent)" }} />
                   </div>
                 </button>
               ))}
             </div>
 
             {metricsError && (
-              <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+              <div className="pds-message" data-tone="danger">
                 {metricsError}
               </div>
             )}
 
             {dashboardError && (
-              <div className="bg-white border border-gray-300 rounded px-4 py-3 text-sm text-red-600">
+              <div className="pds-message" data-tone="danger">
                 {dashboardError}
               </div>
             )}
@@ -1017,15 +1024,18 @@ export function DashboardView({
 
       {maximizedWidgetId && widgetElements[maximizedWidgetId as WidgetId] && (
         <div className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center">
-          <div className="w-full h-full max-w-7xl max-h-[90vh] bg-white rounded border border-gray-300 overflow-auto">
-            <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-              <div className="text-sm font-semibold text-[#2d3e50]">Widget</div>
-              <button
-                className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors"
-                onClick={() => setMaximizedWidgetId(null)}
-              >
-                Close
-              </button>
+          <div className="pds-panel w-full h-full max-w-7xl max-h-[90vh] overflow-auto" style={{ padding: 0 }}>
+            <div className="pds-panel" style={{ border: 0, borderRadius: 0, borderBottom: "1px solid var(--pds-border)", padding: "12px 16px" }}>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold" style={{ color: "var(--pds-text)" }}>Widget</div>
+                <button
+                  type="button"
+                  className="pds-btn pds-btn--outline pds-focus"
+                  onClick={() => setMaximizedWidgetId(null)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
             <div className="p-4">{widgetElements[maximizedWidgetId as WidgetId].element}</div>
           </div>
@@ -1043,10 +1053,10 @@ export function DashboardView({
 
           <div className="space-y-3">
             {widgetLibrary.map((w) => (
-              <div key={w.id} className="flex items-center justify-between gap-4 rounded border border-gray-200 p-3">
+              <div key={w.id} className="pds-panel flex items-center justify-between gap-4 p-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-[#2d3e50] truncate">{w.label}</div>
-                  <div className="text-xs text-gray-500 truncate">{w.id}</div>
+                  <div className="text-sm font-medium truncate" style={{ color: "var(--pds-text)" }}>{w.label}</div>
+                  <div className="text-xs pds-text-muted truncate">{w.id}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -1086,18 +1096,18 @@ export function DashboardView({
           {activeSettingsWidgetId ? (
             <div className="space-y-4">
               {settingsError && (
-                <div className="text-sm text-red-600">{settingsError}</div>
+                <div className="pds-message" data-tone="danger">{settingsError}</div>
               )}
               <div className="space-y-2">
                 <Label>Title</Label>
                 <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Widget title" />
-                <div className="text-xs text-gray-500">Required. Max 60 characters.</div>
+                <div className="text-xs pds-text-muted">Required. Max 60 characters.</div>
               </div>
 
               <div className="space-y-2">
                 <Label>Subtitle</Label>
                 <Input value={editSubtitle} onChange={(e) => setEditSubtitle(e.target.value)} placeholder="Optional subtitle" />
-                <div className="text-xs text-gray-500">Optional. Max 120 characters.</div>
+                <div className="text-xs pds-text-muted">Optional. Max 120 characters.</div>
               </div>
 
               <div className="space-y-2">
@@ -1140,7 +1150,7 @@ export function DashboardView({
                       );
                     })}
                   </div>
-                  <div className="text-xs text-gray-500">Select at least one.</div>
+                  <div className="text-xs pds-text-muted">Select at least one.</div>
                 </div>
               )}
 
@@ -1171,7 +1181,7 @@ export function DashboardView({
                       );
                     })}
                   </div>
-                  <div className="text-xs text-gray-500">Select at least one.</div>
+                  <div className="text-xs pds-text-muted">Select at least one.</div>
                 </div>
               )}
 
@@ -1207,7 +1217,7 @@ export function DashboardView({
                       </div>
                     );
                   })()}
-                  <div className="text-xs text-gray-500">Pick up to two gauges.</div>
+                  <div className="text-xs pds-text-muted">Pick up to two gauges.</div>
                 </div>
               )}
 
@@ -1224,12 +1234,12 @@ export function DashboardView({
                       setSettingsNumberValue("limit", parsed);
                     }}
                   />
-                  <div className="text-xs text-gray-500">Between 1 and 20.</div>
+                  <div className="text-xs pds-text-muted">Between 1 and 20.</div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-sm text-gray-600">Select a widget to edit.</div>
+            <div className="text-sm pds-text-muted">Select a widget to edit.</div>
           )}
 
           <DialogFooter>
@@ -1242,6 +1252,7 @@ export function DashboardView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

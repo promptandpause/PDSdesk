@@ -29,8 +29,16 @@ interface OperatorGroup {
   created_at: string;
 }
 
+type OperatorGroupsManagerProps = {
+  showHeader?: boolean;
+  onChanged?: () => void;
+};
+
 // TODO: Fetch from Supabase
-export function OperatorGroupsManager() {
+export function OperatorGroupsManager({
+  showHeader = true,
+  onChanged,
+}: OperatorGroupsManagerProps) {
   const { user, isGlobalAdmin } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
@@ -152,15 +160,42 @@ export function OperatorGroupsManager() {
     }
 
     await loadGroups();
+    onChanged?.();
     setIsAdding(false);
     setEditingId(null);
     setFormData({ group_key: "", name: "", description: "" });
   };
 
+  const deleteGroupById = useCallback(
+    async (id: string) => {
+      if (!isGlobalAdmin) return;
+
+      setGroupsError(null);
+      setDeleting(true);
+
+      const del = await supabase.from("operator_groups").delete().eq("id", id);
+      if (del.error) {
+        setGroupsError(del.error.message);
+        setDeleting(false);
+        return;
+      }
+
+      setDeleting(false);
+      await loadGroups();
+      onChanged?.();
+    },
+    [isGlobalAdmin, loadGroups, onChanged, supabase],
+  );
+
   const handleDelete = (id: string) => {
     if (!isGlobalAdmin) return;
-    setPendingDeleteId(id);
-    setDeleteDialogOpen(true);
+
+    const ok = window.confirm(
+      "Delete operator group? This action cannot be undone.",
+    );
+    if (!ok) return;
+
+    void deleteGroupById(id);
   };
 
   const confirmDelete = useCallback(async () => {
@@ -185,7 +220,8 @@ export function OperatorGroupsManager() {
     setPendingDeleteId(null);
     setDeleting(false);
     await loadGroups();
-  }, [isGlobalAdmin, loadGroups, pendingDeleteId, supabase]);
+    onChanged?.();
+  }, [isGlobalAdmin, loadGroups, onChanged, pendingDeleteId, supabase]);
 
   const startEdit = (group: OperatorGroup) => {
     setEditingId(group.id);
@@ -204,43 +240,51 @@ export function OperatorGroupsManager() {
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-[#2d3e50] mb-1">
-            Operator Groups
-          </h3>
-          <p className="text-sm text-gray-600">
-            Manage operator groups for ticket assignment and
-            routing
-          </p>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-1" style={{ color: "var(--pds-text)" }}>
+              Operator Groups
+            </h3>
+            <p className="text-sm pds-text-muted">
+              Manage operator groups for ticket assignment and
+              routing
+            </p>
+          </div>
+          <button
+            onClick={() => setIsAdding(true)}
+            disabled={!isGlobalAdmin}
+            className="pds-btn pds-btn--primary pds-focus"
+          >
+            <Plus size={16} />
+            Add Operator Group
+          </button>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          disabled={!isGlobalAdmin}
-          className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2"
-        >
-          <Plus size={16} />
-          Add Operator Group
-        </button>
-      </div>
+      )}
 
       {groupsError && (
-        <div className="mb-4 bg-white border border-gray-300 rounded p-3 text-sm text-red-600">
+        <div className="mb-4 pds-panel p-3 text-sm" style={{ color: "var(--pds-danger)" }}>
           {groupsError}
         </div>
       )}
 
       {/* Add/Edit Form */}
       {(isAdding || editingId) && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
-          <h4 className="font-medium text-sm text-[#2d3e50] mb-3">
+        <div
+          className="pds-panel p-4 mb-4"
+          style={{
+            borderColor: "color-mix(in srgb, var(--pds-accent) 22%, var(--pds-border))",
+            background: "var(--pds-accent-soft)",
+          }}
+        >
+          <h4 className="font-medium text-sm mb-3" style={{ color: "var(--pds-text)" }}>
             {editingId
               ? "Edit Operator Group"
               : "New Operator Group"}
           </h4>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs pds-text-muted mb-1">
                 Group Key
               </label>
               <input
@@ -253,12 +297,12 @@ export function OperatorGroupsManager() {
                   })
                 }
                 placeholder="e.g., it_services"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus w-full"
                 disabled={!!editingId}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs pds-text-muted mb-1">
                 Group Name
               </label>
               <input
@@ -271,11 +315,11 @@ export function OperatorGroupsManager() {
                   })
                 }
                 placeholder="e.g., IT Services"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus w-full"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs pds-text-muted mb-1">
                 Description
               </label>
               <textarea
@@ -288,21 +332,21 @@ export function OperatorGroupsManager() {
                 }
                 placeholder="Describe the purpose and responsibilities of this group"
                 rows={3}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+                className="pds-input pds-focus w-full"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
                 disabled={!formData.name.trim() || (!editingId && !formData.group_key.trim())}
-                className="px-4 py-2 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="pds-btn pds-btn--primary pds-focus disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={14} />
                 Save
               </button>
               <button
                 onClick={cancelEdit}
-                className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-2"
+                className="pds-btn pds-btn--outline pds-focus"
               >
                 <X size={14} />
                 Cancel
@@ -313,40 +357,41 @@ export function OperatorGroupsManager() {
       )}
 
       {/* Groups List */}
-      <div className="bg-white border border-gray-300 rounded">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-300">
+      <div className="pds-panel">
+        <div className="pds-table-wrap">
+          <table className="pds-table">
+            <thead className="pds-thead">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
+              <th className="pds-th">
                 Group Key
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
+              <th className="pds-th">
                 Group Name
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
+              <th className="pds-th">
                 Description
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
+              <th className="pds-th">
                 Members
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
+              <th className="pds-th">
                 Created
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold">
+              <th className="pds-th">
                 Actions
               </th>
             </tr>
-          </thead>
-          <tbody>
+            </thead>
+            <tbody>
             {groupsLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-sm text-gray-600">
+                <td colSpan={6} className="pds-td pds-text-muted">
                   Loading...
                 </td>
               </tr>
             ) : groups.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-sm text-gray-600">
+                <td colSpan={6} className="pds-td pds-text-muted">
                   No operator groups found.
                 </td>
               </tr>
@@ -354,72 +399,76 @@ export function OperatorGroupsManager() {
               groups.map((group) => (
                 <tr
                   key={group.id}
-                  className="border-b border-gray-200 hover:bg-gray-50"
+                  className="pds-row"
                 >
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="pds-td pds-text-muted">
                     {group.group_key}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="pds-td">
                     <div className="flex items-center gap-2">
                       <Users
                         size={16}
-                        className="text-blue-600"
+                        style={{ color: "var(--pds-accent)" }}
                       />
-                      <span className="font-medium">
+                      <span className="font-medium" style={{ color: "var(--pds-text)" }}>
                         {group.name}
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="pds-td pds-text-muted">
                     {group.description}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="pds-td">
                     {group.members === null ? (
-                      <span className="text-xs text-gray-500">-</span>
+                      <span className="text-xs pds-text-muted">-</span>
                     ) : (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                      <span className="pds-chip" data-tone="info">
                         {group.members} members
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="pds-td pds-text-muted">
                     {group.created_at ? new Date(group.created_at).toLocaleDateString() : ""}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="pds-td">
                     {isGlobalAdmin ? (
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => startEdit(group)}
-                          className="text-blue-600 hover:underline flex items-center gap-1"
+                          className="pds-btn pds-btn--link pds-focus text-xs"
+                          type="button"
                         >
                           <Edit size={14} />
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(group.id)}
-                          className="text-red-600 hover:underline flex items-center gap-1"
+                          className="pds-btn pds-btn--link pds-focus text-xs"
+                          type="button"
+                          style={{ color: "var(--pds-danger)" }}
                         >
                           <Trash2 size={14} />
                           Delete
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">Read-only</span>
+                      <span className="text-xs pds-text-muted">Read-only</span>
                     )}
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Info Box */}
-      <div className="mt-4 p-4 bg-gray-50 border border-gray-300 rounded">
-        <h4 className="text-sm font-medium text-[#2d3e50] mb-2">
+      <div className="mt-4 pds-panel p-4" style={{ background: "var(--pds-surface-2)" }}>
+        <h4 className="text-sm font-medium mb-2" style={{ color: "var(--pds-text)" }}>
           About Operator Groups & Email Notifications
         </h4>
-        <ul className="text-xs text-gray-600 space-y-1">
+        <ul className="text-xs pds-text-muted space-y-1">
           <li>
             • Operator groups are used for ticket assignment and
             routing
@@ -473,7 +522,7 @@ export function OperatorGroupsManager() {
                 e.preventDefault();
                 void confirmDelete();
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className="pds-btn--destructive"
             >
               Delete
             </AlertDialogAction>

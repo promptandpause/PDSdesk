@@ -128,6 +128,37 @@ function requireSecret(req: Request) {
   return { ok: true } as const;
 }
 
+async function runDirectorySync(params: {
+  supabaseUrl: string;
+  anonKey: string;
+  automationSecret: string;
+}) {
+  const url = `${params.supabaseUrl.replace(/\/$/, "")}/functions/v1/graph-directory-sync`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: params.anonKey,
+      "x-itsm-automation-secret": params.automationSecret,
+    },
+    body: JSON.stringify({}),
+  });
+
+  const text = await res.text();
+  let json: unknown = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(`graph-directory-sync failed: ${res.status} ${text}`);
+  }
+
+  return json ?? { ok: true };
+}
+
 async function ensureSlaBreaches(params: {
   supabase: ReturnType<typeof createClient>;
   limit: number;
@@ -584,9 +615,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return json(500, { error: "Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY" });
+    const ITSM_AUTOMATION_SECRET = Deno.env.get("ITSM_AUTOMATION_SECRET") ?? "";
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !ITSM_AUTOMATION_SECRET) {
+      return json(500, {
+        error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY / ITSM_AUTOMATION_SECRET",
+      });
     }
 
     let body: Json = {};
@@ -597,6 +632,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const limit = Math.max(1, Math.min(500, parseIntSafe(body.limit, 200)));
+    const url = new URL(req.url);
+    const shouldRunDirectorySync =
+      Boolean((body as any)?.run_directory_sync) ||
+      (req.headers.get("x-run-directory-sync") ?? "").toLowerCase() === "true" ||
+      (url.searchParams.get("run_directory_sync") ?? "") === "1";
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -608,6 +648,14 @@ Deno.serve(async (req: Request) => {
     const escalationAdvances = await advanceEscalations({ supabase, limit });
     const autoClose = await autoCloseResolvedTickets({ supabase, limit, now });
 
+    const directorySync = shouldRunDirectorySync
+      ? await runDirectorySync({
+          supabaseUrl: SUPABASE_URL,
+          anonKey: SUPABASE_ANON_KEY,
+          automationSecret: ITSM_AUTOMATION_SECRET,
+        })
+      : null;
+
     return json(200, {
       success: true,
       at: nowIso(),
@@ -616,6 +664,7 @@ Deno.serve(async (req: Request) => {
       escalationSeeds,
       escalationAdvances,
       autoClose,
+      directorySync,
     });
   } catch (e) {
     const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);

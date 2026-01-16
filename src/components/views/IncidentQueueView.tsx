@@ -13,7 +13,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/auth/AuthProvider";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 import { TicketDetailView } from "./TicketDetailView";
-import { TicketCreateViewV1 } from "./TicketCreateViewV1";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +33,7 @@ import {
 } from "../ui/alert-dialog";
 
 export function IncidentQueueView() {
-  const { user, hasRole, isGlobalAdmin } = useAuth();
+  const { user, hasRole, isGlobalAdmin, isInOperatorGroup } = useAuth();
   const supabase = useMemo(() => getSupabaseClient(), []);
 
   const [view, setView] = useState<"list" | "create" | "detail">("list");
@@ -45,7 +52,10 @@ export function IncidentQueueView() {
   const [actionBusy, setActionBusy] = useState(false);
 
   const canWorkTickets =
-    isGlobalAdmin || hasRole("service_desk_admin") || hasRole("operator");
+    isGlobalAdmin ||
+    hasRole("service_desk_admin") ||
+    hasRole("operator") ||
+    isInOperatorGroup("it_services");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
@@ -57,6 +67,7 @@ export function IncidentQueueView() {
     status: string;
     priority: string;
     category: string;
+    assignment_group_id: string | null;
     created_at: string;
     due_at: string;
     archived_at: string | null;
@@ -73,6 +84,7 @@ export function IncidentQueueView() {
     status: string;
     priority: string;
     category: string;
+    assignment_group_id: string | null;
     created_at: string;
     due_at: string;
     archived_at: string | null;
@@ -99,7 +111,7 @@ export function IncidentQueueView() {
     const { data, error } = await supabase
       .from("tickets")
       .select(
-        "id,ticket_number,title,status,priority,category,created_at,due_at,archived_at,requester_email,requester_name,requester:profiles!tickets_requester_id_fkey(full_name,email),assignee:profiles!tickets_assignee_id_fkey(full_name,email)",
+        "id,ticket_number,title,status,priority,category,assignment_group_id,created_at,due_at,archived_at,requester_email,requester_name,requester:profiles!tickets_requester_id_fkey(full_name,email),assignee:profiles!tickets_assignee_id_fkey(full_name,email)",
       )
       .neq("ticket_type", "customer_service")
       .order("created_at", { ascending: false });
@@ -127,6 +139,7 @@ export function IncidentQueueView() {
         status: row.status,
         priority: row.priority,
         category: row.category,
+        assignment_group_id: row.assignment_group_id ?? null,
         created_at: row.created_at,
         due_at: row.due_at,
         archived_at: row.archived_at ?? null,
@@ -213,6 +226,124 @@ export function IncidentQueueView() {
     setActionBusy(false);
   };
 
+  type OperatorGroupRow = {
+    id: string;
+    name: string;
+    group_key: string;
+  };
+
+  const [operatorGroups, setOperatorGroups] = useState<OperatorGroupRow[]>([]);
+  const [operatorGroupsLoading, setOperatorGroupsLoading] = useState(false);
+  const [operatorGroupsError, setOperatorGroupsError] = useState<string | null>(null);
+
+  const loadOperatorGroups = useCallback(async () => {
+    if (!user) return;
+    setOperatorGroupsError(null);
+    setOperatorGroupsLoading(true);
+
+    const res = await supabase
+      .from("operator_groups")
+      .select("id,name,group_key")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (res.error) {
+      setOperatorGroups([]);
+      setOperatorGroupsError(res.error.message);
+      setOperatorGroupsLoading(false);
+      return;
+    }
+
+    setOperatorGroups((res.data ?? []) as OperatorGroupRow[]);
+    setOperatorGroupsLoading(false);
+  }, [supabase, user]);
+
+  const [escalateDialogOpen, setEscalateDialogOpen] = useState(false);
+  const [escalateTargetGroupId, setEscalateTargetGroupId] = useState<string>("");
+  const [escalateNote, setEscalateNote] = useState("");
+  const [escalateClearAssignee, setEscalateClearAssignee] = useState(true);
+  const [escalateSubmitting, setEscalateSubmitting] = useState(false);
+  const [escalateError, setEscalateError] = useState<string | null>(null);
+
+  const openEscalateDialog = async () => {
+    if (!user) return;
+    if (!canWorkTickets) return;
+    if (selectedTickets.length === 0) return;
+
+    setEscalateError(null);
+    if (operatorGroups.length === 0 && !operatorGroupsLoading) {
+      await loadOperatorGroups();
+    }
+    setEscalateDialogOpen(true);
+  };
+
+  const submitEscalationToQueue = async () => {
+    if (!user) return;
+    if (!canWorkTickets) return;
+    if (selectedTickets.length === 0) return;
+
+    const targetValue = escalateTargetGroupId.trim();
+    if (!targetValue) {
+      setEscalateError("Select a target queue.");
+      return;
+    }
+
+    const targetGroupId = targetValue === "__unassigned__" ? null : targetValue;
+    const note = escalateNote.trim() || null;
+    const selectedGroup = operatorGroups.find((g) => g.id === (targetGroupId ?? "")) ?? null;
+
+    setEscalateError(null);
+    setEscalateSubmitting(true);
+    setActionError(null);
+
+    const updateFields: Record<string, unknown> = {
+      assignment_group_id: targetGroupId,
+      ...(escalateClearAssignee ? { assignee_id: null } : null),
+    };
+
+    const upd = await supabase
+      .from("tickets")
+      .update(updateFields)
+      .in("id", selectedTickets);
+
+    if (upd.error) {
+      setEscalateError(upd.error.message);
+      setEscalateSubmitting(false);
+      return;
+    }
+
+    const byId = new Map(tickets.map((t) => [t.id, t] as const));
+    const events = selectedTickets.map((ticketId) => {
+      const prev = byId.get(ticketId);
+      return {
+        ticket_id: ticketId,
+        actor_id: user.id,
+        event_type: "escalation",
+        payload: {
+          note,
+          from_assignment_group_id: prev?.assignment_group_id ?? null,
+          to_assignment_group_id: targetGroupId,
+          to_assignment_group_name: selectedGroup?.name ?? null,
+          cleared_assignee: !!escalateClearAssignee,
+          source: "incident-queue",
+        },
+      };
+    });
+
+    const ev = await supabase.from("ticket_events").insert(events);
+    if (ev.error) {
+      setEscalateError(ev.error.message);
+      setEscalateSubmitting(false);
+      return;
+    }
+
+    setEscalateSubmitting(false);
+    setEscalateDialogOpen(false);
+    setEscalateTargetGroupId("");
+    setEscalateNote("");
+    await loadTickets();
+  };
+
   const bumpPriority = async (direction: "up" | "down") => {
     if (!user) return;
     if (!canWorkTickets) return;
@@ -253,6 +384,10 @@ export function IncidentQueueView() {
   const requestDelete = () => {
     if (!canWorkTickets) return;
     if (selectedTickets.length === 0) return;
+    if (selectedIncludesClosedTicket) {
+      setActionError("Closed tickets cannot be deleted.");
+      return;
+    }
     setDeleteDialogOpen(true);
   };
 
@@ -260,38 +395,23 @@ export function IncidentQueueView() {
     if (!user) return;
     if (!canWorkTickets) return;
     if (selectedTickets.length === 0) return;
+    if (selectedIncludesClosedTicket) {
+      setActionError("Closed tickets cannot be deleted.");
+      return;
+    }
 
     setActionError(null);
     setDeleting(true);
 
-    const selectedRows = tickets.filter((t) => selectedTickets.includes(t.id));
-    const ticketNumbers = selectedRows.map((t) => t.ticket_number).filter(Boolean);
-
-    const del = await supabase
-      .from("tickets")
-      .delete()
-      .in("id", selectedTickets);
-
-    if (del.error) {
-      setActionError(del.error.message);
-      setDeleting(false);
-      return;
-    }
-
-    const audit = await supabase.from("audit_logs").insert({
-      actor_id: user.id,
-      action: "tickets_deleted",
-      entity_type: "tickets",
-      entity_id: null,
-      metadata: {
-        source: "incident-queue",
-        ticket_ids: selectedTickets,
-        ticket_numbers: ticketNumbers,
-      },
+    const { error } = await supabase.rpc("delete_tickets_and_audit", {
+      ticket_ids: selectedTickets,
+      source: "incident-queue",
     });
 
-    if (audit.error) {
-      setActionError(audit.error.message);
+    if (error) {
+      setActionError(error.message);
+      setDeleting(false);
+      return;
     }
 
     setDeleteDialogOpen(false);
@@ -349,6 +469,21 @@ export function IncidentQueueView() {
     }
   };
 
+  const priorityTone = (
+    priority: string,
+  ): "danger" | "warning" | "info" | "muted" => {
+    switch (priorityLabel(priority)) {
+      case "P1":
+        return "danger";
+      case "P2":
+        return "warning";
+      case "P3":
+        return "info";
+      default:
+        return "muted";
+    }
+  };
+
   const statusLabel = (status: string): string => {
     switch (status) {
       case "new":
@@ -365,6 +500,22 @@ export function IncidentQueueView() {
         return "Closed";
       default:
         return status;
+    }
+  };
+
+  const statusTone = (
+    status: string,
+  ): "info" | "success" | "warning" | "muted" => {
+    switch (statusLabel(status)) {
+      case "In Progress":
+        return "success";
+      case "On Hold":
+        return "warning";
+      case "Resolved":
+      case "Closed":
+        return "muted";
+      default:
+        return "info";
     }
   };
 
@@ -412,15 +563,26 @@ export function IncidentQueueView() {
     );
   };
 
+  const selectedIncludesClosedTicket = useMemo(() => {
+    if (selectedTickets.length === 0) return false;
+    const byId = new Map(tickets.map((t) => [t.id, t] as const));
+    for (const id of selectedTickets) {
+      const t = byId.get(id);
+      if (t?.status === "closed") return true;
+    }
+    return false;
+  }, [selectedTickets, tickets]);
+
   if (view === "create") {
     return (
-      <TicketCreateViewV1
-        onBack={() => setView("list")}
+      <TicketDetailView
+        isNewTicket
         onCreated={(ticketId) => {
           setActiveTicketId(ticketId);
           setDetailNotice("Created.");
           setView("detail");
         }}
+        onBack={() => setView("list")}
       />
     );
   }
@@ -444,61 +606,61 @@ export function IncidentQueueView() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white">
+    <div className="pds-page flex-1">
       {/* Header */}
-      <div className="bg-[#f5f5f5] border-b border-gray-300 px-4 py-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#2d3e50]">
-          Incident Queue
-        </h2>
-        <div className="flex items-center gap-2">
-          <button
-            className="px-3 py-1.5 bg-[#4a9eff] text-white text-sm rounded hover:bg-[#3a8eef] transition-colors flex items-center gap-1"
-            onClick={() => setView("create")}
-          >
-            <Plus size={14} />
-            New Ticket
-          </button>
-          <button
-            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors"
-            onClick={() => void loadTickets()}
-          >
-            Refresh
-          </button>
-          <button
-            className="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
-            onClick={exportTickets}
-            disabled={loading}
-          >
-            <Download size={14} />
-            Export
-          </button>
-          <button
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-            onClick={() => {
-              if (typeof window !== "undefined") window.location.hash = "#/settings";
-            }}
-            title="Settings"
-          >
-            <Settings size={16} className="text-[#2d3e50]" />
-          </button>
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <h2 className="pds-page-title">Incident Queue</h2>
+          <div className="pds-toolbar-actions">
+            <button
+              className="pds-btn pds-btn--primary pds-focus"
+              onClick={() => setView("create")}
+            >
+              <Plus size={14} />
+              New Ticket
+            </button>
+            <button
+              className="pds-btn pds-btn--outline pds-focus"
+              onClick={() => void loadTickets()}
+            >
+              Refresh
+            </button>
+            <button
+              className="pds-btn pds-btn--outline pds-focus"
+              onClick={exportTickets}
+              disabled={loading}
+            >
+              <Download size={14} />
+              Export
+            </button>
+            <button
+              className="pds-icon-btn pds-focus"
+              onClick={() => {
+                if (typeof window !== "undefined") window.location.hash = "#/settings";
+              }}
+              title="Settings"
+            >
+              <Settings size={16} className="pds-header-icon" />
+            </button>
+          </div>
         </div>
       </div>
 
       {actionError && (
-        <div className="px-4 py-2 text-sm text-red-600 border-b border-gray-200">
+        <div className="pds-message" data-tone="danger">
           {actionError}
         </div>
       )}
 
       {/* Action Bar */}
       {selectedTickets.length > 0 && (
-        <div className="bg-[#e3f2fd] border-b border-[#90caf9] px-4 py-2 flex items-center justify-between">
-          <span className="text-sm text-[#1976d2] font-medium">
-            {selectedTickets.length} ticket(s) selected
+        <div className="pds-actionbar">
+          <span className="text-sm">
+            <strong>{selectedTickets.length}</strong> selected
           </span>
-          <div className="flex items-center gap-2">
+          <div className="pds-toolbar-actions">
             <button
-              className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="pds-btn pds-btn--secondary pds-focus"
               onClick={() => void assignSelectedToMe()}
               disabled={!canWorkTickets || actionBusy}
               title={!canWorkTickets ? "Not permitted" : "Assign selected to me"}
@@ -507,29 +669,42 @@ export function IncidentQueueView() {
               Assign
             </button>
             <button
-              className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => void bumpPriority("up")}
+              className="pds-btn pds-btn--secondary pds-focus"
+              onClick={() => void openEscalateDialog()}
               disabled={!canWorkTickets || actionBusy}
-              title={!canWorkTickets ? "Not permitted" : "Increase priority"}
+              title={!canWorkTickets ? "Not permitted" : "Escalate selected tickets to a queue"}
             >
               <ArrowUpCircle size={14} />
               Escalate
             </button>
             <button
-              className="px-3 py-1.5 bg-white border border-gray-300 text-sm rounded hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="pds-btn pds-btn--secondary pds-focus"
+              onClick={() => void bumpPriority("up")}
+              disabled={!canWorkTickets || actionBusy}
+              title={!canWorkTickets ? "Not permitted" : "Increase priority"}
+            >
+              <ArrowDownCircle size={14} />
+              Priority +
+            </button>
+            <button
+              className="pds-btn pds-btn--secondary pds-focus"
               onClick={() => void bumpPriority("down")}
               disabled={!canWorkTickets || actionBusy}
               title={!canWorkTickets ? "Not permitted" : "Decrease priority"}
             >
               <ArrowDownCircle size={14} />
-              De-escalate
+              Priority -
             </button>
 
             <button
-              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="pds-btn pds-btn--destructive pds-focus"
               onClick={requestDelete}
-              disabled={!canWorkTickets || actionBusy}
-              title={!canWorkTickets ? "Not permitted" : "Delete selected tickets"}
+              disabled={!canWorkTickets || actionBusy || selectedIncludesClosedTicket}
+              title={!canWorkTickets
+                ? "Not permitted"
+                : selectedIncludesClosedTicket
+                  ? "Closed tickets cannot be deleted"
+                  : "Delete selected tickets"}
             >
               <Trash2 size={14} />
               Delete
@@ -539,22 +714,23 @@ export function IncidentQueueView() {
       )}
 
       {/* Search and Filters */}
-      <div className="border-b border-gray-300 px-4 py-3 flex items-center gap-3 bg-white">
+      <div className="pds-subtoolbar">
         <div className="flex-1 relative">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 transform -translate-y-1/2"
+            style={{ color: "var(--pds-text-muted)" }}
           />
           <input
             type="text"
             placeholder="Search incidents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+            className="pds-input pds-focus w-full pl-10"
           />
         </div>
         <select
-          className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+          className="pds-input pds-focus"
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
         >
@@ -566,7 +742,7 @@ export function IncidentQueueView() {
           ))}
         </select>
         <select
-          className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-[#4a9eff]"
+          className="pds-input pds-focus"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -578,21 +754,19 @@ export function IncidentQueueView() {
           <option>Resolved</option>
           <option>Closed</option>
         </select>
-        <div className="flex items-center border border-gray-300 rounded overflow-hidden">
+        <div className="pds-segmented">
           <button
             type="button"
-            className={`px-3 py-2 text-sm transition-colors ${
-              showArchive ? "bg-white hover:bg-gray-50 text-gray-700" : "bg-[#e3f2fd] text-[#1976d2]"
-            }`}
+            className="pds-segment pds-focus"
+            data-active={showArchive ? "false" : "true"}
             onClick={() => setShowArchive(false)}
           >
             Active
           </button>
           <button
             type="button"
-            className={`px-3 py-2 text-sm transition-colors ${
-              showArchive ? "bg-[#e3f2fd] text-[#1976d2]" : "bg-white hover:bg-gray-50 text-gray-700"
-            }`}
+            className="pds-segment pds-focus"
+            data-active={showArchive ? "true" : "false"}
             onClick={() => setShowArchive(true)}
           >
             Archive ({archiveCount})
@@ -600,7 +774,7 @@ export function IncidentQueueView() {
         </div>
         <button
           type="button"
-          className="px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          className="pds-btn pds-btn--outline pds-focus"
           onClick={() => setError("More filters are not implemented yet. Use the search and dropdowns for now.")}
         >
           <Filter size={14} />
@@ -609,22 +783,22 @@ export function IncidentQueueView() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="pds-table-wrap">
         {error && (
-          <div className="px-4 py-3 text-sm text-red-600">
+          <div className="pds-message" data-tone="danger">
             {error}
           </div>
         )}
         {loading ? (
-          <div className="px-4 py-3 text-sm text-gray-600">Loading...</div>
+          <div className="px-4 py-3 text-sm pds-text-muted">Loading...</div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-[#f5f5f5] border-b border-gray-300 sticky top-0">
+          <table className="pds-table">
+            <thead className="pds-thead">
               <tr>
-                <th className="px-4 py-2 w-10">
+                <th className="pds-th" style={{ width: 44 }}>
                   <input
                     type="checkbox"
-                    className="rounded border-gray-300"
+                    className="pds-focus"
                     checked={
                       filteredTickets.length > 0 &&
                       selectedTickets.length === filteredTickets.length
@@ -638,54 +812,44 @@ export function IncidentQueueView() {
                     }}
                   />
                 </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Number
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Subject
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Caller
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Priority
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Status
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Assigned To
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Category
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Created
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-[#2d3e50]">
-                  Target Date
-                </th>
+                <th className="pds-th">Number</th>
+                <th className="pds-th">Subject</th>
+                <th className="pds-th">Caller</th>
+                <th className="pds-th">Priority</th>
+                <th className="pds-th">Status</th>
+                <th className="pds-th">Assigned</th>
+                <th className="pds-th">Category</th>
+                <th className="pds-th">Created</th>
+                <th className="pds-th">Target</th>
               </tr>
             </thead>
             <tbody>
               {filteredTickets.map((ticket) => (
                 <tr
                   key={ticket.id}
-                  className={`border-b border-gray-200 hover:bg-[#f9f9f9] cursor-pointer transition-colors ${
-                    selectedTickets.includes(ticket.id)
-                      ? "bg-[#e3f2fd]"
-                      : ""
-                  }`}
+                  className="pds-row pds-focus cursor-pointer"
+                  data-selected={selectedTickets.includes(ticket.id) ? "true" : "false"}
+                  aria-selected={selectedTickets.includes(ticket.id)}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     setActiveTicketId(ticket.id);
                     setDetailNotice(undefined);
                     setView("detail");
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveTicketId(ticket.id);
+                      setDetailNotice(undefined);
+                      setView("detail");
+                    }
+                  }}
                 >
-                  <td className="px-4 py-3">
+                  <td className="pds-td">
                     <input
                       type="checkbox"
-                      className="rounded border-gray-300"
+                      className="pds-focus"
                       checked={selectedTickets.includes(ticket.id)}
                       onChange={(e) => {
                         e.stopPropagation();
@@ -694,63 +858,43 @@ export function IncidentQueueView() {
                       onClick={(e) => e.stopPropagation()}
                     />
                   </td>
-                  <td className="px-4 py-3 text-[#4a9eff] font-medium">
-                    {ticket.ticket_number}
+                  <td className="pds-td">
+                    <span className="pds-link">{ticket.ticket_number}</span>
                   </td>
-                  <td className="px-4 py-3 font-medium">{ticket.title}</td>
-                  <td className="px-4 py-3">
+                  <td className="pds-td">
+                    <span className="font-semibold">{ticket.title}</span>
+                  </td>
+                  <td className="pds-td">
                     {ticket.requester_name ??
                       ticket.requester?.full_name ??
                       ticket.requester_email ??
                       ticket.requester?.email ??
                       ""}
                   </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        priorityLabel(ticket.priority) === "P1"
-                          ? "bg-red-100 text-red-800"
-                          : priorityLabel(ticket.priority) === "P2"
-                            ? "bg-orange-100 text-orange-800"
-                            : priorityLabel(ticket.priority) === "P3"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
+                  <td className="pds-td">
+                    <span className="pds-chip" data-tone={priorityTone(ticket.priority)}>
                       {priorityLabel(ticket.priority)}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        statusLabel(ticket.status) === "New"
-                          ? "bg-blue-100 text-blue-800"
-                          : statusLabel(ticket.status) === "Open"
-                            ? "bg-cyan-100 text-cyan-800"
-                            : statusLabel(ticket.status) === "In Progress"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
+                  <td className="pds-td">
+                    <span className="pds-chip" data-tone={statusTone(ticket.status)}>
                       {statusLabel(ticket.status)}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={
-                        ticket.assignee ? "" : "text-red-600 font-medium"
-                      }
-                    >
-                      {ticket.assignee?.full_name ??
-                        ticket.assignee?.email ??
-                        "Unassigned"}
-                    </span>
+                  <td className="pds-td">
+                    {ticket.assignee ? (
+                      <span>
+                        {ticket.assignee?.full_name ?? ticket.assignee?.email ?? ""}
+                      </span>
+                    ) : (
+                      <span className="pds-chip" data-tone="warning">Unassigned</span>
+                    )}
                   </td>
-                  <td className="px-4 py-3">{ticket.category}</td>
-                  <td className="px-4 py-3 text-xs text-gray-600">
+                  <td className="pds-td">{ticket.category}</td>
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
                     {new Date(ticket.created_at).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600">
+                  <td className="pds-td pds-text-muted" style={{ fontSize: 12 }}>
                     {new Date(ticket.due_at).toLocaleString()}
                   </td>
                 </tr>
@@ -784,13 +928,108 @@ export function IncidentQueueView() {
                 e.preventDefault();
                 void confirmDelete();
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className="pds-btn--destructive"
             >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={escalateDialogOpen}
+        onOpenChange={(open) => {
+          setEscalateDialogOpen(open);
+          if (!open) {
+            setEscalateSubmitting(false);
+            setEscalateError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Escalate to Queue</DialogTitle>
+            <DialogDescription>
+              Move the selected tickets to another operator group/queue.
+            </DialogDescription>
+          </DialogHeader>
+
+          {operatorGroupsError && (
+            <div className="pds-message" data-tone="danger">
+              {operatorGroupsError}
+            </div>
+          )}
+          {escalateError && (
+            <div className="pds-message" data-tone="danger">
+              {escalateError}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium" style={{ color: "var(--pds-text)" }}>
+                Target queue
+              </label>
+              <select
+                className="pds-input pds-focus w-full"
+                value={escalateTargetGroupId}
+                onChange={(e) => setEscalateTargetGroupId(e.target.value)}
+                disabled={operatorGroupsLoading || escalateSubmitting}
+              >
+                <option value="">Select a queue...</option>
+                <option value="__unassigned__">Unassigned</option>
+                {operatorGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium" style={{ color: "var(--pds-text)" }}>
+                Note (optional)
+              </label>
+              <textarea
+                className="pds-input pds-focus w-full"
+                rows={3}
+                value={escalateNote}
+                onChange={(e) => setEscalateNote(e.target.value)}
+                disabled={escalateSubmitting}
+                placeholder="Reason for escalation..."
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm" style={{ color: "var(--pds-text)" }}>
+              <input
+                type="checkbox"
+                className="pds-focus"
+                checked={escalateClearAssignee}
+                onChange={(e) => setEscalateClearAssignee(e.target.checked)}
+                disabled={escalateSubmitting}
+              />
+              Clear assignee when moving queues
+            </label>
+          </div>
+
+          <DialogFooter>
+            <button
+              className="pds-btn pds-btn--outline pds-focus"
+              onClick={() => setEscalateDialogOpen(false)}
+              disabled={escalateSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              className="pds-btn pds-btn--primary pds-focus"
+              onClick={() => void submitEscalationToQueue()}
+              disabled={escalateSubmitting || operatorGroupsLoading}
+            >
+              {escalateSubmitting ? "Moving..." : "Move"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
