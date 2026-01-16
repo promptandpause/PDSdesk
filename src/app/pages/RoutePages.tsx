@@ -39,6 +39,16 @@ type UserNotificationRow = {
   created_at: string;
 };
 
+type KnowledgeArticleRow = {
+  id: string;
+  title: string;
+  category: string | null;
+  status: string;
+  updated_at: string;
+  view_count: number;
+  like_count: number;
+};
+
 export function TicketsPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const navigate = useNavigate();
@@ -760,25 +770,604 @@ export function DashboardPage() {
 }
 
 export function SearchPage() {
-  return <PlaceholderPage title="Search" subtitle="Search tickets and knowledge" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const navigate = useNavigate();
+
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ticketResults, setTicketResults] = useState<TicketRow[]>([]);
+  const [articleResults, setArticleResults] = useState<KnowledgeArticleRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const q = query.trim();
+
+    async function run() {
+      setError(null);
+
+      if (!q) {
+        setTicketResults([]);
+        setArticleResults([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      const [{ data: tickets, error: tErr }, { data: articles, error: aErr }] = await Promise.all([
+        supabase
+          .from("tickets")
+          .select("id,ticket_number,title,status,priority,updated_at")
+          .textSearch("search_tsv", q, { type: "websearch" })
+          .order("updated_at", { ascending: false })
+          .limit(25),
+        supabase
+          .from("knowledge_articles")
+          .select("id,title,category,status,updated_at,view_count,like_count")
+          .textSearch("search_tsv", q, { type: "websearch" })
+          .order("updated_at", { ascending: false })
+          .limit(25),
+      ]);
+
+      if (cancelled) return;
+
+      if (tErr) {
+        setError(tErr.message);
+        setTicketResults([]);
+      } else {
+        setTicketResults((tickets as TicketRow[]) ?? []);
+      }
+
+      if (aErr) {
+        setError((prev) => prev ?? aErr.message);
+        setArticleResults([]);
+      } else {
+        setArticleResults((articles as KnowledgeArticleRow[]) ?? []);
+      }
+
+      setLoading(false);
+    }
+
+    const timer = setTimeout(() => {
+      void run();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, supabase]);
+
+  return (
+    <PlaceholderPage title="Search" subtitle="Search tickets and knowledge">
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <input
+          className="pds-input"
+          placeholder="Search (supports natural language)"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ flex: 1 }}
+        />
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Searching...
+        </div>
+      ) : null}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="pds-panel" style={{ padding: 12 }}>
+          <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 10 }}>Tickets</div>
+          {ticketResults.length === 0 ? (
+            <div className="pds-text-muted" style={{ fontSize: 13 }}>
+              {query.trim() ? "No ticket matches." : "Type to search."}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {ticketResults.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="pds-btn pds-btn--outline pds-focus"
+                  style={{ justifyContent: "space-between", textAlign: "left" }}
+                  onClick={() => navigate(`/tickets/${t.id}`)}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>
+                      {t.ticket_number} - {t.title}
+                    </div>
+                    <div className="pds-text-muted" style={{ fontSize: 12 }}>
+                      {t.status} - {t.priority} - {new Date(t.updated_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                    Open
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="pds-panel" style={{ padding: 12 }}>
+          <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 10 }}>Knowledge Base</div>
+          {articleResults.length === 0 ? (
+            <div className="pds-text-muted" style={{ fontSize: 13 }}>
+              {query.trim() ? "No article matches." : "Type to search."}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {articleResults.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="pds-btn pds-btn--outline pds-focus"
+                  style={{ justifyContent: "space-between", textAlign: "left" }}
+                  onClick={() => navigate(`/kb/articles/${a.id}`)}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>{a.title}</div>
+                    <div className="pds-text-muted" style={{ fontSize: 12 }}>
+                      {(a.category ?? "Uncategorized")} - {a.status} - {new Date(a.updated_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                    Open
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </PlaceholderPage>
+  );
 }
 
 export function KnowledgeBaseAgentPage() {
-  return <PlaceholderPage title="Knowledge Base" subtitle="Agent knowledge base" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const navigate = useNavigate();
+
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("published");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [articles, setArticles] = useState<KnowledgeArticleRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      let q = supabase
+        .from("knowledge_articles")
+        .select("id,title,category,status,updated_at,view_count,like_count")
+        .order("updated_at", { ascending: false })
+        .limit(50);
+
+      if (status) {
+        q = q.eq("status", status);
+      }
+
+      const trimmed = query.trim();
+      if (trimmed) {
+        q = q.textSearch("search_tsv", trimmed, { type: "websearch" });
+      }
+
+      const { data, error } = await q;
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setArticles([]);
+      } else {
+        setArticles((data as KnowledgeArticleRow[]) ?? []);
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query, status, supabase]);
+
+  return (
+    <PlaceholderPage title="Knowledge Base" subtitle="Agent knowledge base">
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+        <input
+          className="pds-input"
+          placeholder="Search articles"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <select className="pds-input" value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 160 }}>
+          <option value="published">published</option>
+          <option value="draft">draft</option>
+          <option value="">all</option>
+        </select>
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Loading...
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          No articles.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {articles.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className="pds-btn pds-btn--outline pds-focus"
+              style={{ justifyContent: "space-between", textAlign: "left" }}
+              onClick={() => navigate(`/kb/articles/${a.id}`)}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>{a.title}</div>
+                <div className="pds-text-muted" style={{ fontSize: 12 }}>
+                  {(a.category ?? "Uncategorized")} - {a.status} - {new Date(a.updated_at).toLocaleString()}
+                </div>
+              </div>
+              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                Open
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </PlaceholderPage>
+  );
 }
 
 export function KnowledgeBasePublicPage() {
-  return <PlaceholderPage title="Knowledge Base" subtitle="Customer knowledge base" />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from("knowledge_articles")
+        .select("category")
+        .eq("status", "published")
+        .order("category", { ascending: true })
+        .limit(500);
+
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setCategories([]);
+        setLoading(false);
+        return;
+      }
+
+      const unique = new Set<string>();
+      for (const row of (data as any[]) ?? []) {
+        const c = (row?.category as string | null) ?? "Uncategorized";
+        if (c.trim()) unique.add(c);
+      }
+      setCategories(Array.from(unique).sort((a, b) => a.localeCompare(b)));
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  return (
+    <PlaceholderPage title="Knowledge Base" subtitle="Customer knowledge base">
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Loading...
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          No published articles.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {categories.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className="pds-btn pds-btn--outline pds-focus"
+              style={{ justifyContent: "space-between", textAlign: "left" }}
+              onClick={() => navigate(`/kb-public/${encodeURIComponent(c)}`)}
+            >
+              <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>{c}</div>
+              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                View
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </PlaceholderPage>
+  );
 }
 
 export function KnowledgeBasePublicCategoryPage() {
   const { categoryId } = useParams();
-  return <PlaceholderPage title="Knowledge Base" subtitle={`Category ${categoryId ?? ""}`.trim()} />;
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const navigate = useNavigate();
+
+  const decodedCategory = categoryId ? decodeURIComponent(categoryId) : "";
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [articles, setArticles] = useState<KnowledgeArticleRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      let q = supabase
+        .from("knowledge_articles")
+        .select("id,title,category,status,updated_at,view_count,like_count")
+        .eq("status", "published")
+        .order("updated_at", { ascending: false })
+        .limit(100);
+
+      if (decodedCategory && decodedCategory !== "Uncategorized") {
+        q = q.eq("category", decodedCategory);
+      }
+      if (decodedCategory === "Uncategorized") {
+        q = q.is("category", null);
+      }
+
+      const { data, error } = await q;
+      if (cancelled) return;
+
+      if (error) {
+        setError(error.message);
+        setArticles([]);
+      } else {
+        setArticles((data as KnowledgeArticleRow[]) ?? []);
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [decodedCategory, supabase]);
+
+  return (
+    <PlaceholderPage title="Knowledge Base" subtitle={`Category ${decodedCategory}`.trim()}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate("/kb-public")}>Return</button>
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Loading...
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          No articles.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {articles.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className="pds-btn pds-btn--outline pds-focus"
+              style={{ justifyContent: "space-between", textAlign: "left" }}
+              onClick={() => navigate(`/kb-public/articles/${a.id}`)}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ fontWeight: 650, color: "var(--pds-text)" }}>{a.title}</div>
+                <div className="pds-text-muted" style={{ fontSize: 12 }}>
+                  {new Date(a.updated_at).toLocaleString()}
+                </div>
+              </div>
+              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                Open
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </PlaceholderPage>
+  );
 }
 
 export function KnowledgeBaseArticlePage() {
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { articleId } = useParams();
-  return <PlaceholderPage title={`Article ${articleId ?? ""}`.trim()} subtitle="Knowledge base article" />;
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [article, setArticle] = useState<any | null>(null);
+  const [liked, setLiked] = useState(false);
+  const [togglingLike, setTogglingLike] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!articleId) return;
+      setLoading(true);
+      setError(null);
+
+      const [{ data: article, error: aErr }, { data: likeRow, error: lErr }] = await Promise.all([
+        supabase
+          .from("knowledge_articles")
+          .select("id,slug,title,body,status,category,updated_at,view_count,like_count")
+          .eq("id", articleId)
+          .maybeSingle(),
+        user
+          ? supabase
+              .from("knowledge_article_likes")
+              .select("article_id")
+              .eq("article_id", articleId)
+              .eq("user_id", user.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null } as any),
+      ]);
+
+      if (cancelled) return;
+
+      if (aErr) {
+        setError(aErr.message);
+        setArticle(null);
+        setLiked(false);
+        setLoading(false);
+        return;
+      }
+
+      if (lErr) {
+        setError((prev) => prev ?? lErr.message);
+      }
+
+      setArticle(article ?? null);
+      setLiked(Boolean(likeRow));
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [articleId, reloadNonce, supabase, user]);
+
+  useEffect(() => {
+    if (!articleId) return;
+    void supabase.rpc("increment_knowledge_article_view", { article_id: articleId });
+  }, [articleId, supabase]);
+
+  async function toggleLike() {
+    if (!articleId) return;
+    setTogglingLike(true);
+    setError(null);
+
+    const { data, error } = await supabase.rpc("toggle_knowledge_article_like", { article_id: articleId });
+    if (error) {
+      setError(error.message);
+      setTogglingLike(false);
+      return;
+    }
+    setLiked(Boolean(data));
+    setTogglingLike(false);
+    setReloadNonce((v) => v + 1);
+  }
+
+  if (!articleId) {
+    return <PlaceholderPage title="Article" subtitle="Missing article id" />;
+  }
+
+  return (
+    <PlaceholderPage title={article?.title ? article.title : `Article ${articleId}`} subtitle="Knowledge base article">
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate(-1 as any)}>
+          Return
+        </button>
+        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => setReloadNonce((v) => v + 1)}>
+          Refresh
+        </button>
+      </div>
+
+      {error ? (
+        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Loading...
+        </div>
+      ) : !article ? (
+        <div className="pds-text-muted" style={{ fontSize: 13 }}>
+          Article not found.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+          <div className="pds-panel" style={{ padding: 12 }}>
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--pds-text)" }}>{article.body}</div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="pds-panel" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 8 }}>Details</div>
+              <div className="pds-text-muted" style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div>Status: {article.status}</div>
+                <div>Category: {article.category ?? "Uncategorized"}</div>
+                <div>Updated: {new Date(article.updated_at).toLocaleString()}</div>
+                <div>Views: {article.view_count}</div>
+                <div>Likes: {article.like_count}</div>
+              </div>
+              <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="pds-btn pds-btn--outline pds-focus"
+                  onClick={() => void toggleLike()}
+                  disabled={togglingLike}
+                >
+                  {togglingLike ? "Saving..." : liked ? "Unlike" : "Like"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </PlaceholderPage>
+  );
 }
 
 export function CustomersPage() {
