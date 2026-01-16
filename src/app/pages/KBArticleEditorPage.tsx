@@ -1,0 +1,264 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getSupabaseClient } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/auth/AuthProvider';
+import { PageHeader } from '../layout/PageHeader';
+import { Panel, Button, Input, Badge } from '../components';
+
+interface Article {
+  id: string;
+  slug: string;
+  title: string;
+  body: string;
+  status: string;
+  tags: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function KBArticleEditorPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user } = useAuth();
+
+  const isNew = !id || id === 'new';
+
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [article, setArticle] = useState<Article | null>(null);
+  const [formData, setFormData] = useState({
+    slug: '',
+    title: '',
+    body: '',
+    status: 'draft',
+    tags: '',
+  });
+
+  useEffect(() => {
+    if (isNew) return;
+
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('knowledge_articles')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (cancelled) return;
+
+      if (!error && data) {
+        const art = data as Article;
+        setArticle(art);
+        setFormData({
+          slug: art.slug,
+          title: art.title,
+          body: art.body,
+          status: art.status,
+          tags: art.tags.join(', '),
+        });
+      }
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isNew, supabase]);
+
+  const generateSlug = (title: string) => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
+  const handleTitleChange = (title: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      title,
+      slug: isNew ? generateSlug(title) : prev.slug,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title.trim() || !formData.slug.trim() || !user) return;
+
+    setSaving(true);
+
+    const payload = {
+      slug: formData.slug.trim(),
+      title: formData.title.trim(),
+      body: formData.body,
+      status: formData.status,
+      tags: formData.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+    };
+
+    if (isNew) {
+      const { data, error } = await supabase
+        .from('knowledge_articles')
+        .insert({ ...payload, created_by: user.id })
+        .select()
+        .single();
+
+      if (!error && data) {
+        navigate(`/kb/${data.id}`);
+      }
+    } else {
+      await supabase
+        .from('knowledge_articles')
+        .update(payload)
+        .eq('id', id);
+    }
+
+    setSaving(false);
+
+    if (!isNew) {
+      navigate('/kb');
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!id || isNew) return;
+
+    setSaving(true);
+    await supabase
+      .from('knowledge_articles')
+      .update({ status: 'published' })
+      .eq('id', id);
+
+    setFormData((prev) => ({ ...prev, status: 'published' }));
+    setSaving(false);
+  };
+
+  const handleUnpublish = async () => {
+    if (!id || isNew) return;
+
+    setSaving(true);
+    await supabase
+      .from('knowledge_articles')
+      .update({ status: 'draft' })
+      .eq('id', id);
+
+    setFormData((prev) => ({ ...prev, status: 'draft' }));
+    setSaving(false);
+  };
+
+  if (loading) {
+    return (
+      <div>
+        <PageHeader title="Loading..." />
+        <div style={{ padding: 'var(--itsm-space-6)', color: 'var(--itsm-text-tertiary)' }}>
+          Loading article...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title={isNew ? 'New Article' : 'Edit Article'}
+        subtitle={isNew ? 'Create a new knowledge base article' : article?.title}
+        breadcrumbs={[
+          { label: 'Knowledge Base', to: '/kb' },
+          { label: isNew ? 'New' : 'Edit' },
+        ]}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => navigate('/kb')}>
+              Cancel
+            </Button>
+            {!isNew && formData.status === 'draft' && (
+              <Button variant="secondary" onClick={handlePublish} disabled={saving}>
+                Publish
+              </Button>
+            )}
+            {!isNew && formData.status === 'published' && (
+              <Button variant="ghost" onClick={handleUnpublish} disabled={saving}>
+                Unpublish
+              </Button>
+            )}
+            <Button variant="primary" onClick={handleSubmit} loading={saving} disabled={saving}>
+              {isNew ? 'Create Article' : 'Save Changes'}
+            </Button>
+          </>
+        }
+      />
+
+      <div style={{ padding: 'var(--itsm-space-6)', maxWidth: 900 }}>
+        <form onSubmit={handleSubmit}>
+          <Panel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-4)' }}>
+              {!isNew && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-2)' }}>
+                  <Badge variant={formData.status === 'published' ? 'success' : 'neutral'}>
+                    {formData.status === 'published' ? 'Published' : 'Draft'}
+                  </Badge>
+                </div>
+              )}
+
+              <Input
+                label="Title"
+                value={formData.title}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                placeholder="Article title"
+                required
+              />
+
+              <Input
+                label="Slug"
+                value={formData.slug}
+                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                placeholder="article-url-slug"
+                required
+                hint="URL-friendly identifier"
+              />
+
+              <div>
+                <label className="itsm-label" style={{ display: 'block', marginBottom: 'var(--itsm-space-2)' }}>
+                  Content
+                </label>
+                <textarea
+                  value={formData.body}
+                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                  placeholder="Write your article content here... (Markdown supported)"
+                  style={{
+                    width: '100%',
+                    minHeight: 400,
+                    padding: 'var(--itsm-space-3)',
+                    fontSize: 'var(--itsm-text-sm)',
+                    fontFamily: 'var(--itsm-font-mono)',
+                    lineHeight: 'var(--itsm-leading-relaxed)',
+                    border: '1px solid var(--itsm-border-default)',
+                    borderRadius: 'var(--itsm-input-radius)',
+                    resize: 'vertical',
+                    backgroundColor: 'var(--itsm-surface-base)',
+                  }}
+                />
+              </div>
+
+              <Input
+                label="Tags"
+                value={formData.tags}
+                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                placeholder="e.g., password, reset, account"
+                hint="Comma-separated tags for search"
+              />
+            </div>
+          </Panel>
+        </form>
+      </div>
+    </div>
+  );
+}

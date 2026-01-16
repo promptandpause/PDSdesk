@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-type BadgeVariant = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'purple';
+export type BadgeVariant = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'purple' | 'blue' | 'green' | 'yellow' | 'red';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -39,6 +39,26 @@ const variantColors: Record<BadgeVariant, { bg: string; text: string; dot: strin
     bg: 'var(--itsm-status-pending-bg)',
     text: 'var(--itsm-status-pending)',
     dot: 'var(--itsm-status-pending)',
+  },
+  blue: {
+    bg: 'var(--itsm-primary-100)',
+    text: 'var(--itsm-primary-700)',
+    dot: 'var(--itsm-primary-500)',
+  },
+  green: {
+    bg: 'var(--itsm-status-resolved-bg)',
+    text: 'var(--itsm-status-resolved)',
+    dot: 'var(--itsm-status-resolved)',
+  },
+  yellow: {
+    bg: 'var(--itsm-status-in-progress-bg)',
+    text: 'var(--itsm-status-in-progress)',
+    dot: 'var(--itsm-status-in-progress)',
+  },
+  red: {
+    bg: 'var(--itsm-status-critical-bg)',
+    text: 'var(--itsm-status-critical)',
+    dot: 'var(--itsm-status-critical)',
   },
 };
 
