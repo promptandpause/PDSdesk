@@ -944,7 +944,7 @@ export function TicketNewPage() {
     if (!user) return;
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setError("Title is required");
+      setError("Subject is required");
       return;
     }
 
@@ -991,108 +991,140 @@ export function TicketNewPage() {
   }
 
   return (
-    <PlaceholderPage title="New ticket" subtitle={templateId ? `Template: ${templateId}` : ""}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button type="button" className="pds-btn pds-btn--outline pds-focus" onClick={() => navigate("/tickets")}>Return</button>
+    <div className="pds-page">
+      {/* Header */}
+      <div className="pds-page-header">
+        <div className="pds-toolbar">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="pds-btn pds-btn--ghost pds-focus"
+              onClick={() => navigate("/tickets")}
+              title="Back to tickets"
+            >
+              ←
+            </button>
+            <span className="pds-page-title">New Ticket</span>
+            {templateId ? (
+              <span className="pds-text-muted" style={{ fontSize: 12 }}>
+                Template: {templateId}
+              </span>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {loadingTemplate ? (
-        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Loading template...
+        <div className="flex items-center justify-center flex-1">
+          <div className="pds-text-muted" style={{ fontSize: 14 }}>Loading template...</div>
         </div>
-      ) : null}
+      ) : (
+        <div className="flex flex-col gap-5 py-6 flex-1 self-center overflow-auto mx-auto w-full max-w-4xl px-5">
+          {error ? (
+            <div className="pds-message" data-tone="danger">
+              {error}
+            </div>
+          ) : null}
 
-      {error ? (
-        <div className="pds-text-muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          {error}
-        </div>
-      ) : null}
+          {/* Subject */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-gray-700">
+              Subject <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="pds-input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="A short description of the issue"
+            />
+          </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
-        <div className="pds-panel" style={{ padding: 12 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div>
-              <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                Title
-              </div>
-              <input className="pds-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short summary" />
+          {/* Description */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-gray-700">Description</label>
+            <textarea
+              className="pds-input w-full"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Detailed explanation of the issue..."
+              style={{ minHeight: 180, resize: "vertical" }}
+            />
+          </div>
+
+          {/* Fields Grid */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-700">Priority</label>
+              <select
+                className="pds-input"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as any)}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
             </div>
 
-            <div>
-              <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                Description
-              </div>
-              <textarea
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-700">Category</label>
+              <input
                 className="pds-input"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Details"
-                style={{ minHeight: 160, resize: "vertical" }}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="General"
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button
-                type="button"
-                className="pds-btn pds-btn--solid pds-focus"
-                onClick={() => void createTicket()}
-                disabled={saving || !user}
-              >
-                {saving ? "Creating..." : "Create"}
-              </button>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-700">Ticket Type</label>
+              <input
+                className="pds-input"
+                value={ticketType}
+                onChange={(e) => setTicketType(e.target.value)}
+                placeholder="itsm_incident"
+              />
             </div>
           </div>
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="pds-panel" style={{ padding: 12 }}>
-            <div style={{ fontWeight: 650, color: "var(--pds-text)", marginBottom: 10 }}>Defaults</div>
+          {/* Requester Info */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-700">Requester Name</label>
+              <input
+                className="pds-input"
+                value={requesterName}
+                onChange={(e) => setRequesterName(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div>
-                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Ticket type
-                </div>
-                <input className="pds-input" value={ticketType} onChange={(e) => setTicketType(e.target.value)} placeholder="itsm_incident" />
-              </div>
-
-              <div>
-                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Category
-                </div>
-                <input className="pds-input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="General" />
-              </div>
-
-              <div>
-                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Priority
-                </div>
-                <select className="pds-input" value={priority} onChange={(e) => setPriority(e.target.value as any)}>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                  <option value="urgent">urgent</option>
-                </select>
-              </div>
-
-              <div>
-                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Requester name
-                </div>
-                <input className="pds-input" value={requesterName} onChange={(e) => setRequesterName(e.target.value)} placeholder="Optional" />
-              </div>
-
-              <div>
-                <div className="pds-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Requester email
-                </div>
-                <input className="pds-input" value={requesterEmail} onChange={(e) => setRequesterEmail(e.target.value)} placeholder="Optional" />
-              </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm text-gray-700">Requester Email</label>
+              <input
+                className="pds-input"
+                value={requesterEmail}
+                onChange={(e) => setRequesterEmail(e.target.value)}
+                placeholder="Optional"
+              />
             </div>
           </div>
+
+          {/* Submit */}
+          <div className="flex justify-end pt-4">
+            <button
+              type="button"
+              className="pds-btn pds-btn--primary pds-focus"
+              onClick={() => void createTicket()}
+              disabled={saving || !user || !title.trim()}
+            >
+              {saving ? "Creating..." : "Submit"}
+            </button>
+          </div>
         </div>
-      </div>
-    </PlaceholderPage>
+      )}
+    </div>
   );
 }
 
