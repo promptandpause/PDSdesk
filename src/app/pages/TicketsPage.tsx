@@ -25,8 +25,9 @@ interface TicketRow {
   status: string;
   priority: string;
   category: string | null;
-  assigned_to: string | null;
-  assigned_group_id: string | null;
+  assignee_id: string | null;
+  assignment_group_id: string | null;
+  requester_id: string | null;
   created_at: string;
   updated_at: string;
 }
