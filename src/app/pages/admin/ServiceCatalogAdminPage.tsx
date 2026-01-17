@@ -94,6 +94,7 @@ interface ServiceCatalogItem {
   estimated_time: string | null;
   requires_approval: boolean;
   default_priority: string;
+  default_operator_group_id: string | null;
   form_schema: unknown[];
   is_active: boolean;
   display_order: number;
@@ -104,6 +105,12 @@ interface Department {
   name: string;
   is_active: boolean;
   synced_from_azure: boolean;
+}
+
+interface OperatorGroup {
+  id: string;
+  name: string;
+  group_key: string;
 }
 
 type AdminTab = 'categories' | 'items' | 'departments';
@@ -118,6 +125,7 @@ export function ServiceCatalogAdminPage() {
   const [categories, setCategories] = useState<ServiceCatalogCategory[]>([]);
   const [items, setItems] = useState<ServiceCatalogItem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [operatorGroups, setOperatorGroups] = useState<OperatorGroup[]>([]);
   const [syncing, setSyncing] = useState(false);
 
   // Edit states
@@ -128,15 +136,17 @@ export function ServiceCatalogAdminPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
 
-    const [catRes, itemRes, deptRes] = await Promise.all([
+    const [catRes, itemRes, deptRes, groupRes] = await Promise.all([
       supabase.from('service_catalog_categories').select('*').order('display_order'),
       supabase.from('service_catalog_items').select('*').order('display_order'),
       supabase.from('departments').select('*').order('name'),
+      supabase.from('operator_groups').select('id, name, group_key').eq('is_active', true).order('name'),
     ]);
 
     if (catRes.data) setCategories(catRes.data as ServiceCatalogCategory[]);
     if (itemRes.data) setItems(itemRes.data as ServiceCatalogItem[]);
     if (deptRes.data) setDepartments(deptRes.data as Department[]);
+    if (groupRes.data) setOperatorGroups(groupRes.data as OperatorGroup[]);
 
     setLoading(false);
   }, [supabase]);
@@ -250,6 +260,7 @@ export function ServiceCatalogAdminPage() {
           estimated_time: editingItem.estimated_time,
           requires_approval: editingItem.requires_approval,
           default_priority: editingItem.default_priority,
+          default_operator_group_id: editingItem.default_operator_group_id,
           display_order: editingItem.display_order,
         })
         .eq('id', editingItem.id);
@@ -271,6 +282,7 @@ export function ServiceCatalogAdminPage() {
           estimated_time: editingItem.estimated_time,
           requires_approval: editingItem.requires_approval,
           default_priority: editingItem.default_priority,
+          default_operator_group_id: editingItem.default_operator_group_id,
           display_order: editingItem.display_order,
           form_schema: [],
         });
@@ -482,6 +494,31 @@ export function ServiceCatalogAdminPage() {
                   onChange={(e) => setEditingItem({ ...editingItem, display_order: parseInt(e.target.value) || 0 })}
                 />
               </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 'var(--itsm-space-1)', fontSize: 'var(--itsm-text-sm)', fontWeight: 500 }}>
+                  Assign to Queue (Ticket Routing)
+                </label>
+                <select
+                  value={editingItem.default_operator_group_id || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, default_operator_group_id: e.target.value || null })}
+                  style={{
+                    width: '100%',
+                    height: 36,
+                    padding: '0 var(--itsm-space-3)',
+                    fontSize: 'var(--itsm-text-sm)',
+                    border: '1px solid var(--itsm-border-default)',
+                    borderRadius: 'var(--itsm-input-radius)',
+                  }}
+                >
+                  <option value="">No queue assigned (unassigned)</option>
+                  {operatorGroups.map((group) => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+                <p style={{ marginTop: 'var(--itsm-space-1)', fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
+                  Tickets created from this catalog item will be automatically routed to the selected queue.
+                </p>
+              </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-2)', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -633,6 +670,7 @@ export function ServiceCatalogAdminPage() {
                       estimated_time: '',
                       requires_approval: false,
                       default_priority: 'medium',
+                      default_operator_group_id: null,
                       form_schema: [],
                       display_order: items.length + 1,
                       is_active: true,
@@ -649,6 +687,7 @@ export function ServiceCatalogAdminPage() {
                       <TableHeaderCell width={60}>Icon</TableHeaderCell>
                       <TableHeaderCell>Name</TableHeaderCell>
                       <TableHeaderCell>Category</TableHeaderCell>
+                      <TableHeaderCell width={140}>Queue</TableHeaderCell>
                       <TableHeaderCell width={120}>Est. Time</TableHeaderCell>
                       <TableHeaderCell width={100}>Status</TableHeaderCell>
                       <TableHeaderCell width={150}>Actions</TableHeaderCell>
@@ -657,6 +696,7 @@ export function ServiceCatalogAdminPage() {
                   <TableBody>
                     {items.map((item) => {
                       const category = categories.find((c) => c.id === item.category_id);
+                      const queue = operatorGroups.find((g) => g.id === item.default_operator_group_id);
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
@@ -670,6 +710,13 @@ export function ServiceCatalogAdminPage() {
                           </TableCell>
                           <TableCell muted>
                             {category ? category.name : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {queue ? (
+                              <Badge variant="info" size="sm">{queue.name}</Badge>
+                            ) : (
+                              <span style={{ color: 'var(--itsm-text-tertiary)', fontSize: 'var(--itsm-text-xs)' }}>Unassigned</span>
+                            )}
                           </TableCell>
                           <TableCell muted>{item.estimated_time || '—'}</TableCell>
                           <TableCell>
