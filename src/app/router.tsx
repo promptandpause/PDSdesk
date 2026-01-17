@@ -31,6 +31,7 @@ import {
   UserManagementPage,
   QueueManagementPage,
   SystemSettingsPage,
+  LoginPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
@@ -98,7 +99,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: <PlaceholderPage title="Login" />,
+    element: <LoginPage />,
   },
 ], {
   future: {
