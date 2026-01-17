@@ -1,8 +1,79 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
 import { getSupabaseClient } from '../../../lib/supabaseClient';
 import { useAuth } from '../../../lib/auth/AuthProvider';
 import { PageHeader } from '../../layout/PageHeader';
 import { Panel, Button, Input, Badge, Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '../../components';
+import {
+  MonitorIcon,
+  UsersIcon,
+  BugIcon,
+  FileTextIcon,
+  FolderKanbanIcon,
+  BuildingIcon,
+  KeyIcon,
+  DownloadIcon,
+  LaptopIcon,
+  WifiIcon,
+  MailIcon,
+  HardDriveIcon,
+  PrinterIcon,
+  CalendarIcon,
+  DollarSignIcon,
+  HeartIcon,
+  UserPlusIcon,
+  UserMinusIcon,
+  GraduationCapIcon,
+  GlobeIcon,
+  AlertTriangleIcon,
+  ClipboardListIcon,
+  LightbulbIcon,
+  HelpCircleIcon,
+  RocketIcon,
+  UsersRoundIcon,
+  BarChartIcon,
+  GridIcon,
+} from '../../components/Icons';
+
+const iconMap: Record<string, (props: { size?: number; color?: string }) => ReactNode> = {
+  'monitor': MonitorIcon,
+  'users': UsersIcon,
+  'bug': BugIcon,
+  'file-text': FileTextIcon,
+  'folder-kanban': FolderKanbanIcon,
+  'building': BuildingIcon,
+  'key': KeyIcon,
+  'download': DownloadIcon,
+  'laptop': LaptopIcon,
+  'wifi': WifiIcon,
+  'mail': MailIcon,
+  'hard-drive': HardDriveIcon,
+  'printer': PrinterIcon,
+  'calendar': CalendarIcon,
+  'dollar-sign': DollarSignIcon,
+  'heart': HeartIcon,
+  'user-plus': UserPlusIcon,
+  'user-minus': UserMinusIcon,
+  'graduation-cap': GraduationCapIcon,
+  'globe': GlobeIcon,
+  'alert-triangle': AlertTriangleIcon,
+  'clipboard-list': ClipboardListIcon,
+  'lightbulb': LightbulbIcon,
+  'help-circle': HelpCircleIcon,
+  'rocket': RocketIcon,
+  'users-round': UsersRoundIcon,
+  'bar-chart': BarChartIcon,
+  'grid': GridIcon,
+};
+
+const iconOptions = Object.keys(iconMap);
+
+function renderIcon(iconKey: string, size = 20, color?: string): ReactNode {
+  const IconComponent = iconMap[iconKey];
+  if (IconComponent) {
+    return <IconComponent size={size} color={color} />;
+  }
+  return <GridIcon size={size} color={color} />;
+}
 
 interface ServiceCatalogCategory {
   id: string;
@@ -253,11 +324,30 @@ export function ServiceCatalogAdminPage() {
                 onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
               />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--itsm-space-4)' }}>
-                <Input
-                  label="Icon (emoji)"
-                  value={editingCategory.icon}
-                  onChange={(e) => setEditingCategory({ ...editingCategory, icon: e.target.value })}
-                />
+                <div>
+                  <label style={{ display: 'block', marginBottom: 'var(--itsm-space-1)', fontSize: 'var(--itsm-text-sm)', fontWeight: 500 }}>
+                    Icon
+                  </label>
+                  <select
+                    value={editingCategory.icon}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, icon: e.target.value })}
+                    style={{
+                      width: '100%',
+                      height: 36,
+                      padding: '0 var(--itsm-space-3)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                    }}
+                  >
+                    {iconOptions.map((icon) => (
+                      <option key={icon} value={icon}>{icon}</option>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: 'var(--itsm-space-2)', color: editingCategory.color }}>
+                    {renderIcon(editingCategory.icon, 24)}
+                  </div>
+                </div>
                 <Input
                   label="Color (hex)"
                   type="color"
@@ -331,11 +421,30 @@ export function ServiceCatalogAdminPage() {
                 onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
               />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--itsm-space-4)' }}>
-                <Input
-                  label="Icon (emoji)"
-                  value={editingItem.icon}
-                  onChange={(e) => setEditingItem({ ...editingItem, icon: e.target.value })}
-                />
+                <div>
+                  <label style={{ display: 'block', marginBottom: 'var(--itsm-space-1)', fontSize: 'var(--itsm-text-sm)', fontWeight: 500 }}>
+                    Icon
+                  </label>
+                  <select
+                    value={editingItem.icon}
+                    onChange={(e) => setEditingItem({ ...editingItem, icon: e.target.value })}
+                    style={{
+                      width: '100%',
+                      height: 36,
+                      padding: '0 var(--itsm-space-3)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                    }}
+                  >
+                    {iconOptions.map((icon) => (
+                      <option key={icon} value={icon}>{icon}</option>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: 'var(--itsm-space-2)', color: 'var(--itsm-primary-500)' }}>
+                    {renderIcon(editingItem.icon, 24)}
+                  </div>
+                </div>
                 <Input
                   label="Estimated Time"
                   value={editingItem.estimated_time || ''}
@@ -448,7 +557,7 @@ export function ServiceCatalogAdminPage() {
                       id: '',
                       name: '',
                       description: '',
-                      icon: '📋',
+                      icon: 'grid',
                       color: '#6366f1',
                       display_order: categories.length + 1,
                       is_active: true,
@@ -474,7 +583,7 @@ export function ServiceCatalogAdminPage() {
                     {categories.map((cat) => (
                       <TableRow key={cat.id}>
                         <TableCell>
-                          <span style={{ fontSize: 24 }}>{cat.icon}</span>
+                          <span style={{ color: cat.color }}>{renderIcon(cat.icon, 24)}</span>
                         </TableCell>
                         <TableCell>
                           <span style={{ fontWeight: 500 }}>{cat.name}</span>
@@ -520,7 +629,7 @@ export function ServiceCatalogAdminPage() {
                       category_id: categories[0]?.id || '',
                       name: '',
                       description: '',
-                      icon: '📝',
+                      icon: 'grid',
                       estimated_time: '',
                       requires_approval: false,
                       default_priority: 'medium',
@@ -551,7 +660,7 @@ export function ServiceCatalogAdminPage() {
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
-                            <span style={{ fontSize: 20 }}>{item.icon}</span>
+                            <span style={{ color: 'var(--itsm-primary-500)' }}>{renderIcon(item.icon, 20)}</span>
                           </TableCell>
                           <TableCell>
                             <span style={{ fontWeight: 500 }}>{item.name}</span>
@@ -560,7 +669,7 @@ export function ServiceCatalogAdminPage() {
                             )}
                           </TableCell>
                           <TableCell muted>
-                            {category ? `${category.icon} ${category.name}` : '—'}
+                            {category ? category.name : '—'}
                           </TableCell>
                           <TableCell muted>{item.estimated_time || '—'}</TableCell>
                           <TableCell>

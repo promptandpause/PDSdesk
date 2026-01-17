@@ -149,9 +149,14 @@ export function Sidebar() {
             },
           ]
         : []),
-      {
-        items: [{ label: 'Problems', to: '/problems', icon: '⚠' }],
-      },
+      // Problem Management - only for global_admin and service_desk_admin
+      ...(canViewAllQueues
+        ? [
+            {
+              items: [{ label: 'Problems', to: '/problems', icon: '⚠' }],
+            },
+          ]
+        : []),
       {
         title: 'Planning',
         items: [

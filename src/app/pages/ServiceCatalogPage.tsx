@@ -1,9 +1,82 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
 import { Panel, Button, Input, Badge } from '../components';
+import {
+  MonitorIcon,
+  UsersIcon,
+  BugIcon,
+  FileTextIcon,
+  FolderKanbanIcon,
+  BuildingIcon,
+  KeyIcon,
+  DownloadIcon,
+  LaptopIcon,
+  WifiIcon,
+  MailIcon,
+  HardDriveIcon,
+  PrinterIcon,
+  CalendarIcon,
+  DollarSignIcon,
+  HeartIcon,
+  UserPlusIcon,
+  UserMinusIcon,
+  GraduationCapIcon,
+  GlobeIcon,
+  AlertTriangleIcon,
+  ClipboardListIcon,
+  LightbulbIcon,
+  HelpCircleIcon,
+  RocketIcon,
+  UsersRoundIcon,
+  BarChartIcon,
+  ClockIcon,
+  GridIcon,
+} from '../components/Icons';
+
+// Icon mapping from database icon key to React component
+const iconMap: Record<string, (props: { size?: number; color?: string }) => ReactNode> = {
+  'monitor': MonitorIcon,
+  'users': UsersIcon,
+  'bug': BugIcon,
+  'file-text': FileTextIcon,
+  'folder-kanban': FolderKanbanIcon,
+  'building': BuildingIcon,
+  'key': KeyIcon,
+  'download': DownloadIcon,
+  'laptop': LaptopIcon,
+  'wifi': WifiIcon,
+  'mail': MailIcon,
+  'hard-drive': HardDriveIcon,
+  'printer': PrinterIcon,
+  'calendar': CalendarIcon,
+  'dollar-sign': DollarSignIcon,
+  'heart': HeartIcon,
+  'user-plus': UserPlusIcon,
+  'user-minus': UserMinusIcon,
+  'graduation-cap': GraduationCapIcon,
+  'globe': GlobeIcon,
+  'alert-triangle': AlertTriangleIcon,
+  'clipboard-list': ClipboardListIcon,
+  'lightbulb': LightbulbIcon,
+  'help-circle': HelpCircleIcon,
+  'rocket': RocketIcon,
+  'users-round': UsersRoundIcon,
+  'bar-chart': BarChartIcon,
+  'clock': ClockIcon,
+  'grid': GridIcon,
+};
+
+function renderIcon(iconKey: string, size = 24, color?: string): ReactNode {
+  const IconComponent = iconMap[iconKey];
+  if (IconComponent) {
+    return <IconComponent size={size} color={color} />;
+  }
+  // Fallback to grid icon
+  return <GridIcon size={size} color={color} />;
+}
 
 interface FormField {
   name: string;
@@ -246,7 +319,7 @@ export function ServiceCatalogPage() {
           <Panel>
             <div style={{ marginBottom: 'var(--itsm-space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-3)', marginBottom: 'var(--itsm-space-3)' }}>
-                <span style={{ fontSize: 32 }}>{selectedItem.icon}</span>
+                <span style={{ color: 'var(--itsm-primary-500)' }}>{renderIcon(selectedItem.icon, 32)}</span>
                 <div>
                   <h2 style={{ margin: 0, fontSize: 'var(--itsm-text-lg)', fontWeight: 600 }}>{selectedItem.name}</h2>
                   {selectedItem.estimated_time && (
@@ -333,7 +406,7 @@ export function ServiceCatalogPage() {
               {categoryItems.map((item) => (
                 <Panel key={item.id}>
                   <div style={{ display: 'flex', gap: 'var(--itsm-space-3)' }}>
-                    <span style={{ fontSize: 28 }}>{item.icon}</span>
+                    <span style={{ color: 'var(--itsm-primary-500)' }}>{renderIcon(item.icon, 28)}</span>
                     <div style={{ flex: 1 }}>
                       <h3 style={{ margin: 0, fontSize: 'var(--itsm-text-base)', fontWeight: 600, marginBottom: 'var(--itsm-space-1)' }}>
                         {item.name}
@@ -346,7 +419,7 @@ export function ServiceCatalogPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-2)', marginBottom: 'var(--itsm-space-3)' }}>
                         {item.estimated_time && (
                           <span style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
-                            ⏱️ {item.estimated_time}
+                            {renderIcon('clock', 12)} {item.estimated_time}
                           </span>
                         )}
                         {item.requires_approval && (
@@ -427,7 +500,7 @@ export function ServiceCatalogPage() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-3)', marginBottom: 'var(--itsm-space-3)' }}>
-                    <span style={{ fontSize: 32 }}>{category.icon}</span>
+                    <span style={{ color: category.color }}>{renderIcon(category.icon, 32)}</span>
                     <div>
                       <h3 style={{ margin: 0, fontSize: 'var(--itsm-text-lg)', fontWeight: 600 }}>{category.name}</h3>
                       <span style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
