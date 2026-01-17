@@ -120,10 +120,13 @@ export function TicketDetailPage() {
     (groupsData as OperatorGroup[] ?? []).forEach((g) => groupsMap.set(g.id, g));
     setGroups(groupsMap);
 
-    // Fetch profiles for comments and history
+    // Fetch profiles for comments, history, and assignee
     const authorIds = new Set<string>();
     (commentsData as Comment[] ?? []).forEach((c) => authorIds.add(c.author_id));
     (historyData as EscalationHistory[] ?? []).forEach((h) => authorIds.add(h.performed_by));
+    if ((ticketData as Ticket)?.assignee_id) {
+      authorIds.add((ticketData as Ticket).assignee_id as string);
+    }
     
     if (authorIds.size > 0) {
       const { data: profilesData } = await supabase
@@ -597,7 +600,7 @@ export function TicketDetailPage() {
             </PanelSection>
             <PanelSection title="Assigned To" noBorder>
               <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
-                {ticket.assignee_id ?? 'Unassigned'}
+                {ticket.assignee_id ? (profiles.get(ticket.assignee_id)?.full_name || 'Unknown') : 'Unassigned'}
               </span>
             </PanelSection>
           </Panel>
