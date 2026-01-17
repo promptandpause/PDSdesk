@@ -194,7 +194,7 @@ export function ReservationsPage() {
 
     setSaving(true);
 
-    await supabase.from('facilities').insert({
+    const { error } = await supabase.from('facilities').insert({
       name: facilityFormData.name.trim(),
       description: facilityFormData.description.trim() || null,
       facility_type: facilityFormData.facility_type,
@@ -203,6 +203,13 @@ export function ReservationsPage() {
       amenities: facilityFormData.amenities.split(',').map((a) => a.trim()).filter(Boolean),
       created_by: user.id,
     });
+
+    if (error) {
+      console.error('Error creating facility:', error);
+      alert('Error creating facility: ' + error.message);
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowFacilityForm(false);
@@ -214,6 +221,35 @@ export function ReservationsPage() {
       capacity: '',
       amenities: '',
     });
+    void fetchData();
+  };
+
+  const handleDeleteFacility = async (facility: Facility) => {
+    if (!confirm(`Delete facility "${facility.name}"? This will also delete all reservations for this facility.`)) return;
+    
+    const { error } = await supabase.from('facilities').delete().eq('id', facility.id);
+    
+    if (error) {
+      console.error('Error deleting facility:', error);
+      alert('Error deleting facility: ' + error.message);
+      return;
+    }
+    
+    void fetchData();
+  };
+
+  const handleToggleFacilityActive = async (facility: Facility) => {
+    const { error } = await supabase
+      .from('facilities')
+      .update({ is_active: !facility.is_active })
+      .eq('id', facility.id);
+    
+    if (error) {
+      console.error('Error updating facility:', error);
+      alert('Error updating facility: ' + error.message);
+      return;
+    }
+    
     void fetchData();
   };
 
@@ -696,7 +732,7 @@ export function ReservationsPage() {
               {facilities.map((facility) => (
                 <Panel key={facility.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-2)', marginBottom: 'var(--itsm-space-1)' }}>
                         <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>{facility.name}</span>
                         {getFacilityTypeBadge(facility.facility_type)}
@@ -729,6 +765,22 @@ export function ReservationsPage() {
                           ))}
                         </div>
                       )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--itsm-space-1)', flexShrink: 0 }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleToggleFacilityActive(facility)}
+                      >
+                        {facility.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleDeleteFacility(facility)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </Panel>

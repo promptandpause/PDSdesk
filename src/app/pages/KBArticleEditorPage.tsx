@@ -10,6 +10,7 @@ interface Article {
   slug: string;
   title: string;
   body: string;
+  category: string | null;
   status: string;
   tags: string[];
   created_by: string;
@@ -32,9 +33,11 @@ export function KBArticleEditorPage() {
     slug: '',
     title: '',
     body: '',
+    category: '',
     status: 'draft',
     tags: '',
   });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (isNew) return;
@@ -58,6 +61,7 @@ export function KBArticleEditorPage() {
           slug: art.slug,
           title: art.title,
           body: art.body,
+          category: art.category || '',
           status: art.status,
           tags: art.tags.join(', '),
         });
@@ -97,6 +101,7 @@ export function KBArticleEditorPage() {
       slug: formData.slug.trim(),
       title: formData.title.trim(),
       body: formData.body,
+      category: formData.category.trim() || null,
       status: formData.status,
       tags: formData.tags
         .split(',')
@@ -111,14 +116,28 @@ export function KBArticleEditorPage() {
         .select()
         .single();
 
-      if (!error && data) {
+      if (error) {
+        console.error('Error creating article:', error);
+        alert('Error creating article: ' + error.message);
+        setSaving(false);
+        return;
+      }
+
+      if (data) {
         navigate(`/kb/${data.id}`);
       }
     } else {
-      await supabase
+      const { error } = await supabase
         .from('knowledge_articles')
         .update(payload)
         .eq('id', id);
+
+      if (error) {
+        console.error('Error updating article:', error);
+        alert('Error updating article: ' + error.message);
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false);
@@ -126,6 +145,40 @@ export function KBArticleEditorPage() {
     if (!isNew) {
       navigate('/kb');
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading(true);
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+    const { data, error } = await supabase.storage
+      .from('kb-images')
+      .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+    if (error) {
+      console.error('Upload error:', error);
+      alert('Error uploading image: ' + error.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('kb-images')
+      .getPublicUrl(data.path);
+
+    const imageMarkdown = `![${file.name}](${urlData.publicUrl})`;
+    setFormData((prev) => ({
+      ...prev,
+      body: prev.body + '\n\n' + imageMarkdown,
+    }));
+
+    setUploading(false);
+    e.target.value = '';
   };
 
   const handlePublish = async () => {
@@ -225,10 +278,28 @@ export function KBArticleEditorPage() {
                 hint="URL-friendly identifier"
               />
 
+              <Input
+                label="Category"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                placeholder="e.g., Getting Started, Troubleshooting"
+              />
+
               <div>
-                <label className="itsm-label" style={{ display: 'block', marginBottom: 'var(--itsm-space-2)' }}>
-                  Content
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--itsm-space-2)' }}>
+                  <label className="itsm-label">Content</label>
+                  <label style={{ cursor: 'pointer' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <Button variant="ghost" size="sm" type="button" loading={uploading} disabled={uploading}>
+                      {uploading ? 'Uploading...' : '📷 Add Image'}
+                    </Button>
+                  </label>
+                </div>
                 <textarea
                   value={formData.body}
                   onChange={(e) => setFormData({ ...formData, body: e.target.value })}

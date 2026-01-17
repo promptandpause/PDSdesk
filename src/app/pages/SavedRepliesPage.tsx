@@ -8,9 +8,8 @@ interface SavedReply {
   id: string;
   user_id: string;
   name: string;
-  shortcut: string | null;
-  body: string;
-  is_shared: boolean;
+  content: string;
+  visibility: 'private' | 'global';
   created_at: string;
   updated_at: string;
 }
@@ -26,9 +25,8 @@ export function SavedRepliesPage() {
   const [editingReply, setEditingReply] = useState<SavedReply | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    shortcut: '',
-    body: '',
-    is_shared: false,
+    content: '',
+    visibility: 'private' as 'private' | 'global',
   });
   const [saving, setSaving] = useState(false);
 
@@ -39,7 +37,7 @@ export function SavedRepliesPage() {
     const { data, error } = await supabase
       .from('saved_replies')
       .select('*')
-      .or(`user_id.eq.${user.id},is_shared.eq.true`)
+      .or(`user_id.eq.${user.id},visibility.eq.global`)
       .order('name');
 
     if (!error && data) {
@@ -57,17 +55,15 @@ export function SavedRepliesPage() {
     const searchLower = search.toLowerCase();
     return (
       reply.name.toLowerCase().includes(searchLower) ||
-      (reply.shortcut?.toLowerCase().includes(searchLower) ?? false) ||
-      reply.body.toLowerCase().includes(searchLower)
+      reply.content.toLowerCase().includes(searchLower)
     );
   });
 
   const resetForm = () => {
     setFormData({
       name: '',
-      shortcut: '',
-      body: '',
-      is_shared: false,
+      content: '',
+      visibility: 'private',
     });
     setEditingReply(null);
     setShowForm(false);
@@ -77,36 +73,40 @@ export function SavedRepliesPage() {
     setEditingReply(reply);
     setFormData({
       name: reply.name,
-      shortcut: reply.shortcut ?? '',
-      body: reply.body,
-      is_shared: reply.is_shared,
+      content: reply.content,
+      visibility: reply.visibility,
     });
     setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.body.trim() || !user) return;
+    if (!formData.name.trim() || !formData.content.trim() || !user) return;
 
     setSaving(true);
 
     const payload = {
       name: formData.name.trim(),
-      shortcut: formData.shortcut.trim() || null,
-      body: formData.body,
-      is_shared: formData.is_shared,
+      content: formData.content,
+      visibility: formData.visibility,
     };
 
+    let result;
     if (editingReply) {
-      await supabase
+      result = await supabase
         .from('saved_replies')
         .update(payload)
         .eq('id', editingReply.id);
     } else {
-      await supabase.from('saved_replies').insert({
+      result = await supabase.from('saved_replies').insert({
         ...payload,
         user_id: user.id,
       });
+    }
+
+    if (result.error) {
+      console.error('Error saving reply:', result.error);
+      alert('Error saving reply: ' + result.error.message);
     }
 
     setSaving(false);
@@ -120,8 +120,9 @@ export function SavedRepliesPage() {
     void fetchReplies();
   };
 
-  const handleCopy = (body: string) => {
-    void navigator.clipboard.writeText(body);
+  const handleCopy = (content: string) => {
+    void navigator.clipboard.writeText(content);
+    alert('Copied to clipboard!');
   };
 
   return (
@@ -151,13 +152,27 @@ export function SavedRepliesPage() {
                   placeholder="e.g., Password Reset Instructions"
                   required
                 />
-                <Input
-                  label="Shortcut"
-                  value={formData.shortcut}
-                  onChange={(e) => setFormData({ ...formData, shortcut: e.target.value })}
-                  placeholder="e.g., /pwreset"
-                  hint="Type this in ticket reply to insert"
-                />
+                <div>
+                  <label className="itsm-label" style={{ display: 'block', marginBottom: 'var(--itsm-space-2)' }}>
+                    Visibility
+                  </label>
+                  <select
+                    value={formData.visibility}
+                    onChange={(e) => setFormData({ ...formData, visibility: e.target.value as 'private' | 'global' })}
+                    style={{
+                      width: '100%',
+                      height: 32,
+                      padding: '0 var(--itsm-space-3)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                      backgroundColor: 'var(--itsm-surface-base)',
+                    }}
+                  >
+                    <option value="private">Private (only me)</option>
+                    <option value="global">Global (shared with team)</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ marginTop: 'var(--itsm-space-4)' }}>
@@ -165,8 +180,8 @@ export function SavedRepliesPage() {
                   Reply Content
                 </label>
                 <textarea
-                  value={formData.body}
-                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   placeholder="Enter your saved reply text..."
                   required
                   style={{
@@ -187,19 +202,7 @@ export function SavedRepliesPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 'var(--itsm-space-4)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-2)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.is_shared}
-                    onChange={(e) => setFormData({ ...formData, is_shared: e.target.checked })}
-                  />
-                  <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
-                    Share with team (visible to all agents)
-                  </span>
-                </label>
-              </div>
-
+              
               <div style={{ marginTop: 'var(--itsm-space-4)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--itsm-space-2)' }}>
                 <Button variant="ghost" type="button" onClick={resetForm}>
                   Cancel
@@ -235,8 +238,7 @@ export function SavedRepliesPage() {
               <TableHead>
                 <tr>
                   <TableHeaderCell>Name</TableHeaderCell>
-                  <TableHeaderCell width={120}>Shortcut</TableHeaderCell>
-                  <TableHeaderCell width={80}>Scope</TableHeaderCell>
+                  <TableHeaderCell width={100}>Visibility</TableHeaderCell>
                   <TableHeaderCell width={150} align="right">Actions</TableHeaderCell>
                 </tr>
               </TableHead>
@@ -258,18 +260,17 @@ export function SavedRepliesPage() {
                           maxWidth: 400,
                         }}
                       >
-                        {reply.body.slice(0, 100)}...
+                        {reply.content.slice(0, 100)}{reply.content.length > 100 ? '...' : ''}
                       </div>
                     </TableCell>
-                    <TableCell mono muted>{reply.shortcut ?? '—'}</TableCell>
                     <TableCell>
-                      <Badge variant={reply.is_shared ? 'blue' : 'neutral'}>
-                        {reply.is_shared ? 'Shared' : 'Personal'}
+                      <Badge variant={reply.visibility === 'global' ? 'blue' : 'neutral'}>
+                        {reply.visibility === 'global' ? 'Global' : 'Private'}
                       </Badge>
                     </TableCell>
                     <TableCell align="right">
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--itsm-space-1)' }}>
-                        <Button variant="ghost" size="sm" onClick={() => handleCopy(reply.body)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleCopy(reply.content)}>
                           Copy
                         </Button>
                         {reply.user_id === user?.id && (

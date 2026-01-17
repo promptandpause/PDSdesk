@@ -268,6 +268,55 @@ export function ReportsPage() {
     ? Object.values(reportData.ticketsByStatus).reduce((a, b) => a + b, 0)
     : 0;
 
+  const handleExportCSV = () => {
+    if (!reportData) return;
+
+    let csvContent = '';
+    
+    if (activeTab === 'overview' || activeTab === 'tickets') {
+      // Export tickets summary
+      csvContent = 'Category,Type,Count\n';
+      
+      Object.entries(reportData.ticketsByStatus).forEach(([status, count]) => {
+        csvContent += `"${status}","Status",${count}\n`;
+      });
+      
+      Object.entries(reportData.ticketsByPriority).forEach(([priority, count]) => {
+        csvContent += `"${priority}","Priority",${count}\n`;
+      });
+      
+      Object.entries(reportData.ticketsByCategory).forEach(([category, count]) => {
+        csvContent += `"${category}","Category",${count}\n`;
+      });
+    } else if (activeTab === 'sla') {
+      csvContent = 'Metric,Value\n';
+      csvContent += `"Total with SLA",${reportData.slaMetrics.total}\n`;
+      csvContent += `"On Time",${reportData.slaMetrics.onTime}\n`;
+      csvContent += `"Breached",${reportData.slaMetrics.breached}\n`;
+      const compliance = reportData.slaMetrics.total > 0 
+        ? Math.round((reportData.slaMetrics.onTime / reportData.slaMetrics.total) * 100) 
+        : 0;
+      csvContent += `"Compliance Rate",${compliance}%\n`;
+    } else if (activeTab === 'team') {
+      csvContent = 'Name,Type,Count\n';
+      
+      reportData.ticketsByGroup.forEach((group) => {
+        csvContent += `"${group.name}","Team",${group.count}\n`;
+      });
+      
+      reportData.ticketsByAssignee.forEach((assignee) => {
+        csvContent += `"${assignee.name}","Assignee",${assignee.count}\n`;
+      });
+    }
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `report_${activeTab}_${dateRange.start}_${dateRange.end}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   if (loading && !reportData) {
     return (
       <div>
@@ -285,9 +334,14 @@ export function ReportsPage() {
         title="Reports"
         subtitle="Analytics and insights"
         actions={
-          <Button variant="secondary" onClick={() => setShowSaveForm(!showSaveForm)}>
-            {showSaveForm ? 'Cancel' : 'Save Report'}
-          </Button>
+          <>
+            <Button variant="ghost" onClick={handleExportCSV}>
+              Export CSV
+            </Button>
+            <Button variant="secondary" onClick={() => setShowSaveForm(!showSaveForm)}>
+              {showSaveForm ? 'Cancel' : 'Save Report'}
+            </Button>
+          </>
         }
       />
 
