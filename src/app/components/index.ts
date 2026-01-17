@@ -8,3 +8,7 @@ export { MetricCard, MetricRow } from './MetricCard';
 export { Drawer } from './Drawer';
 export { NotificationsDropdown } from './NotificationsDropdown';
 export { SLAIndicator, SLARow } from './SLAIndicator';
+export { TicketWatchers } from './TicketWatchers';
+export { TicketTimeEntries } from './TicketTimeEntries';
+export { TicketLinks } from './TicketLinks';
+export { TicketApprovals } from './TicketApprovals';

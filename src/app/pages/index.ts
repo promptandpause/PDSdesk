@@ -17,4 +17,5 @@ export { ProblemsPage } from './ProblemsPage';
 export { ServiceCatalogPage } from './ServiceCatalogPage';
 export { TicketTemplatesPage } from './TicketTemplatesPage';
 export { ReservationsPage } from './ReservationsPage';
+export { ReportsPage } from './ReportsPage';
 export { OperatorGroupsPage, SLAPoliciesPage, RoutingRulesPage, AuditLogPage } from './admin';

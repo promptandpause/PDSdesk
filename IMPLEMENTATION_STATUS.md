@@ -86,6 +86,7 @@
 - `/reservations` - Book rooms, vehicles, equipment
 - `/saved-replies` - Reusable response templates
 - `/ticket-templates` - Ticket creation templates
+- `/reports` - Advanced analytics and reporting
 
 ### Directory
 - `/customers` - Customer directory
@@ -121,11 +122,26 @@
 
 ---
 
+## Ticket Detail Enhancements ✅ COMPLETE
+- **Ticket Watchers** - Watch/unwatch tickets, see who's watching
+- **Time Tracking** - Log time entries against tickets
+- **Ticket Links** - Link related/blocking/duplicate tickets
+- **Approval Workflow** - Request and manage approvals
+
+## Advanced Reporting ✅ COMPLETE
+- **Overview Dashboard** - KPIs, status/priority distribution, volume chart
+- **Ticket Analytics** - Category breakdown, top assignees
+- **SLA Reports** - Compliance rate, on-time vs breached
+- **Team Performance** - Tickets by team, individual metrics
+- **Saved Reports** - Save and load report configurations
+
+---
+
 ## Future Enhancements
 
 ### Lower Priority
-1. **Advanced Reporting** - Custom report builder
-2. **Ticket Watchers UI** - Watch/unwatch tickets
-3. **Time Tracking UI** - Log time on tickets
-4. **Ticket Links UI** - Link related tickets
-5. **Approval Workflow UI** - Request and approve ticket changes
+1. **Email Templates** - Customizable notification templates
+2. **Bulk Operations** - Mass update/assign tickets
+3. **Custom Fields** - User-defined ticket fields
+4. **Webhooks** - External integrations
+5. **Mobile App** - Native mobile application

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
-import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator } from '../components';
+import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator, TicketWatchers, TicketTimeEntries, TicketLinks, TicketApprovals } from '../components';
 import { useTicketSLA } from '../hooks/useSLA';
 
 interface Ticket {
@@ -309,6 +309,26 @@ export function TicketDetailPage() {
                 {formatDateTime(ticket.updated_at)}
               </span>
             </PanelSection>
+          </Panel>
+
+          {/* Watchers */}
+          <Panel title="Watchers">
+            <TicketWatchers ticketId={ticket.id} />
+          </Panel>
+
+          {/* Time Tracking */}
+          <Panel title="Time Tracking">
+            <TicketTimeEntries ticketId={ticket.id} />
+          </Panel>
+
+          {/* Linked Tickets */}
+          <Panel title="Linked Tickets">
+            <TicketLinks ticketId={ticket.id} />
+          </Panel>
+
+          {/* Approvals */}
+          <Panel title="Approvals">
+            <TicketApprovals ticketId={ticket.id} />
           </Panel>
         </div>
       </div>

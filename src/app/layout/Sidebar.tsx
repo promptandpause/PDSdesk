@@ -45,6 +45,7 @@ const agentNavigation: NavSection[] = [
     items: [
       { label: 'Customers', to: '/customers', icon: '◎' },
       { label: 'Contacts', to: '/contacts', icon: '◇' },
+      { label: 'Reports', to: '/reports', icon: '◫' },
     ],
   },
   {
