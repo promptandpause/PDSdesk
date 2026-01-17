@@ -146,18 +146,45 @@ begin
 end;
 $$;
 
+-- Wrapper functions for triggers (no parameters)
+create or replace function public.ticket_created_notification_handler()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.enqueue_ticket_notification(new.id, 'created');
+  return new;
+end;
+$$;
+
+create or replace function public.ticket_updated_notification_handler()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.status is distinct from new.status or old.updated_at is distinct from new.updated_at then
+    perform public.enqueue_ticket_notification(new.id, 'updated');
+  end if;
+  return new;
+end;
+$$;
+
 -- Triggers for automatic notifications
 drop trigger if exists ticket_created_notification_trigger on public.tickets;
 create trigger ticket_created_notification_trigger
 after insert on public.tickets
-for each row execute procedure public.enqueue_ticket_notification(new.id, 'created');
+for each row execute procedure public.ticket_created_notification_handler();
 
 drop trigger if exists ticket_updated_notification_trigger on public.tickets;
 create trigger ticket_updated_notification_trigger
 after update on public.tickets
 for each row 
 when (old.status is distinct from new.status or old.updated_at is distinct from new.updated_at)
-execute procedure public.enqueue_ticket_notification(new.id, 'updated');
+execute procedure public.ticket_updated_notification_handler();
 
 -- Function to handle ticket status changes
 create or replace function public.handle_ticket_status_change()

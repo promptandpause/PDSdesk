@@ -10,7 +10,7 @@ create or replace function public.process_ticket_reply(
 )
 returns jsonb
 language plpgsql
-security defimiter
+security definer
 set search_path = public
 as $$
 declare
