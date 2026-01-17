@@ -33,22 +33,29 @@ export function OperatorGroupsPage() {
     setShowForm(true);
   };
 
+  const ensureQueueSuffix = (key: string): string => {
+    const trimmed = key.trim().toLowerCase().replace(/\s+/g, '-');
+    return trimmed.endsWith('-queue') ? trimmed : `${trimmed}-queue`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.group_key.trim() || !formData.name.trim()) return;
 
     setSaving(true);
 
+    const groupKey = ensureQueueSuffix(formData.group_key);
+
     if (editingGroup) {
       await updateGroup(editingGroup.id, {
-        group_key: formData.group_key.trim(),
+        group_key: groupKey,
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         is_active: formData.is_active,
       });
     } else {
       await createGroup({
-        group_key: formData.group_key.trim(),
+        group_key: groupKey,
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         is_active: formData.is_active,

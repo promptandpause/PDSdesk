@@ -19,4 +19,5 @@ export { TicketTemplatesPage } from './TicketTemplatesPage';
 export { ReservationsPage } from './ReservationsPage';
 export { ReportsPage } from './ReportsPage';
 export { CallLogsPage } from './CallLogsPage';
+export { QueuePage } from './QueuePage';
 export { OperatorGroupsPage, SLAPoliciesPage, RoutingRulesPage, AuditLogPage, RolesManagementPage, UserManagementPage, QueueManagementPage, SystemSettingsPage } from './admin';

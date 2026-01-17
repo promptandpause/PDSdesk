@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { getSupabaseClient } from '../../lib/supabaseClient';
 
 interface NavItem {
   label: string;
@@ -11,51 +12,14 @@ interface NavItem {
 interface NavSection {
   title?: string;
   items: NavItem[];
+  dynamic?: boolean;
 }
 
-const agentNavigation: NavSection[] = [
-  {
-    items: [
-      { label: 'Dashboard', to: '/dashboard', icon: '◫' },
-      { label: 'Tickets', to: '/tickets', icon: '▤' },
-      { label: 'Customer Queue', to: '/customer-queue', icon: '◆' },
-      { label: 'Problems', to: '/problems', icon: '⚠' },
-    ],
-  },
-  {
-    title: 'Planning',
-    items: [
-      { label: 'Planner', to: '/planner', icon: '☰' },
-      { label: 'Kanban Boards', to: '/kanban', icon: '▦' },
-    ],
-  },
-  {
-    title: 'Resources',
-    items: [
-      { label: 'Service Catalog', to: '/service-catalog', icon: '▧' },
-      { label: 'Knowledge Base', to: '/kb', icon: '◉' },
-      { label: 'Assets', to: '/assets', icon: '▣' },
-      { label: 'Reservations', to: '/reservations', icon: '◐' },
-      { label: 'Saved Replies', to: '/saved-replies', icon: '◈' },
-      { label: 'Templates', to: '/ticket-templates', icon: '◧' },
-    ],
-  },
-  {
-    title: 'Directory',
-    items: [
-      { label: 'Customers', to: '/customers', icon: '◎' },
-      { label: 'Contacts', to: '/contacts', icon: '◇' },
-      { label: 'Reports', to: '/reports', icon: '◫' },
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      { label: 'Call Logs', to: '/call-logs', icon: '◌' },
-      { label: 'Settings', to: '/settings', icon: '⚙' },
-    ],
-  },
-];
+interface OperatorQueue {
+  id: string;
+  group_key: string;
+  name: string;
+}
 
 const customerNavigation: NavSection[] = [
   {
@@ -108,10 +72,115 @@ function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
 }
 
 export function Sidebar() {
-  const { profile, roles, signOut } = useAuth();
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const { user, profile, roles, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [userQueues, setUserQueues] = useState<OperatorQueue[]>([]);
 
-  const isAgent = roles.includes('operator') || roles.includes('service_desk_admin') || roles.includes('global_admin');
+  const isGlobalAdmin = roles.includes('global_admin');
+  const isServiceDeskAdmin = roles.includes('service_desk_admin');
+  const isAgent = roles.includes('operator') || isServiceDeskAdmin || isGlobalAdmin;
+  const canViewAllQueues = isGlobalAdmin || isServiceDeskAdmin;
+
+  // Fetch user's visible queues dynamically
+  const fetchUserQueues = useCallback(async () => {
+    if (!user || !isAgent) return;
+
+    if (canViewAllQueues) {
+      // Global admins and service desk admins see all active queues
+      const { data } = await supabase
+        .from('operator_groups')
+        .select('id, group_key, name')
+        .eq('is_active', true)
+        .order('name');
+      setUserQueues((data as OperatorQueue[]) ?? []);
+    } else {
+      // Operators only see queues they're members of
+      const { data: memberData } = await supabase
+        .from('operator_group_members')
+        .select('group_id')
+        .eq('user_id', user.id);
+
+      if (memberData && memberData.length > 0) {
+        const groupIds = memberData.map((m: { group_id: string }) => m.group_id);
+        const { data } = await supabase
+          .from('operator_groups')
+          .select('id, group_key, name')
+          .in('id', groupIds)
+          .eq('is_active', true)
+          .order('name');
+        setUserQueues((data as OperatorQueue[]) ?? []);
+      }
+    }
+  }, [supabase, user, isAgent, canViewAllQueues]);
+
+  useEffect(() => {
+    void fetchUserQueues();
+  }, [fetchUserQueues]);
+
+  // Build dynamic navigation based on user's queues
+  const agentNavigation: NavSection[] = useMemo(() => {
+    const queueItems: NavItem[] = userQueues.map((q) => ({
+      label: q.name,
+      to: `/${q.group_key}`,
+      icon: '◆',
+    }));
+
+    return [
+      {
+        items: [
+          { label: 'Dashboard', to: '/dashboard', icon: '◫' },
+          { label: 'All Tickets', to: '/tickets', icon: '▤' },
+        ],
+      },
+      ...(queueItems.length > 0
+        ? [
+            {
+              title: 'My Queues',
+              items: queueItems,
+              dynamic: true,
+            },
+          ]
+        : []),
+      {
+        items: [{ label: 'Problems', to: '/problems', icon: '⚠' }],
+      },
+      {
+        title: 'Planning',
+        items: [
+          { label: 'Planner', to: '/planner', icon: '☰' },
+          { label: 'Kanban Boards', to: '/kanban', icon: '▦' },
+        ],
+      },
+      {
+        title: 'Resources',
+        items: [
+          { label: 'Service Catalog', to: '/service-catalog', icon: '▧' },
+          { label: 'Knowledge Base', to: '/kb', icon: '◉' },
+          { label: 'Assets', to: '/assets', icon: '▣' },
+          { label: 'Reservations', to: '/reservations', icon: '◐' },
+          { label: 'Saved Replies', to: '/saved-replies', icon: '◈' },
+          { label: 'Templates', to: '/ticket-templates', icon: '◧' },
+        ],
+      },
+      {
+        title: 'Directory',
+        items: [
+          { label: 'Customers', to: '/customers', icon: '◎' },
+          { label: 'Contacts', to: '/contacts', icon: '◇' },
+          { label: 'Reports', to: '/reports', icon: '◫' },
+        ],
+      },
+      {
+        title: 'System',
+        items: [
+          { label: 'Call Logs', to: '/call-logs', icon: '◌' },
+          { label: 'Settings', to: '/settings', icon: '⚙' },
+        ],
+      },
+    ];
+  }, [userQueues]);
+
   const navigation = isAgent ? agentNavigation : customerNavigation;
 
   return (
