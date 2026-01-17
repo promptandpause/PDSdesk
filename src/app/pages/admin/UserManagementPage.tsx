@@ -112,12 +112,12 @@ export function UserManagementPage() {
   };
 
   const handleActivateSelected = async () => {
-    if (selectedUsers.size === 0) {
+    if (validSelectedUsers.length === 0) {
       alert('Please select users to activate.');
       return;
     }
 
-    if (!confirm(`Activate ${selectedUsers.size} user(s) as active profiles? They will be able to be assigned tickets and will have the "requester" role.`)) {
+    if (!confirm(`Activate ${validSelectedUsers.length} user(s) as active profiles? They will be able to be assigned tickets and will have the "requester" role.`)) {
       return;
     }
 
@@ -125,7 +125,7 @@ export function UserManagementPage() {
 
     try {
       const { data, error } = await supabase.rpc('activate_directory_users_bulk', {
-        p_directory_user_ids: Array.from(selectedUsers),
+        p_directory_user_ids: validSelectedUsers,
       });
 
       if (error) {
@@ -172,6 +172,13 @@ export function UserManagementPage() {
   const isUserActivated = (azureAdId: string) => {
     return profiles.some((p) => p.azure_ad_id === azureAdId);
   };
+
+  // Filter selectedUsers to only include non-activated users
+  const validSelectedUsers = Array.from(selectedUsers).filter((userId) => {
+    const dirUser = directoryUsers.find((u) => u.id === userId);
+    return dirUser && !isUserActivated(dirUser.azure_ad_id);
+  });
+  const validSelectedCount = validSelectedUsers.length;
 
   const filteredDirectoryUsers = directoryUsers.filter((u) => {
     if (!search) return true;
@@ -253,7 +260,7 @@ export function UserManagementPage() {
           >
             Directory ({directoryUsers.length})
           </Button>
-          {activeTab === 'directory' && selectedUsers.size > 0 && (
+          {activeTab === 'directory' && validSelectedCount > 0 && (
             <Button
               variant="primary"
               onClick={handleActivateSelected}
@@ -261,7 +268,7 @@ export function UserManagementPage() {
               disabled={activating}
               style={{ marginLeft: 'auto' }}
             >
-              Activate Selected ({selectedUsers.size})
+              Activate Selected ({validSelectedCount})
             </Button>
           )}
         </div>
@@ -351,10 +358,10 @@ export function UserManagementPage() {
                         <TableCell>
                           <input
                             type="checkbox"
-                            checked={selectedUsers.has(u.id)}
+                            checked={!activated && selectedUsers.has(u.id)}
                             onChange={() => toggleUserSelection(u.id, u.azure_ad_id)}
                             disabled={activated}
-                            style={{ cursor: activated ? 'not-allowed' : 'pointer' }}
+                            style={{ cursor: activated ? 'not-allowed' : 'pointer', opacity: activated ? 0.4 : 1 }}
                           />
                         </TableCell>
                         <TableCell>
