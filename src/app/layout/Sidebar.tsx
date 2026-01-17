@@ -126,13 +126,19 @@ export function Sidebar() {
       icon: '◆',
     }));
 
+    const mainItems: NavItem[] = [
+      { label: 'Dashboard', to: '/dashboard', icon: '◫' },
+      { label: 'My Tickets', to: '/my-tickets', icon: '◈' },
+    ];
+    
+    // Only show All Tickets to global_admin and service_desk_admin
+    if (canViewAllQueues) {
+      mainItems.push({ label: 'All Tickets', to: '/tickets', icon: '▤' });
+    }
+
     return [
       {
-        items: [
-          { label: 'Dashboard', to: '/dashboard', icon: '◫' },
-          { label: 'My Tickets', to: '/my-tickets', icon: '◈' },
-          { label: 'All Tickets', to: '/tickets', icon: '▤' },
-        ],
+        items: mainItems,
       },
       ...(queueItems.length > 0
         ? [
