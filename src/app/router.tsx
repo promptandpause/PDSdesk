@@ -36,6 +36,8 @@ import {
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
+import { useAuth } from '../lib/auth/AuthProvider';
+
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div style={{ padding: 'var(--itsm-space-6)' }}>
@@ -49,6 +51,25 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+// Smart redirect based on user role
+function RoleBasedRedirect() {
+  const { roles, loading } = useAuth();
+  
+  if (loading) {
+    return <div style={{ padding: 'var(--itsm-space-6)', color: 'var(--itsm-text-tertiary)' }}>Loading...</div>;
+  }
+  
+  // Operators and admins go to dashboard
+  const isOperator = roles.includes('global_admin') || roles.includes('service_desk_admin') || roles.includes('operator');
+  
+  if (isOperator) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  // Requesters (regular employees) go to service catalog
+  return <Navigate to="/service-catalog" replace />;
+}
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -58,7 +79,7 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { index: true, element: <RoleBasedRedirect /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'tickets', element: <TicketsPage /> },
       { path: 'tickets/new', element: <TicketNewPage /> },
