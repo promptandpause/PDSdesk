@@ -81,8 +81,7 @@ export function TicketsPage() {
       });
   }, [supabase, user]);
 
-  // Load tickets - always load for authenticated users on this page
-  // The redirect effect will handle non-admins
+  // Load tickets using RPC function for admins (bypasses RLS issues)
   useEffect(() => {
     if (!user) return;
     
@@ -91,26 +90,13 @@ export function TicketsPage() {
     async function load() {
       setLoading(true);
 
-      let q = supabase
-        .from('tickets')
-        .select('id,ticket_number,title,status,priority,category,assigned_to,assigned_group_id,created_at,updated_at', { count: 'exact' })
-        .order('updated_at', { ascending: false })
-        .limit(50);
-
-      if (statusFilter) {
-        q = q.eq('status', statusFilter);
-      }
-
-      if (queueFilter) {
-        q = q.eq('assigned_group_id', queueFilter);
-      }
-
-      const trimmed = query.trim();
-      if (trimmed) {
-        q = q.or(`title.ilike.%${trimmed}%,ticket_number.ilike.%${trimmed}%`);
-      }
-
-      const { data, count, error } = await q;
+      const { data, error } = await supabase.rpc('get_all_tickets_for_admins', {
+        p_limit: 50,
+        p_offset: 0,
+        p_status: statusFilter || null,
+        p_queue_id: queueFilter || null,
+        p_search: query.trim() || null,
+      });
 
       if (cancelled) return;
 
@@ -119,8 +105,9 @@ export function TicketsPage() {
         setTickets([]);
         setTotalCount(0);
       } else {
-        setTickets((data as TicketRow[]) ?? []);
-        setTotalCount(count ?? 0);
+        const rows = (data ?? []) as Array<TicketRow & { total_count: number }>;
+        setTickets(rows.map(({ total_count, ...rest }) => rest));
+        setTotalCount(rows.length > 0 ? rows[0].total_count : 0);
       }
       setLoading(false);
     }
