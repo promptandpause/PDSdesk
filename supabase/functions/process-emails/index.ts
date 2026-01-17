@@ -153,17 +153,32 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({ error: 'Missing Supabase environment variables' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get email configuration
-    const { data: configData } = await supabase
+    const { data: configData, error: configError } = await supabase
       .from('email_config')
       .select('config_key, config_value');
 
-    if (!configData) {
-      return new Response(JSON.stringify({ error: 'Email config not found' }), {
+    if (configError) {
+      return new Response(JSON.stringify({ error: 'Config query error: ' + configError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!configData || configData.length === 0) {
+      return new Response(JSON.stringify({ error: 'Email config not found or empty' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -186,17 +201,47 @@ serve(async (req) => {
     const mailboxEmail = config.ms_mailbox_email;
 
     if (!tenantId || !clientId || !clientSecret || !mailboxEmail) {
-      return new Response(JSON.stringify({ error: 'Missing email configuration' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Missing email configuration',
+        details: {
+          hasTenantId: !!tenantId,
+          hasClientId: !!clientId,
+          hasClientSecret: !!clientSecret,
+          hasMailboxEmail: !!mailboxEmail,
+        }
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Get Graph API access token
-    const accessToken = await getGraphAccessToken(tenantId, clientId, clientSecret);
+    let accessToken: string;
+    try {
+      accessToken = await getGraphAccessToken(tenantId, clientId, clientSecret);
+    } catch (tokenError) {
+      return new Response(JSON.stringify({ 
+        error: 'Graph token error',
+        message: tokenError instanceof Error ? tokenError.message : 'Unknown token error'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Get unread emails
-    const emails = await getUnreadEmails(accessToken, mailboxEmail);
+    let emails: EmailMessage[];
+    try {
+      emails = await getUnreadEmails(accessToken, mailboxEmail);
+    } catch (mailError) {
+      return new Response(JSON.stringify({ 
+        error: 'Mail fetch error',
+        message: mailError instanceof Error ? mailError.message : 'Unknown mail error'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     let processed = 0;
     let created = 0;
