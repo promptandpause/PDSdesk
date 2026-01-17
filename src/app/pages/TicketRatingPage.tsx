@@ -193,7 +193,7 @@ export function TicketRatingPage() {
                   }
                 }}
               >
-                <StarIcon size={32} fill={star <= rating} />
+                <StarIcon size={32} filled={star <= rating} />
               </button>
             ))}
           </div>
