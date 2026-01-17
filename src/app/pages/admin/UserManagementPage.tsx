@@ -306,8 +306,8 @@ export function UserManagementPage() {
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {filteredProfiles.map((u) => (
-                    <TableRow key={u.id}>
+                  {filteredProfiles.map((u, index) => (
+                    <TableRow key={`profile-${u.id}-${index}`}>
                       <TableCell>
                         <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
                           {u.full_name || 'Unknown'}
@@ -351,13 +351,13 @@ export function UserManagementPage() {
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {filteredDirectoryUsers.map((u) => {
+                  {filteredDirectoryUsers.map((u, index) => {
                     const activated = isUserActivated(u.azure_ad_id);
                     return (
-                      <TableRow key={u.id}>
+                      <TableRow key={`dir-${u.id}-${index}`}>
                         <TableCell>
                           <input
-                            key={`checkbox-${u.id}`}
+                            key={`checkbox-${u.id}-${index}`}
                             type="checkbox"
                             checked={!activated && selectedUsers.has(u.id)}
                             onChange={(e) => {
