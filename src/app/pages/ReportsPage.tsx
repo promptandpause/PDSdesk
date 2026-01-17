@@ -71,7 +71,7 @@ export function ReportsPage() {
     // Fetch SLA data
     const { data: slaData } = await supabase
       .from('ticket_slas')
-      .select('ticket_id, first_response_met_at, resolution_met_at, first_response_due_at, resolution_due_at')
+      .select('ticket_id, first_response_at, resolved_at, first_response_due_at, resolution_due_at')
       .gte('created_at', startDate)
       .lte('created_at', endDate);
 
@@ -148,7 +148,7 @@ export function ReportsPage() {
     let breached = 0;
     slaList.forEach((sla) => {
       const resolutionDue = sla.resolution_due_at ? new Date(sla.resolution_due_at) : null;
-      const resolutionMet = sla.resolution_met_at ? new Date(sla.resolution_met_at) : null;
+      const resolutionMet = sla.resolved_at ? new Date(sla.resolved_at) : null;
 
       if (resolutionDue && resolutionMet) {
         if (resolutionMet <= resolutionDue) {
