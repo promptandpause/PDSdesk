@@ -7,8 +7,8 @@ import { SearchIcon } from '../components/Icons';
 interface Customer {
   id: string;
   name: string;
-  email: string | null;
-  phone: string | null;
+  domain: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -28,13 +28,13 @@ export function CustomersPage() {
 
       let q = supabase
         .from('customers')
-        .select('id,name,email,phone,created_at', { count: 'exact' })
+        .select('id,name,domain,is_active,created_at', { count: 'exact' })
         .order('created_at', { ascending: false })
         .limit(50);
 
       const trimmed = query.trim();
       if (trimmed) {
-        q = q.or(`name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
+        q = q.or(`name.ilike.%${trimmed}%,domain.ilike.%${trimmed}%`);
       }
 
       const { data, count, error } = await q;
@@ -98,8 +98,8 @@ export function CustomersPage() {
               <TableHead>
                 <tr>
                   <TableHeaderCell>Name</TableHeaderCell>
-                  <TableHeaderCell>Email</TableHeaderCell>
-                  <TableHeaderCell>Phone</TableHeaderCell>
+                  <TableHeaderCell>Domain</TableHeaderCell>
+                  <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell width={100} align="right">Created</TableHeaderCell>
                 </tr>
               </TableHead>
@@ -130,8 +130,16 @@ export function CustomersPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell muted>{customer.email ?? '—'}</TableCell>
-                    <TableCell muted>{customer.phone ?? '—'}</TableCell>
+                    <TableCell muted>{customer.domain ?? '—'}</TableCell>
+                    <TableCell>
+                      <span style={{ 
+                        color: customer.is_active ? 'var(--itsm-success-500)' : 'var(--itsm-text-tertiary)',
+                        fontSize: 'var(--itsm-text-xs)',
+                        fontWeight: 500
+                      }}>
+                        {customer.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
                     <TableCell align="right" muted>{formatDate(customer.created_at)}</TableCell>
                   </TableRow>
                 ))}
