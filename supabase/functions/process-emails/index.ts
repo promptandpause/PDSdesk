@@ -427,49 +427,8 @@ serve(async (req) => {
             })
             .eq('id', inboundEmail.id);
 
-          // Send confirmation email
-          const confirmationHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background-color: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { background-color: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
-    .ticket-info { background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>Ticket Created</h1>
-  </div>
-  <div class="content">
-    <p>Hello ${email.from.emailAddress.name || 'there'},</p>
-    <p>Thank you for contacting us. Your request has been received and a ticket has been created.</p>
-    <div class="ticket-info">
-      <p><strong>Ticket Number:</strong> ${newTicketNumber}</p>
-      <p><strong>Subject:</strong> ${email.subject}</p>
-    </div>
-    <p>You can reply to this email to add more information to your ticket. Please keep the ticket number in the subject line.</p>
-    <p>Our team will review your request and get back to you shortly.</p>
-  </div>
-  <div class="footer">
-    <p>Service Desk Team<br>servicedesk@promptandpause.com</p>
-  </div>
-</body>
-</html>`;
-
-          await sendEmail(
-            accessToken,
-            mailboxEmail,
-            email.from.emailAddress.address,
-            `Re: [${newTicketNumber}] ${email.subject}`,
-            confirmationHtml,
-            `servicedesk+${newTicketNumber}@promptandpause.com`
-          );
-
+          // Confirmation email is sent via the email_queue trigger on ticket creation
+          // No direct email send here to avoid duplicates
           created++;
         }
 
