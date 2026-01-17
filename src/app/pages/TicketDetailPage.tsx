@@ -314,7 +314,7 @@ export function TicketDetailPage() {
 
     for (const file of Array.from(files)) {
       const fileExt = file.name.split('.').pop();
-      const filePath = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `tickets/${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('ticket-attachments')
