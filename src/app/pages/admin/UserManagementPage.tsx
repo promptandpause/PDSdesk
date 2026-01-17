@@ -331,6 +331,24 @@ export function UserManagementPage() {
                 No directory users found. Click "Sync from Azure AD" to import users.
               </div>
             ) : (
+              <>
+                {/* Info banner about SSO */}
+                <div style={{
+                  padding: 'var(--itsm-space-3) var(--itsm-space-4)',
+                  backgroundColor: 'var(--itsm-info-50)',
+                  borderBottom: '1px solid var(--itsm-info-200)',
+                  fontSize: 'var(--itsm-text-sm)',
+                  color: 'var(--itsm-info-700)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--itsm-space-2)',
+                }}>
+                  <span style={{ fontSize: '1rem' }}>ℹ️</span>
+                  <span>
+                    Users with "Not Active" status need to sign in via SSO at <strong>/login</strong> to create their profile. 
+                    Once they sign in, they will automatically appear as Active Users.
+                  </span>
+                </div>
               <Table>
                 <TableHead>
                   <tr>
@@ -396,6 +414,7 @@ export function UserManagementPage() {
                   })}
                 </TableBody>
               </Table>
+              </>
             )
           )}
         </Panel>
