@@ -5,7 +5,6 @@ import { PageHeader } from '../../layout/PageHeader';
 import { Panel, Button, Input, Badge, Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from '../../components';
 
 interface DirectoryUser {
-  id: string;
   azure_ad_id: string;
   email: string | null;
   full_name: string | null;
@@ -125,7 +124,7 @@ export function UserManagementPage() {
 
     try {
       const { data, error } = await supabase.rpc('activate_directory_users_bulk', {
-        p_directory_user_ids: validSelectedUsers,
+        p_azure_ad_ids: validSelectedUsers,
       });
 
       if (error) {
@@ -162,13 +161,13 @@ export function UserManagementPage() {
     (u) => !isUserActivated(u.azure_ad_id)
   );
 
-  const toggleUserSelection = (userId: string) => {
+  const toggleUserSelection = (azureAdId: string) => {
     setSelectedUsers((prev) => {
       const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
+      if (next.has(azureAdId)) {
+        next.delete(azureAdId);
       } else {
-        next.add(userId);
+        next.add(azureAdId);
       }
       return next;
     });
@@ -178,17 +177,17 @@ export function UserManagementPage() {
     if (selectedUsers.size === selectableUsers.length && selectableUsers.length > 0) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(selectableUsers.map((u) => u.id)));
+      setSelectedUsers(new Set(selectableUsers.map((u) => u.azure_ad_id)));
     }
   };
 
   // Filter selectedUsers to only include non-activated users
-  const validSelectedUsers = Array.from(selectedUsers).filter((userId) => {
-    return selectableUsers.some((u) => u.id === userId);
+  const validSelectedUsers = Array.from(selectedUsers).filter((azureAdId) => {
+    return selectableUsers.some((u) => u.azure_ad_id === azureAdId);
   });
   const validSelectedCount = validSelectedUsers.length;
 
-  const allSelectableSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedUsers.has(u.id));
+  const allSelectableSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedUsers.has(u.azure_ad_id));
 
   const filteredProfiles = profiles.filter((u) => {
     if (!search) return true;
@@ -354,16 +353,16 @@ export function UserManagementPage() {
                   {filteredDirectoryUsers.map((u, index) => {
                     const activated = isUserActivated(u.azure_ad_id);
                     return (
-                      <TableRow key={`dir-${u.id}-${index}`}>
+                      <TableRow key={`dir-${u.azure_ad_id}-${index}`}>
                         <TableCell>
                           <input
-                            key={`checkbox-${u.id}-${index}`}
+                            key={`checkbox-${u.azure_ad_id}-${index}`}
                             type="checkbox"
-                            checked={!activated && selectedUsers.has(u.id)}
+                            checked={!activated && selectedUsers.has(u.azure_ad_id)}
                             onChange={(e) => {
                               e.stopPropagation();
                               if (!activated) {
-                                toggleUserSelection(u.id);
+                                toggleUserSelection(u.azure_ad_id);
                               }
                             }}
                             disabled={activated}
