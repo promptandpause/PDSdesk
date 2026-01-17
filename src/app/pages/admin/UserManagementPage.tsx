@@ -24,6 +24,7 @@ interface Profile {
   azure_ad_id: string | null;
   department: string | null;
   job_title: string | null;
+  is_active?: boolean;
 }
 
 export function UserManagementPage() {
@@ -38,14 +39,16 @@ export function UserManagementPage() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'directory' | 'profiles'>('profiles');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
   const [activating, setActivating] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
 
     const [{ data: dirData }, { data: profilesData }] = await Promise.all([
       supabase.from('directory_users').select('*').order('full_name'),
-      supabase.from('profiles').select('id, email, full_name, azure_ad_id, department, job_title').order('full_name'),
+      supabase.from('profiles').select('id, email, full_name, azure_ad_id, department, job_title, is_active').order('full_name'),
     ]);
 
     if (dirData) {
@@ -140,6 +143,91 @@ export function UserManagementPage() {
     }
 
     setActivating(false);
+  };
+
+  const handleDeactivateSelected = async () => {
+    if (selectedProfiles.size === 0) {
+      alert('Please select users to deactivate.');
+      return;
+    }
+
+    // Filter out current user from selection
+    const usersToDeactivate = Array.from(selectedProfiles).filter((id) => id !== user?.id);
+    
+    if (usersToDeactivate.length === 0) {
+      alert('You cannot deactivate yourself.');
+      return;
+    }
+
+    if (!confirm(`Deactivate ${usersToDeactivate.length} user(s)? They will no longer be able to sign in.`)) {
+      return;
+    }
+
+    setDeactivating(true);
+
+    try {
+      const { data, error } = await supabase.rpc('deactivate_users_bulk', {
+        p_user_ids: usersToDeactivate,
+      });
+
+      if (error) {
+        alert('Deactivation failed: ' + error.message);
+      } else {
+        const result = data as { success_count: number; error_count: number };
+        alert(`Deactivated ${result.success_count} user(s). ${result.error_count > 0 ? `${result.error_count} failed.` : ''}`);
+        setSelectedProfiles(new Set());
+        void fetchData();
+      }
+    } catch (error) {
+      alert('Deactivation error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+
+    setDeactivating(false);
+  };
+
+  const handleReactivateUser = async (userId: string) => {
+    if (!confirm('Reactivate this user? They will be able to sign in again.')) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('reactivate_user', {
+        p_user_id: userId,
+      });
+
+      if (error) {
+        alert('Reactivation failed: ' + error.message);
+      } else {
+        alert('User reactivated successfully.');
+        void fetchData();
+      }
+    } catch (error) {
+      alert('Reactivation error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const toggleProfileSelection = (profileId: string) => {
+    // Don't allow selecting yourself
+    if (profileId === user?.id) return;
+    
+    setSelectedProfiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(profileId)) {
+        next.delete(profileId);
+      } else {
+        next.add(profileId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllProfiles = () => {
+    const selectableProfiles = filteredProfiles.filter((p) => p.id !== user?.id && p.is_active !== false);
+    if (selectedProfiles.size === selectableProfiles.length && selectableProfiles.length > 0) {
+      setSelectedProfiles(new Set());
+    } else {
+      setSelectedProfiles(new Set(selectableProfiles.map((p) => p.id)));
+    }
   };
 
   const isUserActivated = (azureAdId: string) => {
@@ -259,15 +347,15 @@ export function UserManagementPage() {
           >
             Directory ({directoryUsers.length})
           </Button>
-          {activeTab === 'directory' && validSelectedCount > 0 && (
+          {activeTab === 'profiles' && selectedProfiles.size > 0 && (
             <Button
-              variant="primary"
-              onClick={handleActivateSelected}
-              loading={activating}
-              disabled={activating}
+              variant="danger"
+              onClick={handleDeactivateSelected}
+              loading={deactivating}
+              disabled={deactivating}
               style={{ marginLeft: 'auto' }}
             >
-              Activate Selected ({validSelectedCount})
+              Deactivate Selected ({selectedProfiles.size})
             </Button>
           )}
         </div>
@@ -297,31 +385,71 @@ export function UserManagementPage() {
               <Table>
                 <TableHead>
                   <tr>
+                    <TableHeaderCell width={40}>
+                      <input
+                        type="checkbox"
+                        checked={filteredProfiles.filter((p) => p.id !== user?.id && p.is_active !== false).length > 0 && 
+                          filteredProfiles.filter((p) => p.id !== user?.id && p.is_active !== false).every((p) => selectedProfiles.has(p.id))}
+                        onChange={toggleSelectAllProfiles}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </TableHeaderCell>
                     <TableHeaderCell>Name</TableHeaderCell>
                     <TableHeaderCell>Email</TableHeaderCell>
                     <TableHeaderCell>Department</TableHeaderCell>
-                    <TableHeaderCell>Job Title</TableHeaderCell>
                     <TableHeaderCell width={100}>Linked</TableHeaderCell>
+                    <TableHeaderCell width={100}>Status</TableHeaderCell>
+                    <TableHeaderCell width={100}>Actions</TableHeaderCell>
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {filteredProfiles.map((u, index) => (
-                    <TableRow key={`profile-${u.id}-${index}`}>
-                      <TableCell>
-                        <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
-                          {u.full_name || 'Unknown'}
-                        </span>
-                      </TableCell>
-                      <TableCell muted>{u.email || '—'}</TableCell>
-                      <TableCell muted>{u.department || '—'}</TableCell>
-                      <TableCell muted>{u.job_title || '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant={u.azure_ad_id ? 'success' : 'neutral'} size="sm">
-                          {u.azure_ad_id ? 'Azure AD' : 'Local'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredProfiles.map((u, index) => {
+                    const isCurrentUser = u.id === user?.id;
+                    const isDeactivated = u.is_active === false;
+                    const canSelect = !isCurrentUser && !isDeactivated;
+                    return (
+                      <TableRow key={`profile-${u.id}-${index}`}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={canSelect && selectedProfiles.has(u.id)}
+                            onChange={() => canSelect && toggleProfileSelection(u.id)}
+                            disabled={!canSelect}
+                            style={{ cursor: canSelect ? 'pointer' : 'not-allowed', opacity: canSelect ? 1 : 0.4 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
+                            {u.full_name || 'Unknown'}
+                            {isCurrentUser && <span style={{ marginLeft: 8, fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>(You)</span>}
+                          </span>
+                        </TableCell>
+                        <TableCell muted>{u.email || '—'}</TableCell>
+                        <TableCell muted>{u.department || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant={u.azure_ad_id ? 'success' : 'neutral'} size="sm">
+                            {u.azure_ad_id ? 'Azure AD' : 'Local'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={isDeactivated ? 'danger' : 'success'} size="sm">
+                            {isDeactivated ? 'Deactivated' : 'Active'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {isDeactivated && !isCurrentUser && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReactivateUser(u.id)}
+                            >
+                              Reactivate
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )
