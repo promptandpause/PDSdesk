@@ -132,12 +132,41 @@ Deno.serve(async (req: Request) => {
 
     if (error) throw error;
 
+    // Check if user has any roles assigned
+    const { data: existingRoles, error: rolesError } = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", callerId)
+      .limit(1);
+
+    if (rolesError) throw rolesError;
+
+    // If no roles exist, assign the default "requester" role
+    let assignedDefaultRole = false;
+    if (!existingRoles || existingRoles.length === 0) {
+      const { error: insertRoleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({
+          user_id: callerId,
+          role_key: "requester",
+        });
+
+      if (insertRoleError) {
+        // Ignore duplicate key errors (role might have been assigned concurrently)
+        if (!insertRoleError.message?.includes("duplicate")) {
+          console.error("Failed to assign default requester role:", insertRoleError);
+        }
+      } else {
+        assignedDefaultRole = true;
+      }
+    }
+
     await supabaseAdmin.from("audit_logs").insert({
       actor_id: callerId,
       action: "graph_user_sync_me",
       entity_type: "profiles",
       entity_id: null,
-      metadata: { azure_ad_id: me.id },
+      metadata: { azure_ad_id: me.id, assigned_default_role: assignedDefaultRole },
     });
 
     return new Response(JSON.stringify({ ok: true }), {
