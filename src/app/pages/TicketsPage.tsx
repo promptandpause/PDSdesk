@@ -81,13 +81,10 @@ export function TicketsPage() {
       });
   }, [supabase, user]);
 
-  // Load tickets - for admins, load all tickets
+  // Load tickets - always load for authenticated users on this page
+  // The redirect effect will handle non-admins
   useEffect(() => {
-    // Wait for roles to be loaded before checking permissions
-    if (!user || roles.length === 0) return;
-    
-    // If not admin, don't load (redirect will happen)
-    if (!canViewAllTickets) return;
+    if (!user) return;
     
     let cancelled = false;
 
@@ -133,7 +130,7 @@ export function TicketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, statusFilter, query, queueFilter, canViewAllTickets, user, roles.length]);
+  }, [supabase, statusFilter, query, queueFilter, user]);
 
   const handleSearch = (value: string) => {
     setQuery(value);
