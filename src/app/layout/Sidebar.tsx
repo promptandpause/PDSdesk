@@ -73,7 +73,7 @@ function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
 
 export function Sidebar() {
   const supabase = useMemo(() => getSupabaseClient(), []);
-  const { user, profile, roles, signOut } = useAuth();
+  const { user, profile, roles, signOut, loading: authLoading } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [userQueues, setUserQueues] = useState<OperatorQueue[]>([]);
 
@@ -81,7 +81,8 @@ export function Sidebar() {
   const isServiceDeskAdmin = roles.includes('service_desk_admin');
   const isOperator = roles.includes('operator');
   const isAgent = isOperator || isServiceDeskAdmin || isGlobalAdmin;
-  const isRequester = !isAgent; // Regular employees who can only submit/view their own tickets
+  // Only treat as requester if roles have loaded and user has no agent roles
+  const isRequester = !authLoading && roles.length > 0 && !isAgent;
   const canViewAllQueues = isGlobalAdmin || isServiceDeskAdmin;
 
   // Fetch user's visible queues dynamically
