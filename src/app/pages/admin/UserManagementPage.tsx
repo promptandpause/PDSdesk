@@ -356,13 +356,25 @@ export function UserManagementPage() {
                     return (
                       <TableRow key={u.id}>
                         <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={!activated && selectedUsers.has(u.id)}
-                            onChange={() => !activated && toggleUserSelection(u.id)}
-                            disabled={activated}
-                            style={{ cursor: activated ? 'not-allowed' : 'pointer', opacity: activated ? 0.4 : 1 }}
-                          />
+                          {!activated && (
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.has(u.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleUserSelection(u.id);
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          )}
+                          {activated && (
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              disabled
+                              style={{ cursor: 'not-allowed', opacity: 0.4 }}
+                            />
+                          )}
                         </TableCell>
                         <TableCell>
                           <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
