@@ -38,6 +38,8 @@ export function UserManagementPage() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'directory' | 'profiles'>('profiles');
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [activating, setActivating] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -109,6 +111,65 @@ export function UserManagementPage() {
     setSyncing(false);
   };
 
+  const handleActivateSelected = async () => {
+    if (selectedUsers.size === 0) {
+      alert('Please select users to activate.');
+      return;
+    }
+
+    if (!confirm(`Activate ${selectedUsers.size} user(s) as active profiles? They will be able to be assigned tickets and will have the "requester" role.`)) {
+      return;
+    }
+
+    setActivating(true);
+
+    try {
+      const { data, error } = await supabase.rpc('activate_directory_users_bulk', {
+        p_directory_user_ids: Array.from(selectedUsers),
+      });
+
+      if (error) {
+        alert('Activation failed: ' + error.message);
+      } else {
+        const result = data as { success_count: number; error_count: number };
+        alert(`Activated ${result.success_count} user(s). ${result.error_count > 0 ? `${result.error_count} failed.` : ''}`);
+        setSelectedUsers(new Set());
+        void fetchData();
+      }
+    } catch (error) {
+      alert('Activation error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+
+    setActivating(false);
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const notActivatedUsers = filteredDirectoryUsers.filter(
+      (u) => !profiles.some((p) => p.azure_ad_id === u.azure_ad_id)
+    );
+    if (selectedUsers.size === notActivatedUsers.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(notActivatedUsers.map((u) => u.id)));
+    }
+  };
+
+  const isUserActivated = (azureAdId: string) => {
+    return profiles.some((p) => p.azure_ad_id === azureAdId);
+  };
+
   const filteredDirectoryUsers = directoryUsers.filter((u) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
@@ -176,7 +237,7 @@ export function UserManagementPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 'var(--itsm-space-2)', marginBottom: 'var(--itsm-space-4)' }}>
+        <div style={{ display: 'flex', gap: 'var(--itsm-space-2)', marginBottom: 'var(--itsm-space-4)', alignItems: 'center' }}>
           <Button
             variant={activeTab === 'profiles' ? 'primary' : 'ghost'}
             onClick={() => setActiveTab('profiles')}
@@ -189,6 +250,17 @@ export function UserManagementPage() {
           >
             Directory ({directoryUsers.length})
           </Button>
+          {activeTab === 'directory' && selectedUsers.size > 0 && (
+            <Button
+              variant="primary"
+              onClick={handleActivateSelected}
+              loading={activating}
+              disabled={activating}
+              style={{ marginLeft: 'auto' }}
+            >
+              Activate Selected ({selectedUsers.size})
+            </Button>
+          )}
         </div>
 
         {/* Search */}
@@ -253,36 +325,60 @@ export function UserManagementPage() {
               <Table>
                 <TableHead>
                   <tr>
+                    <TableHeaderCell width={40}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.size > 0 && selectedUsers.size === filteredDirectoryUsers.filter((u) => !isUserActivated(u.azure_ad_id)).length}
+                        onChange={toggleSelectAll}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </TableHeaderCell>
                     <TableHeaderCell>Name</TableHeaderCell>
                     <TableHeaderCell>Email</TableHeaderCell>
                     <TableHeaderCell>Department</TableHeaderCell>
-                    <TableHeaderCell>Office</TableHeaderCell>
+                    <TableHeaderCell width={100}>Profile</TableHeaderCell>
                     <TableHeaderCell width={80}>Status</TableHeaderCell>
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {filteredDirectoryUsers.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell>
-                        <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
-                          {u.full_name || 'Unknown'}
-                        </span>
-                        {u.job_title && (
-                          <div style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
-                            {u.job_title}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell muted>{u.email || '—'}</TableCell>
-                      <TableCell muted>{u.department || '—'}</TableCell>
-                      <TableCell muted>{u.office_location || '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant={u.account_enabled ? 'success' : 'danger'} size="sm">
-                          {u.account_enabled ? 'Active' : 'Disabled'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredDirectoryUsers.map((u) => {
+                    const activated = isUserActivated(u.azure_ad_id);
+                    return (
+                      <TableRow key={u.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.has(u.id)}
+                            onChange={() => toggleUserSelection(u.id)}
+                            disabled={activated}
+                            style={{ cursor: activated ? 'not-allowed' : 'pointer' }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
+                            {u.full_name || 'Unknown'}
+                          </span>
+                          {u.job_title && (
+                            <div style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
+                              {u.job_title}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell muted>{u.email || '—'}</TableCell>
+                        <TableCell muted>{u.department || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant={activated ? 'success' : 'neutral'} size="sm">
+                            {activated ? 'Active' : 'Not Active'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={u.account_enabled ? 'success' : 'danger'} size="sm">
+                            {u.account_enabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )
