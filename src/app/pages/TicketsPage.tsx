@@ -48,13 +48,6 @@ export function TicketsPage() {
   const isServiceDeskAdmin = roles.includes('service_desk_admin');
   const canViewAllTickets = isGlobalAdmin || isServiceDeskAdmin;
 
-  // Redirect non-admins to /my-tickets
-  useEffect(() => {
-    if (!canViewAllTickets && user) {
-      navigate('/my-tickets', { replace: true });
-    }
-  }, [canViewAllTickets, user, navigate]);
-
   const statusParam = searchParams.get('status') ?? '';
   const queryParam = searchParams.get('q') ?? '';
   const queueParam = searchParams.get('queue') ?? '';
@@ -65,30 +58,33 @@ export function TicketsPage() {
   const [query, setQuery] = useState(queryParam);
   const [statusFilter, setStatusFilter] = useState(statusParam);
   const [queueFilter, setQueueFilter] = useState(queueParam);
-  const [userGroups, setUserGroups] = useState<string[]>([]);
   const [allGroups, setAllGroups] = useState<OperatorGroup[]>([]);
 
-  const fetchUserGroups = useCallback(async () => {
+  // Redirect non-admins to /my-tickets (only after roles are loaded)
+  useEffect(() => {
+    if (roles.length > 0 && !canViewAllTickets && user) {
+      navigate('/my-tickets', { replace: true });
+    }
+  }, [canViewAllTickets, user, navigate, roles.length]);
+
+  // Fetch groups for filter dropdown
+  useEffect(() => {
     if (!user) return;
-
-    const [{ data: membershipData }, { data: groupsData }] = await Promise.all([
-      supabase.from('operator_group_members').select('group_id').eq('user_id', user.id),
-      supabase.from('operator_groups').select('id, name, group_key').eq('is_active', true).order('name'),
-    ]);
-
-    if (membershipData) {
-      setUserGroups(membershipData.map((m: { group_id: string }) => m.group_id));
-    }
-    if (groupsData) {
-      setAllGroups(groupsData as OperatorGroup[]);
-    }
+    
+    supabase
+      .from('operator_groups')
+      .select('id, name, group_key')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => {
+        if (data) setAllGroups(data as OperatorGroup[]);
+      });
   }, [supabase, user]);
 
+  // Load tickets - for admins, load all tickets without waiting for groups
   useEffect(() => {
-    void fetchUserGroups();
-  }, [fetchUserGroups]);
-
-  useEffect(() => {
+    if (!user || !canViewAllTickets) return;
+    
     let cancelled = false;
 
     async function load() {
@@ -106,8 +102,6 @@ export function TicketsPage() {
 
       if (queueFilter) {
         q = q.eq('assigned_group_id', queueFilter);
-      } else if (!canViewAllTickets && userGroups.length > 0) {
-        q = q.in('assigned_group_id', userGroups);
       }
 
       const trimmed = query.trim();
@@ -120,6 +114,7 @@ export function TicketsPage() {
       if (cancelled) return;
 
       if (error) {
+        console.error('Error loading tickets:', error);
         setTickets([]);
         setTotalCount(0);
       } else {
@@ -134,7 +129,7 @@ export function TicketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, statusFilter, query, queueFilter, canViewAllTickets, userGroups]);
+  }, [supabase, statusFilter, query, queueFilter, canViewAllTickets, user]);
 
   const handleSearch = (value: string) => {
     setQuery(value);
@@ -169,7 +164,8 @@ export function TicketsPage() {
     setSearchParams(params, { replace: true });
   };
 
-  const visibleGroups = canViewAllTickets ? allGroups : allGroups.filter((g) => userGroups.includes(g.id));
+  // For admins, show all groups in the filter dropdown
+  const visibleGroups = allGroups;
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
