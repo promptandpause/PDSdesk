@@ -31,6 +31,7 @@ import {
   UserManagementPage,
   QueueManagementPage,
   SystemSettingsPage,
+  ServiceCatalogAdminPage,
   LoginPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
@@ -84,6 +85,7 @@ export const router = createBrowserRouter([
       { path: 'settings/users', element: <UserManagementPage /> },
       { path: 'settings/queues', element: <QueueManagementPage /> },
       { path: 'settings/system', element: <SystemSettingsPage /> },
+      { path: 'settings/service-catalog', element: <ServiceCatalogAdminPage /> },
       { path: 'assets', element: <AssetsPage /> },
       { path: 'problems', element: <ProblemsPage /> },
       { path: 'service-catalog', element: <ServiceCatalogPage /> },
