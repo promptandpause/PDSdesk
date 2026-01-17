@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
-import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator, TicketWatchers, TicketTimeEntries, TicketLinks, TicketApprovals, Input, useToast } from '../components';
+import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator, TicketWatchers, TicketTimeEntries, TicketLinks, TicketApprovals, Input, useToast, SparklesIcon, RefreshCwIcon, PencilIcon, MessageSquareIcon, HistoryIcon } from '../components';
 import { useTicketSLA } from '../hooks/useSLA';
 
 interface Ticket {
@@ -910,12 +910,12 @@ export function TicketDetailPage() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--itsm-space-1)' }}>
-                      <span style={{ fontSize: 'var(--itsm-text-xs)', fontWeight: 'var(--itsm-weight-medium)' as any, color: 'var(--itsm-text-secondary)' }}>
-                        {event.event_type === 'ticket_created' && '✨ Created'}
-                        {event.event_type === 'ticket_status_changed' && `🔄 Status: ${event.payload?.from || '?'} → ${event.payload?.to || '?'}`}
-                        {event.event_type === 'ticket_updated' && '✏️ Updated'}
-                        {event.event_type === 'ticket_comment_added' && '💬 Comment'}
-                        {!['ticket_created', 'ticket_status_changed', 'ticket_updated', 'ticket_comment_added'].includes(event.event_type) && event.event_type}
+                      <span style={{ fontSize: 'var(--itsm-text-xs)', fontWeight: 'var(--itsm-weight-medium)' as any, color: 'var(--itsm-text-secondary)', display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-1)' }}>
+                        {event.event_type === 'ticket_created' && <><SparklesIcon size={12} /> Created</>}
+                        {event.event_type === 'ticket_status_changed' && <><RefreshCwIcon size={12} /> Status: {event.payload?.from || '?'} → {event.payload?.to || '?'}</>}
+                        {event.event_type === 'ticket_updated' && <><PencilIcon size={12} /> Updated</>}
+                        {event.event_type === 'ticket_comment_added' && <><MessageSquareIcon size={12} /> Comment</>}
+                        {!['ticket_created', 'ticket_status_changed', 'ticket_updated', 'ticket_comment_added'].includes(event.event_type) && <><HistoryIcon size={12} /> {event.event_type}</>}
                       </span>
                       <span style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
                         {formatDateTime(event.created_at)}

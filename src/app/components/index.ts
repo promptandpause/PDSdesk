@@ -13,3 +13,4 @@ export { TicketTimeEntries } from './TicketTimeEntries';
 export { TicketLinks } from './TicketLinks';
 export { TicketApprovals } from './TicketApprovals';
 export { ToastProvider, useToast } from './Toast';
+export { SparklesIcon, RefreshCwIcon, PencilIcon, MessageSquareIcon, HistoryIcon } from './Icons';
