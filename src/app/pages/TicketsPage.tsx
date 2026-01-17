@@ -48,6 +48,13 @@ export function TicketsPage() {
   const isServiceDeskAdmin = roles.includes('service_desk_admin');
   const canViewAllTickets = isGlobalAdmin || isServiceDeskAdmin;
 
+  // Redirect non-admins to /my-tickets
+  useEffect(() => {
+    if (!canViewAllTickets && user) {
+      navigate('/my-tickets', { replace: true });
+    }
+  }, [canViewAllTickets, user, navigate]);
+
   const statusParam = searchParams.get('status') ?? '';
   const queryParam = searchParams.get('q') ?? '';
   const queueParam = searchParams.get('queue') ?? '';

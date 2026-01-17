@@ -78,6 +78,8 @@ export function TicketDetailPage() {
   const [newComment, setNewComment] = useState('');
   const [isInternalComment, setIsInternalComment] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   
   // Escalation state
@@ -95,7 +97,46 @@ export function TicketDetailPage() {
   const [groups, setGroups] = useState<Map<string, OperatorGroup>>(new Map());
 
   const isAgent = roles.includes('operator') || roles.includes('service_desk_admin') || roles.includes('global_admin');
+  const isGlobalAdmin = roles.includes('global_admin');
+  const isServiceDeskAdmin = roles.includes('service_desk_admin');
   const { sla, isResponseMet, isResolved } = useTicketSLA(id ?? null);
+
+  // Check if ticket can be deleted
+  const canDeleteTicket = useCallback(() => {
+    if (!ticket) return false;
+    if (isGlobalAdmin) return true; // Global admins can always delete
+    if (isServiceDeskAdmin) {
+      // Service desk admins can only delete within 5 minutes of creation
+      const createdAt = new Date(ticket.created_at);
+      const now = new Date();
+      const diffMs = now.getTime() - createdAt.getTime();
+      const fiveMinutesMs = 5 * 60 * 1000;
+      return diffMs <= fiveMinutesMs;
+    }
+    return false;
+  }, [ticket, isGlobalAdmin, isServiceDeskAdmin]);
+
+  const handleDeleteTicket = async () => {
+    if (!ticket || !canDeleteTicket()) return;
+    
+    setDeleting(true);
+    
+    // Delete attachments from storage first
+    for (const attachment of attachments) {
+      await supabase.storage.from('ticket-attachments').remove([attachment.storage_path]);
+    }
+    
+    // Delete ticket (cascades to comments, attachments records, etc.)
+    const { error } = await supabase.from('tickets').delete().eq('id', ticket.id);
+    
+    if (error) {
+      alert('Failed to delete ticket: ' + error.message);
+      setDeleting(false);
+      return;
+    }
+    
+    navigate('/tickets', { replace: true });
+  };
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -301,6 +342,11 @@ export function TicketDetailPage() {
             <Button variant="ghost" onClick={() => navigate('/tickets')}>
               Back
             </Button>
+            {canDeleteTicket() && (
+              <Button variant="ghost" onClick={() => setShowDeleteConfirm(true)} style={{ color: 'var(--itsm-error-500)' }}>
+                Delete
+              </Button>
+            )}
             {isAgent && (
               <Button variant="secondary" onClick={() => setShowEscalateModal(true)}>
                 Escalate / Transfer
@@ -814,6 +860,55 @@ export function TicketDetailPage() {
                   {escalationData.type === 'escalate' ? 'Escalate' : escalationData.type === 'de_escalate' ? 'De-escalate' : 'Transfer'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--itsm-surface-base)',
+              borderRadius: 'var(--itsm-panel-radius)',
+              padding: 'var(--itsm-space-6)',
+              width: '100%',
+              maxWidth: 400,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: 'var(--itsm-text-lg)', fontWeight: 'var(--itsm-weight-semibold)' as any, marginBottom: 'var(--itsm-space-3)', color: 'var(--itsm-error-600)' }}>
+              Delete Ticket
+            </h3>
+            <p style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-secondary)', marginBottom: 'var(--itsm-space-4)' }}>
+              Are you sure you want to delete ticket <strong>{ticket?.ticket_number}</strong>? This action cannot be undone and will permanently remove the ticket along with all comments and attachments.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--itsm-space-2)' }}>
+              <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleDeleteTicket}
+                disabled={deleting}
+                loading={deleting}
+                style={{ backgroundColor: 'var(--itsm-error-500)' }}
+              >
+                Delete Ticket
+              </Button>
             </div>
           </div>
         </div>
