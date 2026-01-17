@@ -81,9 +81,13 @@ export function TicketsPage() {
       });
   }, [supabase, user]);
 
-  // Load tickets - for admins, load all tickets without waiting for groups
+  // Load tickets - for admins, load all tickets
   useEffect(() => {
-    if (!user || !canViewAllTickets) return;
+    // Wait for roles to be loaded before checking permissions
+    if (!user || roles.length === 0) return;
+    
+    // If not admin, don't load (redirect will happen)
+    if (!canViewAllTickets) return;
     
     let cancelled = false;
 
@@ -129,7 +133,7 @@ export function TicketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, statusFilter, query, queueFilter, canViewAllTickets, user]);
+  }, [supabase, statusFilter, query, queueFilter, canViewAllTickets, user, roles.length]);
 
   const handleSearch = (value: string) => {
     setQuery(value);
