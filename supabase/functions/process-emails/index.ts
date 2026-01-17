@@ -404,10 +404,11 @@ serve(async (req) => {
             .insert({
               ticket_number: newTicketNumber,
               title: email.subject || 'No Subject',
-              description: `[Created from email from ${senderEmail}]\n\n${bodyText || 'No content'}`,
+              description: `[Created from email]\n\n${bodyText || 'No content'}`,
               status: 'open',
               priority: 'medium',
               requester_id: userId,
+              created_by: userId,
             })
             .select()
             .single();
