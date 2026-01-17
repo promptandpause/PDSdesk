@@ -2,3 +2,7 @@ export { OperatorGroupsPage } from './OperatorGroupsPage';
 export { SLAPoliciesPage } from './SLAPoliciesPage';
 export { RoutingRulesPage } from './RoutingRulesPage';
 export { AuditLogPage } from './AuditLogPage';
+export { RolesManagementPage } from './RolesManagementPage';
+export { UserManagementPage } from './UserManagementPage';
+export { QueueManagementPage } from './QueueManagementPage';
+export { SystemSettingsPage } from './SystemSettingsPage';

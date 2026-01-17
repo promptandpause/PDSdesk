@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
+import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
 import {
   Panel,
@@ -24,8 +25,15 @@ interface TicketRow {
   priority: string;
   category: string | null;
   assigned_to: string | null;
+  assigned_group_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface OperatorGroup {
+  id: string;
+  name: string;
+  group_key: string;
 }
 
 const STATUS_OPTIONS = ['', 'open', 'in_progress', 'pending', 'resolved', 'closed'];
@@ -34,15 +42,44 @@ export function TicketsPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user, roles } = useAuth();
+
+  const isGlobalAdmin = roles.includes('global_admin');
+  const isServiceDeskAdmin = roles.includes('service_desk_admin');
+  const canViewAllTickets = isGlobalAdmin || isServiceDeskAdmin;
 
   const statusParam = searchParams.get('status') ?? '';
   const queryParam = searchParams.get('q') ?? '';
+  const queueParam = searchParams.get('queue') ?? '';
 
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [query, setQuery] = useState(queryParam);
   const [statusFilter, setStatusFilter] = useState(statusParam);
+  const [queueFilter, setQueueFilter] = useState(queueParam);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [allGroups, setAllGroups] = useState<OperatorGroup[]>([]);
+
+  const fetchUserGroups = useCallback(async () => {
+    if (!user) return;
+
+    const [{ data: membershipData }, { data: groupsData }] = await Promise.all([
+      supabase.from('operator_group_members').select('group_id').eq('user_id', user.id),
+      supabase.from('operator_groups').select('id, name, group_key').eq('is_active', true).order('name'),
+    ]);
+
+    if (membershipData) {
+      setUserGroups(membershipData.map((m: { group_id: string }) => m.group_id));
+    }
+    if (groupsData) {
+      setAllGroups(groupsData as OperatorGroup[]);
+    }
+  }, [supabase, user]);
+
+  useEffect(() => {
+    void fetchUserGroups();
+  }, [fetchUserGroups]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,12 +89,18 @@ export function TicketsPage() {
 
       let q = supabase
         .from('tickets')
-        .select('id,ticket_number,title,status,priority,category,assigned_to,created_at,updated_at', { count: 'exact' })
+        .select('id,ticket_number,title,status,priority,category,assigned_to,assigned_group_id,created_at,updated_at', { count: 'exact' })
         .order('updated_at', { ascending: false })
         .limit(50);
 
       if (statusFilter) {
         q = q.eq('status', statusFilter);
+      }
+
+      if (queueFilter) {
+        q = q.eq('assigned_group_id', queueFilter);
+      } else if (!canViewAllTickets && userGroups.length > 0) {
+        q = q.in('assigned_group_id', userGroups);
       }
 
       const trimmed = query.trim();
@@ -84,7 +127,7 @@ export function TicketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, statusFilter, query]);
+  }, [supabase, statusFilter, query, queueFilter, canViewAllTickets, userGroups]);
 
   const handleSearch = (value: string) => {
     setQuery(value);
@@ -107,6 +150,19 @@ export function TicketsPage() {
     }
     setSearchParams(params, { replace: true });
   };
+
+  const handleQueueChange = (value: string) => {
+    setQueueFilter(value);
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set('queue', value);
+    } else {
+      params.delete('queue');
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const visibleGroups = canViewAllTickets ? allGroups : allGroups.filter((g) => userGroups.includes(g.id));
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -172,6 +228,29 @@ export function TicketsPage() {
               </option>
             ))}
           </select>
+          {visibleGroups.length > 0 && (
+            <select
+              value={queueFilter}
+              onChange={(e) => handleQueueChange(e.target.value)}
+              style={{
+                height: 32,
+                padding: '0 var(--itsm-space-3)',
+                fontSize: 'var(--itsm-text-sm)',
+                border: '1px solid var(--itsm-border-default)',
+                borderRadius: 'var(--itsm-input-radius)',
+                backgroundColor: 'var(--itsm-surface-base)',
+                color: 'var(--itsm-text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="">{canViewAllTickets ? 'All Queues' : 'My Queues'}</option>
+              {visibleGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Table */}

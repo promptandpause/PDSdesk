@@ -26,6 +26,10 @@ import {
   SLAPoliciesPage,
   RoutingRulesPage,
   AuditLogPage,
+  RolesManagementPage,
+  UserManagementPage,
+  QueueManagementPage,
+  SystemSettingsPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
@@ -68,12 +72,15 @@ export const router = createBrowserRouter([
       { path: 'kanban', element: <KanbanBoardPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'contacts', element: <ContactsPage /> },
-      { path: 'call-logs', element: <PlaceholderPage title="Call Logs" /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'settings/operator-groups', element: <OperatorGroupsPage /> },
       { path: 'settings/sla-policies', element: <SLAPoliciesPage /> },
       { path: 'settings/routing-rules', element: <RoutingRulesPage /> },
       { path: 'settings/audit-log', element: <AuditLogPage /> },
+      { path: 'settings/roles', element: <RolesManagementPage /> },
+      { path: 'settings/users', element: <UserManagementPage /> },
+      { path: 'settings/queues', element: <QueueManagementPage /> },
+      { path: 'settings/system', element: <SystemSettingsPage /> },
       { path: 'assets', element: <AssetsPage /> },
       { path: 'problems', element: <ProblemsPage /> },
       { path: 'service-catalog', element: <ServiceCatalogPage /> },

@@ -66,30 +66,67 @@ export function SettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-4)' }}>
           {/* Admin Settings */}
           {isAdmin && (
-            <Panel title="Administration">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-3)' }}>
-                <SettingsLink
-                  title="Operator Groups"
-                  description="Manage teams and assignment groups"
-                  to="/settings/operator-groups"
-                />
-                <SettingsLink
-                  title="SLA Policies"
-                  description="Configure service level agreements"
-                  to="/settings/sla-policies"
-                />
-                <SettingsLink
-                  title="Ticket Routing Rules"
-                  description="Configure automatic ticket assignment rules"
-                  to="/settings/routing-rules"
-                />
-                <SettingsLink
-                  title="Audit Log"
-                  description="View system activity and change history"
-                  to="/settings/audit-log"
-                />
-              </div>
-            </Panel>
+            <>
+              <Panel title="User & Role Management">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-3)' }}>
+                  <SettingsLink
+                    title="User Management"
+                    description="Manage users and sync from Azure AD / Microsoft 365"
+                    to="/settings/users"
+                  />
+                  <SettingsLink
+                    title="Roles Management"
+                    description="Assign and manage user roles and permissions"
+                    to="/settings/roles"
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Queue & Team Management">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-3)' }}>
+                  <SettingsLink
+                    title="Operator Groups"
+                    description="Manage teams and assignment groups"
+                    to="/settings/operator-groups"
+                  />
+                  <SettingsLink
+                    title="Queue Management"
+                    description="Configure queue email notifications and members"
+                    to="/settings/queues"
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Service Configuration">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-3)' }}>
+                  <SettingsLink
+                    title="SLA Policies"
+                    description="Configure service level agreements"
+                    to="/settings/sla-policies"
+                  />
+                  <SettingsLink
+                    title="Ticket Routing Rules"
+                    description="Configure automatic ticket assignment rules"
+                    to="/settings/routing-rules"
+                  />
+                  <SettingsLink
+                    title="System Settings"
+                    description="General ITSM settings, working hours, and features"
+                    to="/settings/system"
+                  />
+                </div>
+              </Panel>
+
+              <Panel title="Monitoring">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-3)' }}>
+                  <SettingsLink
+                    title="Audit Log"
+                    description="View system activity and change history"
+                    to="/settings/audit-log"
+                  />
+                </div>
+              </Panel>
+            </>
           )}
 
           <Panel title="General">
