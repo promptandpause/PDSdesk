@@ -10,7 +10,7 @@ interface Article {
   title: string;
   category: string | null;
   status: string;
-  views: number;
+  view_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +33,7 @@ export function KnowledgeBasePage() {
 
       let q = supabase
         .from('knowledge_articles')
-        .select('id,title,category,status,views,created_at,updated_at', { count: 'exact' })
+        .select('id,title,category,status,view_count,created_at,updated_at', { count: 'exact' })
         .order('updated_at', { ascending: false })
         .limit(50);
 
@@ -188,7 +188,7 @@ export function KnowledgeBasePage() {
                       </Badge>
                     </TableCell>
                     <TableCell align="right" muted>
-                      {article.views}
+                      {article.view_count}
                     </TableCell>
                     <TableCell align="right" muted>
                       {formatTime(article.updated_at)}
