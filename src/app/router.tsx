@@ -33,6 +33,7 @@ import {
   SystemSettingsPage,
   ServiceCatalogAdminPage,
   LoginPage,
+  TicketRatingPage,
 } from './pages';
 import { RequireAuth } from '../lib/auth/RequireAuth';
 
@@ -123,6 +124,14 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/rate-ticket/:ticketId',
+    element: (
+      <RequireAuth>
+        <TicketRatingPage />
+      </RequireAuth>
+    ),
   },
 ], {
   future: {
