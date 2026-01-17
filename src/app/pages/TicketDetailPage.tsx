@@ -130,13 +130,22 @@ export function TicketDetailPage() {
       await supabase.storage.from('ticket-attachments').remove([attachment.storage_path]);
     }
     
-    // Delete ticket (cascades to comments, attachments records, etc.)
-    const { error } = await supabase.from('tickets').delete().eq('id', ticket.id);
+    // Use RPC function to delete ticket (bypasses RLS, includes audit logging)
+    const { data, error } = await supabase.rpc('delete_tickets_and_audit', {
+      ticket_ids: [ticket.id],
+      source: 'ticket_detail_page',
+    });
     
     setDeleting(false);
     
     if (error) {
-      showToast('error', 'Failed to delete ticket', `Error: ${error.code} - ${error.message}`);
+      showToast('error', 'Failed to delete ticket', `Error: ${error.code || 'UNKNOWN'} - ${error.message}`);
+      return;
+    }
+    
+    const deleted = (data as { deleted: number })?.deleted ?? 0;
+    if (deleted === 0) {
+      showToast('error', 'Failed to delete ticket', 'Ticket could not be deleted. It may be closed or you may not have permission.');
       return;
     }
     
