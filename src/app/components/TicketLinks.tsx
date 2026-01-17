@@ -6,8 +6,8 @@ import { Button, Badge, Input } from './index';
 
 interface TicketLink {
   id: string;
-  source_ticket_id: string;
-  target_ticket_id: string;
+  from_ticket_id: string;
+  to_ticket_id: string;
   link_type: string;
   created_at: string;
   source_ticket?: {
@@ -60,12 +60,12 @@ export function TicketLinks({ ticketId }: TicketLinksProps) {
     const [{ data: sourceLinks }, { data: targetLinks }] = await Promise.all([
       supabase
         .from('ticket_links')
-        .select('*, target_ticket:tickets!ticket_links_target_ticket_id_fkey(id, ticket_number, title, status)')
-        .eq('source_ticket_id', ticketId),
+        .select('*, target_ticket:tickets!ticket_links_to_ticket_id_fkey(id, ticket_number, title, status)')
+        .eq('from_ticket_id', ticketId),
       supabase
         .from('ticket_links')
-        .select('*, source_ticket:tickets!ticket_links_source_ticket_id_fkey(id, ticket_number, title, status)')
-        .eq('target_ticket_id', ticketId),
+        .select('*, source_ticket:tickets!ticket_links_from_ticket_id_fkey(id, ticket_number, title, status)')
+        .eq('to_ticket_id', ticketId),
     ]);
 
     const allLinks = [
@@ -117,8 +117,8 @@ export function TicketLinks({ ticketId }: TicketLinksProps) {
     setSaving(true);
 
     await supabase.from('ticket_links').insert({
-      source_ticket_id: ticketId,
-      target_ticket_id: formData.target_ticket_id,
+      from_ticket_id: ticketId,
+      to_ticket_id: formData.target_ticket_id,
       link_type: formData.link_type,
       created_by: user.id,
     });
@@ -141,7 +141,7 @@ export function TicketLinks({ ticketId }: TicketLinksProps) {
   };
 
   const getLinkedTicket = (link: TicketLink) => {
-    if (link.source_ticket_id === ticketId) {
+    if (link.from_ticket_id === ticketId) {
       return link.target_ticket;
     }
     return link.source_ticket;
