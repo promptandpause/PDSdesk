@@ -104,8 +104,8 @@ export function LoginPage() {
         <div style={styles.footer}>
           <p style={styles.footerLink}>
             Need help? Contact{' '}
-            <a href="mailto:support@promptandpause.com" style={styles.link}>
-              support@promptandpause.com
+            <a href="mailto:servicedesk@promptandpause.com" style={styles.link}>
+              servicedesk@promptandpause.com
             </a>
           </p>
         </div>
