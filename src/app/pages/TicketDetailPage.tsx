@@ -520,7 +520,7 @@ export function TicketDetailPage() {
                             color: 'var(--itsm-text-secondary)',
                           }}
                         >
-                          {comment.author_id.slice(0, 8)}...
+                          {profiles.get(comment.author_id)?.full_name || profiles.get(comment.author_id)?.email || 'Unknown User'}
                         </span>
                         {comment.is_internal && (
                           <Badge variant="purple" size="sm">Internal</Badge>
