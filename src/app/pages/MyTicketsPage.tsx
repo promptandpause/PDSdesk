@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
-import { Panel, Button, Input, Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell, StatusBadge } from '../components';
+import { Panel, Button, Input, Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell, StatusBadge, PriorityBadge } from '../components';
 
 interface TicketRow {
   id: string;
   ticket_number: string;
   title: string;
   status: string;
+  priority: string;
   updated_at: string;
 }
 
@@ -32,8 +33,8 @@ export function MyTicketsPage() {
 
       let q = supabase
         .from('tickets')
-        .select('id,ticket_number,title,status,updated_at', { count: 'exact' })
-        .or(`requester_id.eq.${user!.id},created_by.eq.${user!.id}`)
+        .select('id,ticket_number,title,status,priority,updated_at', { count: 'exact' })
+        .eq('assignee_id', user!.id)
         .order('updated_at', { ascending: false })
         .limit(50);
 
@@ -81,10 +82,10 @@ export function MyTicketsPage() {
     <div>
       <PageHeader
         title="My Tickets"
-        subtitle={`${totalCount} tickets`}
+        subtitle={`${totalCount} tickets assigned to you`}
         actions={
-          <Button variant="primary" onClick={() => navigate('/my-tickets/new')}>
-            New Request
+          <Button variant="primary" onClick={() => navigate('/tickets/new')}>
+            New Ticket
           </Button>
         }
       />
@@ -114,6 +115,7 @@ export function MyTicketsPage() {
                 <tr>
                   <TableHeaderCell width={120}>ID</TableHeaderCell>
                   <TableHeaderCell>Subject</TableHeaderCell>
+                  <TableHeaderCell width={100}>Priority</TableHeaderCell>
                   <TableHeaderCell width={120}>Status</TableHeaderCell>
                   <TableHeaderCell width={100} align="right">Updated</TableHeaderCell>
                 </tr>
@@ -122,13 +124,16 @@ export function MyTicketsPage() {
                 {tickets.map((ticket) => (
                   <TableRow
                     key={ticket.id}
-                    onClick={() => navigate(`/my-tickets/${ticket.id}`)}
+                    onClick={() => navigate(`/tickets/${ticket.id}`)}
                   >
                     <TableCell mono>{ticket.ticket_number}</TableCell>
                     <TableCell>
                       <span style={{ fontWeight: 'var(--itsm-weight-medium)' as any }}>
                         {ticket.title}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <PriorityBadge priority={ticket.priority} />
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={ticket.status} />

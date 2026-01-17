@@ -130,6 +130,7 @@ export function Sidebar() {
       {
         items: [
           { label: 'Dashboard', to: '/dashboard', icon: '◫' },
+          { label: 'My Tickets', to: '/my-tickets', icon: '◈' },
           { label: 'All Tickets', to: '/tickets', icon: '▤' },
         ],
       },
