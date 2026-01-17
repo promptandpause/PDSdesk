@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications, Notification } from '../hooks/useNotifications';
 import { Button } from './Button';
+import { BellIcon } from './Icons';
 
 export function NotificationsDropdown() {
   const navigate = useNavigate();
@@ -61,17 +62,16 @@ export function NotificationsDropdown() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           border: 'none',
           background: 'transparent',
           borderRadius: 'var(--itsm-button-radius)',
           cursor: 'pointer',
           color: 'var(--itsm-text-secondary)',
-          fontSize: 16,
         }}
       >
-        🔔
+        <BellIcon size={20} />
         {unreadCount > 0 && (
           <span
             style={{

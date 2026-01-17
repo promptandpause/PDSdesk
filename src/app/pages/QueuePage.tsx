@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
+import { SearchIcon } from '../components/Icons';
 import {
   Panel,
   Button,
@@ -116,7 +117,7 @@ export function QueuePage() {
 
     const { data, count } = await q;
 
-    setTickets((data as TicketRow[]) ?? []);
+    setTickets((data as unknown as TicketRow[]) ?? []);
     setTotalCount(count ?? 0);
     setLoading(false);
   }, [supabase, queueKey, user, isGlobalAdmin, isServiceDeskAdmin, statusFilter, query]);
@@ -228,7 +229,7 @@ export function QueuePage() {
               placeholder="Search tickets..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              icon={<span style={{ fontSize: 14 }}>🔍</span>}
+              icon={<SearchIcon size={14} />}
             />
           </div>
           <select

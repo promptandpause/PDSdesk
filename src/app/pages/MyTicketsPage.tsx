@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
 import { Panel, Button, Input, Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell, StatusBadge, PriorityBadge } from '../components';
+import { SearchIcon } from '../components/Icons';
 
 interface TicketRow {
   id: string;
@@ -96,7 +97,7 @@ export function MyTicketsPage() {
             placeholder="Search tickets..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            icon={<span style={{ fontSize: 14 }}>🔍</span>}
+            icon={<SearchIcon size={14} />}
           />
         </div>
 

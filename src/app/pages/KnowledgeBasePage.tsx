@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { PageHeader } from '../layout/PageHeader';
 import { Panel, Button, Input, Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell, Badge } from '../components';
+import { SearchIcon } from '../components/Icons';
 
 interface Article {
   id: string;
@@ -110,7 +111,7 @@ export function KnowledgeBasePage() {
               placeholder="Search articles..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              icon={<span style={{ fontSize: 14 }}>🔍</span>}
+              icon={<SearchIcon size={14} />}
             />
           </div>
           <select

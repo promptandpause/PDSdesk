@@ -1,5 +1,6 @@
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 import { useAuth } from '../../lib/auth/AuthProvider';
+import { SearchIcon, UserIcon } from '../components/Icons';
 
 export function TopBar() {
   const { profile } = useAuth();
@@ -33,7 +34,7 @@ export function TopBar() {
             cursor: 'pointer',
           }}
         >
-          <span>🔍</span>
+          <SearchIcon size={14} />
           <span>Search tickets, KB articles...</span>
           <span
             style={{
@@ -56,21 +57,30 @@ export function TopBar() {
         {/* User avatar */}
         <div
           style={{
-            width: 32,
-            height: 32,
+            width: 36,
+            height: 36,
             borderRadius: '50%',
             backgroundColor: 'var(--itsm-primary-100)',
             color: 'var(--itsm-primary-700)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 'var(--itsm-text-xs)',
-            fontWeight: 'var(--itsm-weight-semibold)' as any,
             cursor: 'pointer',
+            border: '2px solid var(--itsm-primary-200)',
           }}
           title={profile?.full_name ?? profile?.email ?? 'User'}
         >
-          {(profile?.full_name ?? profile?.email ?? 'U').charAt(0).toUpperCase()}
+          {profile?.avatar_url ? (
+            <img 
+              src={profile.avatar_url} 
+              alt={profile.full_name ?? 'User'} 
+              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            <span style={{ fontSize: 'var(--itsm-text-sm)', fontWeight: 600 }}>
+              {(profile?.full_name ?? profile?.email ?? 'U').charAt(0).toUpperCase()}
+            </span>
+          )}
         </div>
       </div>
     </header>

@@ -16,6 +16,7 @@ import {
   StatusBadge,
   PriorityBadge,
 } from '../components';
+import { SearchIcon } from '../components/Icons';
 
 interface TicketRow {
   id: string;
@@ -195,7 +196,7 @@ export function TicketsPage() {
               placeholder="Search tickets..."
               value={query}
               onChange={(e) => handleSearch(e.target.value)}
-              icon={<span style={{ fontSize: 14 }}>🔍</span>}
+              icon={<SearchIcon size={14} />}
             />
           </div>
           <select
