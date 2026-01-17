@@ -64,6 +64,15 @@ interface EscalationHistory {
   created_at: string;
 }
 
+interface TicketEvent {
+  id: string;
+  ticket_id: string;
+  actor_id: string | null;
+  event_type: string;
+  payload: Record<string, any>;
+  created_at: string;
+}
+
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -96,6 +105,19 @@ export function TicketDetailPage() {
   const [escalationHistory, setEscalationHistory] = useState<EscalationHistory[]>([]);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [groups, setGroups] = useState<Map<string, OperatorGroup>>(new Map());
+  
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    title: '',
+    status: '',
+    priority: '',
+    category: '',
+  });
+  const [saving, setSaving] = useState(false);
+  
+  // Audit trail state
+  const [ticketEvents, setTicketEvents] = useState<TicketEvent[]>([]);
 
   const isAgent = roles.includes('operator') || roles.includes('service_desk_admin') || roles.includes('global_admin');
   const isGlobalAdmin = roles.includes('global_admin');
@@ -157,12 +179,13 @@ export function TicketDetailPage() {
     if (!id) return;
     setLoading(true);
 
-    const [{ data: ticketData }, { data: commentsData }, { data: attachmentsData }, { data: groupsData }, { data: historyData }] = await Promise.all([
+    const [{ data: ticketData }, { data: commentsData }, { data: attachmentsData }, { data: groupsData }, { data: historyData }, { data: eventsData }] = await Promise.all([
       supabase.from('tickets').select('*').eq('id', id).single(),
       supabase.from('ticket_comments').select('*').eq('ticket_id', id).order('created_at', { ascending: true }),
       supabase.from('ticket_attachments').select('*').eq('ticket_id', id).order('created_at', { ascending: false }),
       supabase.from('operator_groups').select('id, name, group_key').eq('is_active', true).order('name'),
       supabase.from('ticket_escalation_history').select('*').eq('ticket_id', id).order('created_at', { ascending: false }),
+      supabase.from('ticket_events').select('*').eq('ticket_id', id).order('created_at', { ascending: false }).limit(50),
     ]);
 
     setTicket(ticketData as Ticket | null);
@@ -170,16 +193,18 @@ export function TicketDetailPage() {
     setAttachments((attachmentsData as Attachment[]) ?? []);
     setOperatorGroups((groupsData as OperatorGroup[]) ?? []);
     setEscalationHistory((historyData as EscalationHistory[]) ?? []);
+    setTicketEvents((eventsData as TicketEvent[]) ?? []);
 
     // Build groups map
     const groupsMap = new Map<string, OperatorGroup>();
     (groupsData as OperatorGroup[] ?? []).forEach((g) => groupsMap.set(g.id, g));
     setGroups(groupsMap);
 
-    // Fetch profiles for comments, history, and assignee
+    // Fetch profiles for comments, history, events, and assignee
     const authorIds = new Set<string>();
     (commentsData as Comment[] ?? []).forEach((c) => authorIds.add(c.author_id));
     (historyData as EscalationHistory[] ?? []).forEach((h) => authorIds.add(h.performed_by));
+    (eventsData as TicketEvent[] ?? []).forEach((e) => { if (e.actor_id) authorIds.add(e.actor_id); });
     if ((ticketData as Ticket)?.assignee_id) {
       authorIds.add((ticketData as Ticket).assignee_id as string);
     }
@@ -221,6 +246,64 @@ export function TicketDetailPage() {
     }
 
     setSubmitting(false);
+  };
+
+  const handleStartEdit = () => {
+    if (!ticket) return;
+    setEditData({
+      title: ticket.title,
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category || '',
+    });
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!ticket || !user) return;
+    
+    setSaving(true);
+    
+    const changes: Record<string, { from: any; to: any }> = {};
+    if (editData.title !== ticket.title) changes.title = { from: ticket.title, to: editData.title };
+    if (editData.status !== ticket.status) changes.status = { from: ticket.status, to: editData.status };
+    if (editData.priority !== ticket.priority) changes.priority = { from: ticket.priority, to: editData.priority };
+    if ((editData.category || null) !== ticket.category) changes.category = { from: ticket.category, to: editData.category || null };
+    
+    if (Object.keys(changes).length === 0) {
+      setIsEditing(false);
+      setSaving(false);
+      return;
+    }
+    
+    const { error } = await supabase
+      .from('tickets')
+      .update({
+        title: editData.title,
+        status: editData.status,
+        priority: editData.priority,
+        category: editData.category || null,
+      })
+      .eq('id', ticket.id);
+    
+    if (error) {
+      showToast('error', 'Failed to update ticket', error.message);
+      setSaving(false);
+      return;
+    }
+    
+    // Log the edit event
+    await supabase.from('ticket_events').insert({
+      ticket_id: ticket.id,
+      actor_id: user.id,
+      event_type: 'ticket_updated',
+      payload: { changes },
+    });
+    
+    showToast('success', 'Ticket updated', 'Changes saved successfully.');
+    setIsEditing(false);
+    setSaving(false);
+    void fetchData();
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -367,8 +450,13 @@ export function TicketDetailPage() {
                 Escalate / Transfer
               </Button>
             )}
-            <Button variant="primary">
-              Edit
+            <Button 
+              variant={isEditing ? 'primary' : 'secondary'} 
+              onClick={isEditing ? handleSaveEdit : handleStartEdit}
+              disabled={saving}
+              loading={saving}
+            >
+              {isEditing ? 'Save' : 'Edit'}
             </Button>
           </div>
         }
@@ -647,23 +735,106 @@ export function TicketDetailPage() {
 
         {/* Sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-4)' }}>
-          <Panel>
-            <PanelSection title="Status" noBorder>
-              <StatusBadge status={ticket.status} />
-            </PanelSection>
-            <PanelSection title="Priority" noBorder>
-              <PriorityBadge priority={ticket.priority} />
-            </PanelSection>
-            <PanelSection title="Category" noBorder>
-              <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
-                {ticket.category ?? '—'}
-              </span>
-            </PanelSection>
-            <PanelSection title="Assigned To" noBorder>
-              <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
-                {ticket.assignee_id ? (profiles.get(ticket.assignee_id)?.full_name || 'Unknown') : 'Unassigned'}
-              </span>
-            </PanelSection>
+          <Panel title={isEditing ? 'Edit Ticket' : undefined}>
+            {isEditing ? (
+              <>
+                <PanelSection title="Title" noBorder>
+                  <input
+                    type="text"
+                    value={editData.title}
+                    onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 'var(--itsm-space-2)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                      backgroundColor: 'var(--itsm-surface-base)',
+                    }}
+                  />
+                </PanelSection>
+                <PanelSection title="Status" noBorder>
+                  <select
+                    value={editData.status}
+                    onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 'var(--itsm-space-2)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                      backgroundColor: 'var(--itsm-surface-base)',
+                    }}
+                  >
+                    <option value="new">New</option>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </PanelSection>
+                <PanelSection title="Priority" noBorder>
+                  <select
+                    value={editData.priority}
+                    onChange={(e) => setEditData({ ...editData, priority: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 'var(--itsm-space-2)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                      backgroundColor: 'var(--itsm-surface-base)',
+                    }}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </PanelSection>
+                <PanelSection title="Category" noBorder>
+                  <input
+                    type="text"
+                    value={editData.category}
+                    onChange={(e) => setEditData({ ...editData, category: e.target.value })}
+                    placeholder="Enter category..."
+                    style={{
+                      width: '100%',
+                      padding: 'var(--itsm-space-2)',
+                      fontSize: 'var(--itsm-text-sm)',
+                      border: '1px solid var(--itsm-border-default)',
+                      borderRadius: 'var(--itsm-input-radius)',
+                      backgroundColor: 'var(--itsm-surface-base)',
+                    }}
+                  />
+                </PanelSection>
+                <div style={{ padding: 'var(--itsm-space-3)', display: 'flex', gap: 'var(--itsm-space-2)' }}>
+                  <Button variant="ghost" onClick={() => setIsEditing(false)} style={{ flex: 1 }}>
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <PanelSection title="Status" noBorder>
+                  <StatusBadge status={ticket.status} />
+                </PanelSection>
+                <PanelSection title="Priority" noBorder>
+                  <PriorityBadge priority={ticket.priority} />
+                </PanelSection>
+                <PanelSection title="Category" noBorder>
+                  <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
+                    {ticket.category ?? '—'}
+                  </span>
+                </PanelSection>
+                <PanelSection title="Assigned To" noBorder>
+                  <span style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-primary)' }}>
+                    {ticket.assignee_id ? (profiles.get(ticket.assignee_id)?.full_name || 'Unknown') : 'Unassigned'}
+                  </span>
+                </PanelSection>
+              </>
+            )}
           </Panel>
 
           {/* SLA Panel */}
@@ -718,6 +889,60 @@ export function TicketDetailPage() {
           <Panel title="Approvals">
             <TicketApprovals ticketId={ticket.id} />
           </Panel>
+
+          {/* Audit Trail */}
+          {isAgent && ticketEvents.length > 0 && (
+            <Panel title="Audit Trail" subtitle={`${ticketEvents.length} events`}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-2)', maxHeight: 300, overflowY: 'auto' }}>
+                {ticketEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    style={{
+                      padding: 'var(--itsm-space-2)',
+                      backgroundColor: 'var(--itsm-surface-sunken)',
+                      borderRadius: 'var(--itsm-panel-radius)',
+                      borderLeft: `3px solid ${
+                        event.event_type === 'ticket_created' ? 'var(--itsm-success-500)' :
+                        event.event_type === 'ticket_status_changed' ? 'var(--itsm-warning-500)' :
+                        event.event_type === 'ticket_updated' ? 'var(--itsm-primary-500)' :
+                        'var(--itsm-border-default)'
+                      }`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--itsm-space-1)' }}>
+                      <span style={{ fontSize: 'var(--itsm-text-xs)', fontWeight: 'var(--itsm-weight-medium)' as any, color: 'var(--itsm-text-secondary)' }}>
+                        {event.event_type === 'ticket_created' && '✨ Created'}
+                        {event.event_type === 'ticket_status_changed' && `🔄 Status: ${event.payload?.from || '?'} → ${event.payload?.to || '?'}`}
+                        {event.event_type === 'ticket_updated' && '✏️ Updated'}
+                        {event.event_type === 'ticket_comment_added' && '💬 Comment'}
+                        {!['ticket_created', 'ticket_status_changed', 'ticket_updated', 'ticket_comment_added'].includes(event.event_type) && event.event_type}
+                      </span>
+                      <span style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
+                        {formatDateTime(event.created_at)}
+                      </span>
+                    </div>
+                    {event.event_type === 'ticket_updated' && event.payload?.changes && (
+                      <div style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
+                        {Object.entries(event.payload.changes).map(([field, change]: [string, any]) => (
+                          <div key={field}>{field}: {change.from} → {change.to}</div>
+                        ))}
+                      </div>
+                    )}
+                    {event.payload?.reason && (
+                      <div style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)' }}>
+                        {event.payload.reason}
+                      </div>
+                    )}
+                    {event.actor_id && (
+                      <div style={{ fontSize: 'var(--itsm-text-xs)', color: 'var(--itsm-text-tertiary)', marginTop: 'var(--itsm-space-1)' }}>
+                        By: {profiles.get(event.actor_id)?.full_name || profiles.get(event.actor_id)?.email || event.actor_id.slice(0, 8)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
         </div>
       </div>
 
