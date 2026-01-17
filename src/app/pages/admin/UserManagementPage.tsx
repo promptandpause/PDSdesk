@@ -143,7 +143,10 @@ export function UserManagementPage() {
     setActivating(false);
   };
 
-  const toggleUserSelection = (userId: string) => {
+  const toggleUserSelection = (userId: string, azureAdId: string) => {
+    // Don't allow selecting already activated users
+    if (isUserActivated(azureAdId)) return;
+    
     setSelectedUsers((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
@@ -349,7 +352,7 @@ export function UserManagementPage() {
                           <input
                             type="checkbox"
                             checked={selectedUsers.has(u.id)}
-                            onChange={() => toggleUserSelection(u.id)}
+                            onChange={() => toggleUserSelection(u.id, u.azure_ad_id)}
                             disabled={activated}
                             style={{ cursor: activated ? 'not-allowed' : 'pointer' }}
                           />
