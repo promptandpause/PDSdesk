@@ -143,10 +143,26 @@ export function UserManagementPage() {
     setActivating(false);
   };
 
-  const toggleUserSelection = (userId: string, azureAdId: string) => {
-    // Don't allow selecting already activated users
-    if (isUserActivated(azureAdId)) return;
-    
+  const isUserActivated = (azureAdId: string) => {
+    return profiles.some((p) => p.azure_ad_id === azureAdId);
+  };
+
+  const filteredDirectoryUsers = directoryUsers.filter((u) => {
+    if (!search) return true;
+    const searchLower = search.toLowerCase();
+    return (
+      u.email?.toLowerCase().includes(searchLower) ||
+      u.full_name?.toLowerCase().includes(searchLower) ||
+      u.department?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Get list of non-activated directory users (selectable)
+  const selectableUsers = filteredDirectoryUsers.filter(
+    (u) => !isUserActivated(u.azure_ad_id)
+  );
+
+  const toggleUserSelection = (userId: string) => {
     setSelectedUsers((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
@@ -159,36 +175,20 @@ export function UserManagementPage() {
   };
 
   const toggleSelectAll = () => {
-    const notActivatedUsers = filteredDirectoryUsers.filter(
-      (u) => !profiles.some((p) => p.azure_ad_id === u.azure_ad_id)
-    );
-    if (selectedUsers.size === notActivatedUsers.length) {
+    if (selectedUsers.size === selectableUsers.length && selectableUsers.length > 0) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(notActivatedUsers.map((u) => u.id)));
+      setSelectedUsers(new Set(selectableUsers.map((u) => u.id)));
     }
-  };
-
-  const isUserActivated = (azureAdId: string) => {
-    return profiles.some((p) => p.azure_ad_id === azureAdId);
   };
 
   // Filter selectedUsers to only include non-activated users
   const validSelectedUsers = Array.from(selectedUsers).filter((userId) => {
-    const dirUser = directoryUsers.find((u) => u.id === userId);
-    return dirUser && !isUserActivated(dirUser.azure_ad_id);
+    return selectableUsers.some((u) => u.id === userId);
   });
   const validSelectedCount = validSelectedUsers.length;
 
-  const filteredDirectoryUsers = directoryUsers.filter((u) => {
-    if (!search) return true;
-    const searchLower = search.toLowerCase();
-    return (
-      u.email?.toLowerCase().includes(searchLower) ||
-      u.full_name?.toLowerCase().includes(searchLower) ||
-      u.department?.toLowerCase().includes(searchLower)
-    );
-  });
+  const allSelectableSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedUsers.has(u.id));
 
   const filteredProfiles = profiles.filter((u) => {
     if (!search) return true;
@@ -338,7 +338,7 @@ export function UserManagementPage() {
                     <TableHeaderCell width={40}>
                       <input
                         type="checkbox"
-                        checked={selectedUsers.size > 0 && selectedUsers.size === filteredDirectoryUsers.filter((u) => !isUserActivated(u.azure_ad_id)).length}
+                        checked={allSelectableSelected}
                         onChange={toggleSelectAll}
                         style={{ cursor: 'pointer' }}
                       />
@@ -359,7 +359,7 @@ export function UserManagementPage() {
                           <input
                             type="checkbox"
                             checked={!activated && selectedUsers.has(u.id)}
-                            onChange={() => toggleUserSelection(u.id, u.azure_ad_id)}
+                            onChange={() => !activated && toggleUserSelection(u.id)}
                             disabled={activated}
                             style={{ cursor: activated ? 'not-allowed' : 'pointer', opacity: activated ? 0.4 : 1 }}
                           />
