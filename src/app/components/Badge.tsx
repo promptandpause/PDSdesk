@@ -63,7 +63,7 @@ const variantColors: Record<BadgeVariant, { bg: string; text: string; dot: strin
 };
 
 export function Badge({ variant = 'neutral', children, dot = false, size = 'sm' }: BadgeProps) {
-  const colors = variantColors[variant];
+  const colors = variantColors[variant] ?? variantColors.neutral;
   const isSmall = size === 'sm';
 
   return (
