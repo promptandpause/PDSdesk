@@ -54,8 +54,9 @@ async function getGraphAccessToken(tenantId: string, clientId: string, clientSec
   return data.access_token;
 }
 
-async function getUnreadEmails(accessToken: string, mailboxEmail: string): Promise<EmailMessage[]> {
-  const url = `https://graph.microsoft.com/v1.0/users/${mailboxEmail}/messages?$filter=isRead eq false&$orderby=receivedDateTime desc&$top=50`;
+async function getRecentEmails(accessToken: string, mailboxEmail: string): Promise<{ emails: EmailMessage[], debug: any }> {
+  // Get all recent emails (last 50) - we track processed ones in database
+  const url = `https://graph.microsoft.com/v1.0/users/${mailboxEmail}/messages?$orderby=receivedDateTime desc&$top=50`;
   
   const response = await fetch(url, {
     headers: {
@@ -70,7 +71,13 @@ async function getUnreadEmails(accessToken: string, mailboxEmail: string): Promi
   }
 
   const data = await response.json();
-  return data.value || [];
+  return { 
+    emails: data.value || [],
+    debug: {
+      mailboxEmail,
+      totalReturned: data.value?.length || 0,
+    }
+  };
 }
 
 async function markEmailAsRead(accessToken: string, mailboxEmail: string, messageId: string): Promise<void> {
@@ -231,8 +238,11 @@ serve(async (req) => {
 
     // Get unread emails
     let emails: EmailMessage[];
+    let emailDebug: any;
     try {
-      emails = await getUnreadEmails(accessToken, mailboxEmail);
+      const result = await getRecentEmails(accessToken, mailboxEmail);
+      emails = result.emails;
+      emailDebug = result.debug;
     } catch (mailError) {
       return new Response(JSON.stringify({ 
         error: 'Mail fetch error',
@@ -246,42 +256,71 @@ serve(async (req) => {
     let processed = 0;
     let created = 0;
     let replied = 0;
+    let skipped = 0;
+    let errors: string[] = [];
 
     for (const email of emails) {
-      // Check if already processed
+      // Check if already processed (only skip if status is 'processed')
       const { data: existing } = await supabase
         .from('inbound_emails')
-        .select('id')
+        .select('id, status')
         .eq('ms_message_id', email.id)
         .single();
 
-      if (existing) {
+      if (existing && existing.status === 'processed') {
+        skipped++;
         await markEmailAsRead(accessToken, mailboxEmail, email.id);
         continue;
       }
+      
+      // If exists but pending/failed, we'll reprocess it
+      const existingId = existing?.id;
 
       // Log inbound email
       const bodyText = email.body.contentType === 'html' 
         ? stripHtmlTags(email.body.content)
         : email.body.content;
 
-      const { data: inboundEmail, error: insertError } = await supabase
-        .from('inbound_emails')
-        .insert({
-          ms_message_id: email.id,
-          from_email: email.from.emailAddress.address,
-          from_name: email.from.emailAddress.name,
-          subject: email.subject,
-          body_text: bodyText,
-          body_html: email.body.contentType === 'html' ? email.body.content : null,
-          received_at: email.receivedDateTime,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Failed to insert inbound email:', insertError);
+      let inboundEmail: any;
+      
+      if (existingId) {
+        // Update existing pending record
+        const { data, error } = await supabase
+          .from('inbound_emails')
+          .update({ status: 'pending', error_message: null })
+          .eq('id', existingId)
+          .select()
+          .single();
+        inboundEmail = data;
+        if (error) {
+          errors.push(`Update error: ${error.message}`);
+          continue;
+        }
+      } else {
+        // Insert new record
+        const { data, error: insertError } = await supabase
+          .from('inbound_emails')
+          .insert({
+            ms_message_id: email.id,
+            from_email: email.from.emailAddress.address,
+            from_name: email.from.emailAddress.name,
+            subject: email.subject,
+            body_text: bodyText,
+            body_html: email.body.contentType === 'html' ? email.body.content : null,
+            received_at: email.receivedDateTime,
+            status: 'pending',
+          })
+          .select()
+          .single();
+        inboundEmail = data;
+        if (insertError) {
+          errors.push(`Insert error: ${insertError.message}`);
+          continue;
+        }
+      }
+      
+      if (!inboundEmail) {
+        errors.push('No inbound email record');
         continue;
       }
 
@@ -338,18 +377,22 @@ serve(async (req) => {
           }
         } else {
           // Create new ticket from email
-          // Find or create user profile
-          let userId: string | null = null;
+          // Find user profile by email (case insensitive)
+          const senderEmail = email.from.emailAddress.address.toLowerCase();
           
           const { data: existingUser } = await supabase
             .from('profiles')
             .select('id')
-            .eq('email', email.from.emailAddress.address.toLowerCase())
+            .ilike('email', senderEmail)
             .single();
 
-          if (existingUser) {
-            userId = existingUser.id;
+          if (!existingUser) {
+            // User not found - store email in inbound_emails and skip ticket creation
+            // They need to be registered in the system first
+            throw new Error(`User not found in system: ${senderEmail}. Email stored for manual review.`);
           }
+
+          const userId = existingUser.id;
 
           // Generate ticket number
           const { data: seqData } = await supabase.rpc('generate_ticket_number');
@@ -361,13 +404,10 @@ serve(async (req) => {
             .insert({
               ticket_number: newTicketNumber,
               title: email.subject || 'No Subject',
-              description: bodyText || 'No content',
+              description: `[Created from email from ${senderEmail}]\n\n${bodyText || 'No content'}`,
               status: 'open',
               priority: 'medium',
-              source: 'email',
               requester_id: userId,
-              requester_email: email.from.emailAddress.address,
-              requester_name: email.from.emailAddress.name,
             })
             .select()
             .single();
@@ -434,12 +474,14 @@ serve(async (req) => {
 
         processed++;
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        errors.push(`Email ${email.subject}: ${errMsg}`);
         console.error('Error processing email:', err);
         await supabase
           .from('inbound_emails')
           .update({
             status: 'failed',
-            error_message: err instanceof Error ? err.message : 'Unknown error',
+            error_message: errMsg,
           })
           .eq('id', inboundEmail.id);
       }
@@ -454,7 +496,10 @@ serve(async (req) => {
         processed,
         created,
         replied,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined,
         total: emails.length,
+        debug: emailDebug,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
