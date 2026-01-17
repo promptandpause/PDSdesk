@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
-import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator, TicketWatchers, TicketTimeEntries, TicketLinks, TicketApprovals, Input } from '../components';
+import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator, TicketWatchers, TicketTimeEntries, TicketLinks, TicketApprovals, Input, useToast } from '../components';
 import { useTicketSLA } from '../hooks/useSLA';
 
 interface Ticket {
@@ -69,6 +69,7 @@ export function TicketDetailPage() {
   const navigate = useNavigate();
   const supabase = useMemo(() => getSupabaseClient(), []);
   const { user, roles } = useAuth();
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
@@ -120,6 +121,9 @@ export function TicketDetailPage() {
     if (!ticket || !canDeleteTicket()) return;
     
     setDeleting(true);
+    setShowDeleteConfirm(false);
+    
+    const ticketNumber = ticket.ticket_number;
     
     // Delete attachments from storage first
     for (const attachment of attachments) {
@@ -129,13 +133,15 @@ export function TicketDetailPage() {
     // Delete ticket (cascades to comments, attachments records, etc.)
     const { error } = await supabase.from('tickets').delete().eq('id', ticket.id);
     
+    setDeleting(false);
+    
     if (error) {
-      alert('Failed to delete ticket: ' + error.message);
-      setDeleting(false);
+      showToast('error', 'Failed to delete ticket', `Error: ${error.code} - ${error.message}`);
       return;
     }
     
-    navigate('/tickets', { replace: true });
+    showToast('success', 'Ticket deleted successfully', `Ticket ${ticketNumber} has been permanently removed.`);
+    navigate('/tickets');
   };
 
   const fetchData = useCallback(async () => {
