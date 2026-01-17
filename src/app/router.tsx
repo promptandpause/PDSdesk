@@ -100,4 +100,8 @@ export const router = createBrowserRouter([
     path: '/login',
     element: <PlaceholderPage title="Login" />,
   },
-]);
+], {
+  future: {
+    v7_relativeSplatPath: true,
+  },
+});

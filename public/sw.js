@@ -38,14 +38,17 @@ self.addEventListener('fetch', (event) => {
   // Skip Supabase API requests (always network)
   if (event.request.url.includes('supabase.co')) return;
 
+  // Skip chrome-extension and other non-http(s) schemes
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Clone the response before caching
         const responseClone = response.clone();
         
-        // Cache successful responses
-        if (response.status === 200) {
+        // Cache successful responses (only http/https)
+        if (response.status === 200 && event.request.url.startsWith('http')) {
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
           });
@@ -79,8 +82,8 @@ self.addEventListener('push', (event) => {
   
   const options = {
     body: data.body || 'New notification',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
+    icon: '/icons/icon-192x192.svg',
+    badge: '/icons/icon-72x72.svg',
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/',
