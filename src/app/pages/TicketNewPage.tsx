@@ -48,6 +48,7 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', color: 'var(--itsm-success-500)' },
   { value: 'medium', label: 'Medium', color: 'var(--itsm-warning-500)' },
   { value: 'high', label: 'High', color: 'var(--itsm-error-500)' },
+  { value: 'urgent', label: 'Urgent', color: 'var(--itsm-error-600)' },
   { value: 'critical', label: 'Critical', color: 'var(--itsm-error-700)' },
 ];
 
@@ -55,6 +56,7 @@ const IMPACT_OPTIONS = [
   { value: 'low', label: 'Low - Single user affected' },
   { value: 'medium', label: 'Medium - Department affected' },
   { value: 'high', label: 'High - Multiple departments affected' },
+  { value: 'urgent', label: 'Urgent - Time-sensitive issue' },
   { value: 'critical', label: 'Critical - Entire organization affected' },
 ];
 
@@ -62,6 +64,7 @@ const URGENCY_OPTIONS = [
   { value: 'low', label: 'Low - Can wait' },
   { value: 'medium', label: 'Medium - Should be addressed soon' },
   { value: 'high', label: 'High - Needs immediate attention' },
+  { value: 'urgent', label: 'Urgent - Time-sensitive' },
   { value: 'critical', label: 'Critical - Business critical' },
 ];
 
@@ -207,10 +210,11 @@ export function TicketNewPage() {
   // Calculate priority from impact/urgency matrix
   useEffect(() => {
     const matrix: Record<string, Record<string, string>> = {
-      critical: { critical: 'critical', high: 'critical', medium: 'high', low: 'high' },
-      high: { critical: 'critical', high: 'high', medium: 'high', low: 'medium' },
-      medium: { critical: 'high', high: 'high', medium: 'medium', low: 'low' },
-      low: { critical: 'high', high: 'medium', medium: 'low', low: 'low' },
+      critical: { critical: 'critical', urgent: 'critical', high: 'critical', medium: 'urgent', low: 'high' },
+      urgent: { critical: 'critical', urgent: 'urgent', high: 'urgent', medium: 'high', low: 'high' },
+      high: { critical: 'critical', urgent: 'urgent', high: 'high', medium: 'high', low: 'medium' },
+      medium: { critical: 'urgent', urgent: 'high', high: 'high', medium: 'medium', low: 'low' },
+      low: { critical: 'high', urgent: 'high', high: 'medium', medium: 'low', low: 'low' },
     };
     const calculated = matrix[impact]?.[urgency] ?? 'medium';
     setPriority(calculated);
@@ -438,9 +442,8 @@ export function TicketNewPage() {
                       Calculated Priority: 
                     </span>
                     <Badge 
-                      variant={priority === 'critical' ? 'error' : priority === 'high' ? 'warning' : priority === 'low' ? 'success' : 'info'} 
+                      variant={priority === 'critical' ? 'danger' : priority === 'urgent' ? 'red' : priority === 'high' ? 'warning' : priority === 'low' ? 'success' : 'info'} 
                       size="sm" 
-                      style={{ marginLeft: 'var(--itsm-space-2)' }}
                     >
                       {priority.charAt(0).toUpperCase() + priority.slice(1)}
                     </Badge>

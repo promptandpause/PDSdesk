@@ -1,7 +1,7 @@
 import { Badge } from './Badge';
 
 type TicketStatus = 'open' | 'in_progress' | 'pending' | 'resolved' | 'closed';
-type Priority = 'critical' | 'high' | 'medium' | 'low';
+type Priority = 'critical' | 'urgent' | 'high' | 'medium' | 'low';
 
 const statusConfig: Record<TicketStatus, { variant: 'danger' | 'warning' | 'purple' | 'success' | 'neutral'; label: string }> = {
   open: { variant: 'danger', label: 'Open' },
@@ -11,8 +11,9 @@ const statusConfig: Record<TicketStatus, { variant: 'danger' | 'warning' | 'purp
   closed: { variant: 'neutral', label: 'Closed' },
 };
 
-const priorityConfig: Record<Priority, { variant: 'danger' | 'warning' | 'info' | 'success'; label: string }> = {
+const priorityConfig: Record<Priority, { variant: 'danger' | 'red' | 'warning' | 'info' | 'success'; label: string }> = {
   critical: { variant: 'danger', label: 'Critical' },
+  urgent: { variant: 'red', label: 'Urgent' },
   high: { variant: 'warning', label: 'High' },
   medium: { variant: 'info', label: 'Medium' },
   low: { variant: 'success', label: 'Low' },
