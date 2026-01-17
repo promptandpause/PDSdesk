@@ -170,23 +170,28 @@ export function Sidebar() {
           { label: 'Templates', to: '/ticket-templates', icon: '◧' },
         ],
       },
-      {
-        title: 'Directory',
-        items: [
-          { label: 'Customers', to: '/customers', icon: '◎' },
-          { label: 'Contacts', to: '/contacts', icon: '◇' },
-          { label: 'Reports', to: '/reports', icon: '◫' },
-        ],
-      },
+      // Directory section - only for admins
+      ...(canViewAllQueues
+        ? [
+            {
+              title: 'Directory',
+              items: [
+                { label: 'Customers', to: '/customers', icon: '◎' },
+                { label: 'Contacts', to: '/contacts', icon: '◇' },
+                { label: 'Reports', to: '/reports', icon: '◫' },
+              ],
+            },
+          ]
+        : []),
       {
         title: 'System',
         items: [
-          { label: 'Call Logs', to: '/call-logs', icon: '◌' },
+          ...(canViewAllQueues ? [{ label: 'Call Logs', to: '/call-logs', icon: '◌' }] : []),
           { label: 'Settings', to: '/settings', icon: '⚙' },
         ],
       },
     ];
-  }, [userQueues]);
+  }, [userQueues, canViewAllQueues]);
 
   const navigation = isAgent ? agentNavigation : customerNavigation;
 

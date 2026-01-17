@@ -293,7 +293,7 @@ export function SystemSettingsPage() {
               }}
             >
               {tab.label}
-              {tab.adminOnly && <Badge variant="neutral" size="sm" style={{ marginLeft: 8 }}>Admin</Badge>}
+              {tab.adminOnly && <span style={{ marginLeft: 8 }}><Badge variant="neutral" size="sm">Admin</Badge></span>}
             </button>
           ))}
         </div>
@@ -480,7 +480,7 @@ export function SystemSettingsPage() {
                     <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-2)', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
-                        checked={(notificationSettings as Record<string, unknown>)[key] as boolean}
+                        checked={(notificationSettings as unknown as Record<string, boolean>)[key]}
                         onChange={(e) => setNotificationSettings({ ...notificationSettings, [key]: e.target.checked })}
                       />
                       <span style={{ fontSize: 'var(--itsm-text-sm)' }}>{label}</span>
