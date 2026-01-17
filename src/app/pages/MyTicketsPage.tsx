@@ -17,8 +17,11 @@ interface TicketRow {
 
 export function MyTicketsPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const navigate = useNavigate();
+
+  // Determine if user is an agent (operator/admin) or requester
+  const isAgent = roles.includes('operator') || roles.includes('service_desk_admin') || roles.includes('global_admin');
 
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
@@ -32,12 +35,20 @@ export function MyTicketsPage() {
     async function load() {
       setLoading(true);
 
+      // For agents: show tickets assigned to them
+      // For requesters: show tickets they created (requester_id)
       let q = supabase
         .from('tickets')
         .select('id,ticket_number,title,status,priority,updated_at', { count: 'exact' })
-        .eq('assignee_id', user!.id)
         .order('updated_at', { ascending: false })
         .limit(50);
+
+      if (isAgent) {
+        q = q.eq('assignee_id', user!.id);
+      } else {
+        // Requesters see only tickets they submitted
+        q = q.eq('requester_id', user!.id);
+      }
 
       const trimmed = query.trim();
       if (trimmed) {
@@ -63,7 +74,7 @@ export function MyTicketsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, user, query]);
+  }, [supabase, user, query, isAgent]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -83,10 +94,10 @@ export function MyTicketsPage() {
     <div>
       <PageHeader
         title="My Tickets"
-        subtitle={`${totalCount} tickets assigned to you`}
+        subtitle={isAgent ? `${totalCount} tickets assigned to you` : `${totalCount} tickets you submitted`}
         actions={
-          <Button variant="primary" onClick={() => navigate('/tickets/new')}>
-            New Ticket
+          <Button variant="primary" onClick={() => navigate(isAgent ? '/tickets/new' : '/service-catalog')}>
+            {isAgent ? 'New Ticket' : 'New Request'}
           </Button>
         }
       />

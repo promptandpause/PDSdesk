@@ -79,7 +79,9 @@ export function Sidebar() {
 
   const isGlobalAdmin = roles.includes('global_admin');
   const isServiceDeskAdmin = roles.includes('service_desk_admin');
-  const isAgent = roles.includes('operator') || isServiceDeskAdmin || isGlobalAdmin;
+  const isOperator = roles.includes('operator');
+  const isAgent = isOperator || isServiceDeskAdmin || isGlobalAdmin;
+  const isRequester = !isAgent; // Regular employees who can only submit/view their own tickets
   const canViewAllQueues = isGlobalAdmin || isServiceDeskAdmin;
 
   // Fetch user's visible queues dynamically
@@ -198,7 +200,27 @@ export function Sidebar() {
     ];
   }, [userQueues, canViewAllQueues]);
 
-  const navigation = isAgent ? agentNavigation : customerNavigation;
+  // Requester navigation - simplified view for regular employees
+  const requesterNavigation: NavSection[] = useMemo(() => {
+    return [
+      {
+        items: [
+          { label: 'Service Catalog', to: '/service-catalog', icon: '▧' },
+          { label: 'My Tickets', to: '/my-tickets', icon: '◈' },
+          { label: 'Reservations', to: '/reservations', icon: '◐' },
+        ],
+      },
+      {
+        title: 'Resources',
+        items: [
+          { label: 'Knowledge Base', to: '/kb', icon: '◉' },
+        ],
+      },
+    ];
+  }, []);
+
+  // Determine which navigation to use based on user role
+  const navigation = isRequester ? requesterNavigation : (isAgent ? agentNavigation : customerNavigation);
 
   return (
     <aside
