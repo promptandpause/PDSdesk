@@ -31,27 +31,32 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 <html>
 <head>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
-    .header { background-color: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .ticket-info { background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
-    .ticket-info h2 { margin: 0 0 10px 0; font-size: 18px; color: #1f2937; }
-    .field { margin: 8px 0; }
-    .field-label { font-weight: 600; color: #6b7280; display: inline-block; width: 100px; }
+    body { font-family: 'Rubik', 'trebuchet ms', sans-serif; line-height: 1.6; color: #545454; max-width: 600px; margin: 0 auto; padding: 0; background-color: #302f2f; }
+    .header { background-color: #ffffff; padding: 40px 20px; text-align: center; }
+    .header img { height: 50px; width: auto; }
+    .content { background-color: #fffaf6; padding: 40px; border-radius: 0; }
+    .ticket-info { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; }
+    .ticket-info h2 { margin: 0 0 15px 0; font-size: 20px; color: #d39d35; font-weight: 600; }
+    .field { margin: 8px 0; font-size: 15px; }
+    .field-label { font-weight: 600; color: #d39d35; display: inline-block; width: 100px; }
     .priority { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-    .priority-low { background-color: #dbeafe; color: #1e40af; }
-    .priority-medium { background-color: #fef3c7; color: #92400e; }
-    .priority-high { background-color: #fee2e2; color: #991b1b; }
-    .priority-urgent { background-color: #fecaca; color: #7f1d1d; }
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; text-align: center; }
-    .button { display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
-    .description { background-color: #f9fafb; padding: 15px; border-radius: 6px; border-left: 4px solid #2563eb; margin: 15px 0; white-space: pre-wrap; }
+    .priority-low { background-color: #e8f5e8; color: #2d5a2d; }
+    .priority-medium { background-color: #fff3cd; color: #856404; }
+    .priority-high { background-color: #f8d7da; color: #721c24; }
+    .priority-urgent { background-color: #f5c6cb; color: #491217; }
+    .footer { background-color: #302f2f; padding: 40px 20px; text-align: center; }
+    .footer p { color: #cfcfcf; font-size: 14px; margin: 5px 0; }
+    .footer a { color: #cfcfcf; text-decoration: none; }
+    .button { display: inline-block; background-color: #d39d35; color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 20px 0; }
+    .description { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; white-space: pre-wrap; }
   </style>
 </head>
 <body>
-  <div class="header"><h1>Ticket Created Successfully</h1></div>
+  <div class="header">
+    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+  </div>
   <div class="content">
+    <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Created Successfully</h1>
     <p>Hello {{requester_name}},</p>
     <p>Your ticket has been created successfully. Here are the details:</p>
     <div class="ticket-info">
@@ -64,7 +69,11 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     <p>You can reply to this email to add comments to your ticket.</p>
     {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>{{/if}}
   </div>
-  <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
+  <div class="footer">
+    <p>Service Desk Team<br>{{support_email}}</p>
+    <p>Prompt & Pause • Pause. Reflect. Grow.</p>
+    <p>© 2026 Prompt & Pause. All rights reserved.</p>
+  </div>
 </body>
 </html>`,
 
@@ -73,27 +82,33 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 <html>
 <head>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
-    .header { background-color: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .ticket-info { background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
-    .ticket-info h2 { margin: 0 0 10px 0; font-size: 18px; color: #1f2937; }
-    .field { margin: 8px 0; }
-    .field-label { font-weight: 600; color: #6b7280; display: inline-block; width: 100px; }
+    body { font-family: 'Rubik', 'trebuchet ms', sans-serif; line-height: 1.6; color: #545454; max-width: 600px; margin: 0 auto; padding: 0; background-color: #302f2f; }
+    .header { background-color: #ffffff; padding: 40px 20px; text-align: center; }
+    .header img { height: 50px; width: auto; }
+    .content { background-color: #fffaf6; padding: 40px; border-radius: 0; }
+    .ticket-info { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; }
+    .ticket-info h2 { margin: 0 0 15px 0; font-size: 20px; color: #d39d35; font-weight: 600; }
+    .field { margin: 8px 0; font-size: 15px; }
+    .field-label { font-weight: 600; color: #d39d35; display: inline-block; width: 100px; }
     .priority { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-    .priority-low { background-color: #dbeafe; color: #1e40af; }
-    .priority-medium { background-color: #fef3c7; color: #92400e; }
-    .priority-high { background-color: #fee2e2; color: #991b1b; }
-    .priority-urgent { background-color: #fecaca; color: #7f1d1d; }
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; text-align: center; }
-    .button { display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
-    .update-notice { background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 6px; margin: 15px 0; }
+    .priority-low { background-color: #e8f5e8; color: #2d5a2d; }
+    .priority-medium { background-color: #fff3cd; color: #856404; }
+    .priority-high { background-color: #f8d7da; color: #721c24; }
+    .priority-urgent { background-color: #f5c6cb; color: #491217; }
+    .footer { background-color: #302f2f; padding: 40px 20px; text-align: center; }
+    .footer p { color: #cfcfcf; font-size: 14px; margin: 5px 0; }
+    .footer a { color: #cfcfcf; text-decoration: none; }
+    .button { display: inline-block; background-color: #d39d35; color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 20px 0; }
+    .update-notice { background-color: #fff7f3; border: 1px solid #d39d35; padding: 15px; border-radius: 8px; margin: 15px 0; }
+    .description { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; white-space: pre-wrap; }
   </style>
 </head>
 <body>
-  <div class="header"><h1>Ticket Updated</h1></div>
+  <div class="header">
+    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+  </div>
   <div class="content">
+    <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Updated</h1>
     <p>Hello {{requester_name}},</p>
     <p>Your ticket has been updated. Here are the current details:</p>
     <div class="ticket-info">
@@ -106,7 +121,11 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     <div class="update-notice"><strong>Reply to this email</strong> to add a comment to your ticket.</div>
     {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>{{/if}}
   </div>
-  <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
+  <div class="footer">
+    <p>Service Desk Team<br>{{support_email}}</p>
+    <p>Prompt & Pause • Pause. Reflect. Grow.</p>
+    <p> 2026 Prompt & Pause. All rights reserved.</p>
+  </div>
 </body>
 </html>`,
 
@@ -115,24 +134,29 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 <html>
 <head>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
-    .header { background-color: #059669; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .ticket-info { background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
-    .ticket-info h2 { margin: 0 0 10px 0; font-size: 18px; color: #1f2937; }
-    .field { margin: 8px 0; }
-    .field-label { font-weight: 600; color: #6b7280; display: inline-block; width: 100px; }
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; text-align: center; }
-    .button { display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
-    .resolved-notice { background-color: #d1fae5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 6px; margin: 15px 0; }
-    .rating-section { background-color: #fef3c7; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }
-    .rating-button { display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600; }
+    body { font-family: 'Rubik', 'trebuchet ms', sans-serif; line-height: 1.6; color: #545454; max-width: 600px; margin: 0 auto; padding: 0; background-color: #302f2f; }
+    .header { background-color: #ffffff; padding: 40px 20px; text-align: center; }
+    .header img { height: 50px; width: auto; }
+    .content { background-color: #fffaf6; padding: 40px; border-radius: 0; }
+    .ticket-info { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; }
+    .ticket-info h2 { margin: 0 0 15px 0; font-size: 20px; color: #d39d35; font-weight: 600; }
+    .field { margin: 8px 0; font-size: 15px; }
+    .field-label { font-weight: 600; color: #d39d35; display: inline-block; width: 100px; }
+    .footer { background-color: #302f2f; padding: 40px 20px; text-align: center; }
+    .footer p { color: #cfcfcf; font-size: 14px; margin: 5px 0; }
+    .footer a { color: #cfcfcf; text-decoration: none; }
+    .button { display: inline-block; background-color: #d39d35; color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 20px 0; }
+    .resolved-notice { background-color: #e8f5e8; border: 1px solid #4caf50; padding: 24px; border-radius: 8px; border-left: 4px solid #4caf50; margin: 20px 0; }
+    .rating-section { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; text-align: center; }
+    .rating-button { display: inline-block; background-color: #d39d35; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
   </style>
 </head>
 <body>
-  <div class="header"><h1>Ticket Resolved</h1></div>
+  <div class="header">
+    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+  </div>
   <div class="content">
+    <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Resolved</h1>
     <p>Hello {{requester_name}},</p>
     <div class="resolved-notice"><strong>Good news!</strong> Your ticket has been marked as resolved.</div>
     <div class="ticket-info">
@@ -148,7 +172,11 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     <p>If you need additional help, please reply to this email.</p>
     {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>{{/if}}
   </div>
-  <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
+  <div class="footer">
+    <p>Service Desk Team<br>{{support_email}}</p>
+    <p>Prompt & Pause • Pause. Reflect. Grow.</p>
+    <p>© 2026 Prompt & Pause. All rights reserved.</p>
+  </div>
 </body>
 </html>`,
 
@@ -157,24 +185,29 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 <html>
 <head>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
-    .header { background-color: #6b7280; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { background-color: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .ticket-info { background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
-    .ticket-info h2 { margin: 0 0 10px 0; font-size: 18px; color: #1f2937; }
-    .field { margin: 8px 0; }
-    .field-label { font-weight: 600; color: #6b7280; display: inline-block; width: 100px; }
-    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; text-align: center; }
-    .button { display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
-    .closed-notice { background-color: #e5e7eb; border: 1px solid #d1d5db; padding: 15px; border-radius: 6px; margin: 15px 0; }
-    .rating-reminder { background-color: #fef3c7; padding: 15px; border-radius: 6px; margin: 15px 0; text-align: center; }
-    .rating-button { display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 600; }
+    body { font-family: 'Rubik', 'trebuchet ms', sans-serif; line-height: 1.6; color: #545454; max-width: 600px; margin: 0 auto; padding: 0; background-color: #302f2f; }
+    .header { background-color: #ffffff; padding: 40px 20px; text-align: center; }
+    .header img { height: 50px; width: auto; }
+    .content { background-color: #fffaf6; padding: 40px; border-radius: 0; }
+    .ticket-info { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; }
+    .ticket-info h2 { margin: 0 0 15px 0; font-size: 20px; color: #d39d35; font-weight: 600; }
+    .field { margin: 8px 0; font-size: 15px; }
+    .field-label { font-weight: 600; color: #d39d35; display: inline-block; width: 100px; }
+    .footer { background-color: #302f2f; padding: 40px 20px; text-align: center; }
+    .footer p { color: #cfcfcf; font-size: 14px; margin: 5px 0; }
+    .footer a { color: #cfcfcf; text-decoration: none; }
+    .button { display: inline-block; background-color: #d39d35; color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 20px 0; }
+    .closed-notice { background-color: #e5e7eb; border: 1px solid #d1d5db; padding: 24px; border-radius: 8px; border-left: 4px solid #6b7280; margin: 20px 0; }
+    .rating-reminder { background-color: #fff7f3; padding: 24px; border-radius: 8px; border-left: 4px solid #d39d35; margin: 20px 0; text-align: center; }
+    .rating-button { display: inline-block; background-color: #d39d35; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; }
   </style>
 </head>
 <body>
-  <div class="header"><h1>Ticket Closed</h1></div>
+  <div class="header">
+    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+  </div>
   <div class="content">
+    <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Closed</h1>
     <p>Hello {{requester_name}},</p>
     <div class="closed-notice"><strong>Your ticket has been closed.</strong> No further updates will be made.</div>
     <div class="ticket-info">
@@ -189,7 +222,11 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     <p>If you need further assistance, please create a new ticket.</p>
     {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Tickets</a>{{/if}}
   </div>
-  <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
+  <div class="footer">
+    <p>Service Desk Team<br>{{support_email}}</p>
+    <p>Prompt & Pause • Pause. Reflect. Grow.</p>
+    <p>© 2026 Prompt & Pause. All rights reserved.</p>
+  </div>
 </body>
 </html>`,
 };
