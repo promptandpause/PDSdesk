@@ -156,16 +156,21 @@ function stripHtmlTags(html: string): string {
 }
 
 function cleanEmailReply(body: string): string {
-  // Remove quoted email replies
+  // Remove quoted email replies more comprehensively
   const lines = body.split('\n');
   const cleanedLines: string[] = [];
+  let inQuotedSection = false;
   
   for (const line of lines) {
-    // Stop at the beginning of quoted email
+    // Detect start of quoted email
     if (line.match(/^On.*wrote:$/) || 
         line.match(/^-----Original Message-----/) ||
         line.match(/^From:.*$/) ||
-        line.match(/^>.*$/)) {
+        line.match(/^>.*$/) ||
+        line.match(/^-- *$/) ||
+        line.match(/^Sent from my/) ||
+        line.includes('<support@promptandpause.com>')) {
+      inQuotedSection = true;
       break;
     }
     
@@ -174,11 +179,24 @@ function cleanEmailReply(body: string): string {
       continue;
     }
     
+    // Skip empty lines at the beginning
+    if (cleanedLines.length === 0 && line.trim() === '') {
+      continue;
+    }
+    
     cleanedLines.push(line);
   }
   
   // Join and clean up extra whitespace
-  return cleanedLines.join('\n').trim();
+  let cleaned = cleanedLines.join('\n').trim();
+  
+  // Remove any remaining HTML tags
+  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  
+  // Clean up extra whitespace
+  cleaned = cleaned.replace(/\n\s*\n/g, '\n').trim();
+  
+  return cleaned;
 }
 
 serve(async (req) => {
@@ -379,13 +397,23 @@ serve(async (req) => {
               .eq('email', email.from.emailAddress.address.toLowerCase())
               .single();
 
+            // Get user profile to get their actual name
+            const { data: userProfile } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('email', email.from.emailAddress.address.toLowerCase())
+              .single();
+
+            // Use the user's actual name from profile, fallback to email name, then email address
+            const displayName = userProfile?.full_name || email.from.emailAddress.name || email.from.emailAddress.address;
+
             // Add as comment
             const { data: comment } = await supabase
               .from('ticket_comments')
               .insert({
                 ticket_id: ticket.id,
                 author_id: user?.id || ticket.requester_id,
-                body: `**Email reply from ${email.from.emailAddress.name || email.from.emailAddress.address}:**\n\n${bodyText}`,
+                body: `**Email reply from ${displayName}:**\n\n${bodyText}`,
                 is_internal: false,
               })
               .select()
