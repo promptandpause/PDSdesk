@@ -62,7 +62,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     </div>
     <div class="description"><strong>Description:</strong><br>{{description}}</div>
     <p>You can reply to this email to add comments to your ticket.</p>
-    <a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>
+    {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>{{/if}}
   </div>
   <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
 </body>
@@ -104,7 +104,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     </div>
     <div class="description"><strong>Latest Comment:</strong><br>{{latest_comment}}</div>
     <div class="update-notice"><strong>Reply to this email</strong> to add a comment to your ticket.</div>
-    <a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>
+    {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>{{/if}}
   </div>
   <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
 </body>
@@ -146,7 +146,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
       <a href="https://servicedesk.promptandpause.com/rate-ticket/{{ticket_id}}" class="rating-button">Rate This Ticket</a>
     </div>
     <p>If you need additional help, please reply to this email.</p>
-    <a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>
+    {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>{{/if}}
   </div>
   <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
 </body>
@@ -187,7 +187,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
       <a href="https://servicedesk.promptandpause.com/rate-ticket/{{ticket_id}}" class="rating-button">Rate This Ticket</a>
     </div>
     <p>If you need further assistance, please create a new ticket.</p>
-    <a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Tickets</a>
+    {{#if is_internal}}<a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Tickets</a>{{/if}}
   </div>
   <div class="footer"><p>Service Desk Team<br>{{support_email}}</p></div>
 </body>
@@ -269,7 +269,12 @@ function renderTemplate(templateName: string, data: Record<string, any>): string
   
   Object.entries(data).forEach(([key, value]) => {
     const regex = new RegExp(`{{${key}}}`, 'g');
-    html = html.replace(regex, String(value || ''));
+    html = html.replace(regex, String(value));
+  });
+  
+  // Handle simple if conditions: {{#if is_internal}}...{{/if}}
+  html = html.replace(/{{#if is_internal}}([\s\S]*?){{\/if}}/g, (match, content) => {
+    return data.is_internal ? content : '';
   });
   
   return html;
