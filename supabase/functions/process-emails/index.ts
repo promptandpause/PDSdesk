@@ -287,6 +287,14 @@ serve(async (req) => {
     let errors: string[] = [];
 
     for (const email of emails) {
+      // Skip emails from support addresses to avoid processing our own notifications
+      if (email.from.emailAddress.address === 'support@promptandpause.com' ||
+          email.from.emailAddress.address === 'servicedesk@promptandpause.com') {
+        await markEmailAsRead(accessToken, mailboxEmail, email.id);
+        skipped++;
+        continue;
+      }
+      
       // Check if already processed (only skip if status is 'processed')
       const { data: existing } = await supabase
         .from('inbound_emails')
