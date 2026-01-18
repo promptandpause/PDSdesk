@@ -102,6 +102,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
       <div class="field"><span class="field-label">Priority:</span> <span class="priority priority-{{priority}}">{{priority}}</span></div>
       <div class="field"><span class="field-label">Updated:</span> <span>{{updated_at}}</span></div>
     </div>
+    <div class="description"><strong>Latest Comment:</strong><br>{{latest_comment}}</div>
     <div class="update-notice"><strong>Reply to this email</strong> to add a comment to your ticket.</div>
     <a href="https://servicedesk.promptandpause.com/my-tickets" class="button">View Your Ticket</a>
   </div>
