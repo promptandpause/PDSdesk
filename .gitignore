@@ -23,3 +23,8 @@ pnpm-debug.log*
 
 # local tooling
 *.tsbuildinfo
+
+# backup/old code
+src/OLD/
+OLD/
+backup/
