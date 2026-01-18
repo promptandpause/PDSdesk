@@ -1,0 +1,17 @@
+name: Process Inbound Emails
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  process-emails:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Process inbound emails
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/process-emails" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json"
