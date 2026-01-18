@@ -53,7 +53,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 </head>
 <body>
   <div class="header">
-    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+    <img src="https://res.cloudinary.com/dh1rrfpmq/image/upload/t_pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw_vdvqfj.svg" alt="Prompt & Pause" />
   </div>
   <div class="content">
     <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Created Successfully</h1>
@@ -105,7 +105,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 </head>
 <body>
   <div class="header">
-    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+    <img src="https://res.cloudinary.com/dh1rrfpmq/image/upload/t_pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw_vdvqfj.svg" alt="Prompt & Pause" />
   </div>
   <div class="content">
     <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Updated</h1>
@@ -153,7 +153,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 </head>
 <body>
   <div class="header">
-    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+    <img src="https://res.cloudinary.com/dh1rrfpmq/image/upload/t_pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw_vdvqfj.svg" alt="Prompt & Pause" />
   </div>
   <div class="content">
     <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Resolved</h1>
@@ -204,7 +204,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 </head>
 <body>
   <div class="header">
-    <img src="https://yhrnbdl0wz3eilae.public.blob.vercel-storage.com/prompt%26pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw.svg" alt="Prompt & Pause" />
+    <img src="https://res.cloudinary.com/dh1rrfpmq/image/upload/t_pause-JRsbZR3dxCXndC8YMcyX6XU3XeT2Vw_vdvqfj.svg" alt="Prompt & Pause" />
   </div>
   <div class="content">
     <h1 style="color: #d39d35; font-size: 28px; margin: 0 0 20px 0;">Ticket Closed</h1>
