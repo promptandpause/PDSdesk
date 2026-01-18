@@ -124,7 +124,38 @@ export function QueuePage() {
 
   useEffect(() => {
     void fetchQueueAndTickets();
-  }, [fetchQueueAndTickets]);
+
+    // Subscribe to real-time updates for tickets in this queue
+    const channel = supabase
+      .channel(`queue-tickets-${queueKey}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          void fetchQueueAndTickets();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ticket_comments',
+        },
+        () => {
+          void fetchQueueAndTickets();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchQueueAndTickets, supabase, queueKey]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
