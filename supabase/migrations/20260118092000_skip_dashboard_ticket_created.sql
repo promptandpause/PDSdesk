@@ -76,7 +76,8 @@ BEGIN
         'priority', v_ticket.priority,
         'created_at', v_ticket.created_at,
         'requester_name', COALESCE(v_ticket.requester_name, v_ticket.full_name, v_ticket.email),
-        'is_internal', (v_ticket.ticket_type != 'customer_service')
+        'is_internal', (v_ticket.ticket_type != 'customer_service'),
+        'ticket_type', v_ticket.ticket_type
       );
     WHEN 'updated' THEN
       v_template_name := 'ticket_updated';
@@ -89,7 +90,8 @@ BEGIN
         'updated_at', v_ticket.updated_at,
         'requester_name', COALESCE(v_ticket.requester_name, v_ticket.full_name, v_ticket.email),
         'latest_comment', COALESCE(v_latest_comment, 'No additional comments'),
-        'is_internal', (v_ticket.ticket_type != 'customer_service')
+        'is_internal', (v_ticket.ticket_type != 'customer_service'),
+        'ticket_type', v_ticket.ticket_type
       );
     WHEN 'resolved' THEN
       v_template_name := 'ticket_resolved';
@@ -101,7 +103,8 @@ BEGIN
         'priority', v_ticket.priority,
         'resolved_at', v_ticket.updated_at,
         'requester_name', COALESCE(v_ticket.requester_name, v_ticket.full_name, v_ticket.email),
-        'is_internal', (v_ticket.ticket_type != 'customer_service')
+        'is_internal', (v_ticket.ticket_type != 'customer_service'),
+        'ticket_type', v_ticket.ticket_type
       );
     WHEN 'closed' THEN
       v_template_name := 'ticket_closed';
@@ -113,7 +116,8 @@ BEGIN
         'priority', v_ticket.priority,
         'closed_at', v_ticket.updated_at,
         'requester_name', COALESCE(v_ticket.requester_name, v_ticket.full_name, v_ticket.email),
-        'is_internal', (v_ticket.ticket_type != 'customer_service')
+        'is_internal', (v_ticket.ticket_type != 'customer_service'),
+        'ticket_type', v_ticket.ticket_type
       );
     ELSE
       RAISE EXCEPTION 'Invalid event type: %', p_event_type;

@@ -1,0 +1,17 @@
+name: Send Queued Emails
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  send-emails:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send queued emails
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/send-emails" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json"
