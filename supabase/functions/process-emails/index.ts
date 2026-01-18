@@ -156,26 +156,40 @@ function stripHtmlTags(html: string): string {
 }
 
 function cleanEmailReply(body: string): string {
-  // Remove quoted email replies more comprehensively
-  const lines = body.split('\n');
+  let cleaned = body;
+  
+  // First, handle inline quoted content (when HTML stripping removes line breaks)
+  // Match "On [date] ... wrote:" pattern and remove everything after it
+  cleaned = cleaned.replace(/\s*On\s+\w{3},\s+\w{3}\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}.*wrote:.*$/is, '');
+  cleaned = cleaned.replace(/\s*On\s+\d{1,2}\/\d{1,2}\/\d{2,4}.*wrote:.*$/is, '');
+  cleaned = cleaned.replace(/\s*On\s+\w+\s+\d{1,2},\s+\d{4}.*wrote:.*$/is, '');
+  
+  // Remove content after common quote markers
+  cleaned = cleaned.replace(/\s*-----Original Message-----.*$/is, '');
+  cleaned = cleaned.replace(/\s*From:.*Sent:.*To:.*Subject:.*$/is, '');
+  cleaned = cleaned.replace(/\s*<support@promptandpause\.com>.*$/is, '');
+  cleaned = cleaned.replace(/\s*support@promptandpause\.com\s+wrote:.*$/is, '');
+  
+  // Remove email signature markers
+  cleaned = cleaned.replace(/\s*--\s*$/m, '');
+  cleaned = cleaned.replace(/\s*Sent from my (iPhone|iPad|Android|Samsung|Galaxy|Mobile).*$/is, '');
+  cleaned = cleaned.replace(/\s*Get Outlook for.*$/is, '');
+  
+  // Remove "Ticket Updated" or "Ticket Created" notification content
+  cleaned = cleaned.replace(/\s*Ticket (Updated|Created|Resolved|Closed).*$/is, '');
+  
+  // Now handle line-based cleaning for any remaining content
+  const lines = cleaned.split('\n');
   const cleanedLines: string[] = [];
-  let inQuotedSection = false;
   
   for (const line of lines) {
-    // Detect start of quoted email
-    if (line.match(/^On.*wrote:$/) || 
-        line.match(/^-----Original Message-----/) ||
-        line.match(/^From:.*$/) ||
-        line.match(/^>.*$/) ||
-        line.match(/^-- *$/) ||
-        line.match(/^Sent from my/) ||
-        line.includes('<support@promptandpause.com>')) {
-      inQuotedSection = true;
+    // Stop at quoted lines
+    if (line.match(/^>/) || line.match(/^On.*wrote:$/i)) {
       break;
     }
     
-    // Skip lines that look like email headers
-    if (line.match(/^(Subject|To|From|Cc|Bcc|Date|Sent):/)) {
+    // Skip email headers
+    if (line.match(/^(Subject|To|From|Cc|Bcc|Date|Sent):/i)) {
       continue;
     }
     
@@ -187,16 +201,14 @@ function cleanEmailReply(body: string): string {
     cleanedLines.push(line);
   }
   
-  // Join and clean up extra whitespace
-  let cleaned = cleanedLines.join('\n').trim();
+  cleaned = cleanedLines.join('\n').trim();
   
-  // Remove any remaining HTML tags
-  cleaned = cleaned.replace(/<[^>]*>/g, '');
+  // Final cleanup
+  cleaned = cleaned.replace(/<[^>]*>/g, ''); // Remove any remaining HTML
+  cleaned = cleaned.replace(/\s{2,}/g, ' '); // Collapse multiple spaces
+  cleaned = cleaned.replace(/\n\s*\n/g, '\n'); // Remove empty lines
   
-  // Clean up extra whitespace
-  cleaned = cleaned.replace(/\n\s*\n/g, '\n').trim();
-  
-  return cleaned;
+  return cleaned.trim();
 }
 
 serve(async (req) => {
