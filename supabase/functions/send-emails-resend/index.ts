@@ -6,25 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface GraphTokenResponse {
-  access_token: string;
-  expires_in: number;
-  token_type: string;
-}
-
-interface EmailQueueItem {
-  id: string;
-  to_email: string;
-  subject: string;
-  body_html: string;
-  body_text: string;
-  reply_to: string | null;
-  template_name: string;
-  template_data: Record<string, any>;
-  priority: number;
-  send_at: string;
-}
-
 const EMAIL_TEMPLATES: Record<string, string> = {
   ticket_created: `
 <!DOCTYPE html>
@@ -89,6 +70,7 @@ const EMAIL_TEMPLATES: Record<string, string> = {
     .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; text-align: center; }
     .button { display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
     .update-notice { background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 6px; margin: 15px 0; }
+    .description { background-color: #f9fafb; padding: 15px; border-radius: 6px; border-left: 4px solid #2563eb; margin: 15px 0; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -194,74 +176,20 @@ const EMAIL_TEMPLATES: Record<string, string> = {
 </html>`,
 };
 
-async function getGraphAccessToken(tenantId: string, clientId: string, clientSecret: string): Promise<string> {
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+function renderTemplate(templateName: string, data: Record<string, any>): string {
+  let html = EMAIL_TEMPLATES[templateName] || '';
   
-  const params = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: 'https://graph.microsoft.com/.default',
-    grant_type: 'client_credentials',
+  Object.entries(data).forEach(([key, value]) => {
+    const regex = new RegExp(`{{${key}}}`, 'g');
+    html = html.replace(regex, String(value));
   });
-
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get Graph token: ${error}`);
-  }
-
-  const data: GraphTokenResponse = await response.json();
-  return data.access_token;
-}
-
-async function sendEmail(
-  accessToken: string,
-  mailboxEmail: string,
-  to: string,
-  subject: string,
-  htmlBody: string,
-  replyTo?: string
-): Promise<void> {
-  const url = `https://graph.microsoft.com/v1.0/users/${mailboxEmail}/sendMail`;
   
-  const message: any = {
-    message: {
-      subject,
-      body: {
-        contentType: 'HTML',
-        content: htmlBody,
-      },
-      toRecipients: [
-        {
-          emailAddress: { address: to },
-        },
-      ],
-    },
-    saveToSentItems: true,
-  };
-
-  if (replyTo) {
-    message.message.replyTo = [{ emailAddress: { address: replyTo } }];
-  }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(message),
+  // Handle simple if conditions: {{#if is_internal}}...{{/if}}
+  html = html.replace(/{{#if is_internal}}([\s\S]*?){{\/if}}/g, (match, content) => {
+    return data.is_internal ? content : '';
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to send email: ${error}`);
-  }
+  
+  return html;
 }
 
 async function sendEmailViaResend(apiKey: string, from: string, to: string, subject: string, html: string, replyTo?: string): Promise<void> {
@@ -291,22 +219,6 @@ async function sendEmailViaResend(apiKey: string, from: string, to: string, subj
   }
 }
 
-function renderTemplate(templateName: string, data: Record<string, any>): string {
-  let html = EMAIL_TEMPLATES[templateName] || '';
-  
-  Object.entries(data).forEach(([key, value]) => {
-    const regex = new RegExp(`{{${key}}}`, 'g');
-    html = html.replace(regex, String(value));
-  });
-  
-  // Handle simple if conditions: {{#if is_internal}}...{{/if}}
-  html = html.replace(/{{#if is_internal}}([\s\S]*?){{\/if}}/g, (match, content) => {
-    return data.is_internal ? content : '';
-  });
-  
-  return html;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -334,26 +246,22 @@ serve(async (req) => {
       config[row.config_key] = row.config_value;
     });
 
-    if (config.email_enabled !== 'true') {
-      return new Response(JSON.stringify({ message: 'Email processing disabled' }), {
+    // Check if Resend is enabled
+    if (config.use_resend !== 'true') {
+      return new Response(JSON.stringify({ message: 'Resend not enabled' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const tenantId = config.ms_tenant_id;
-    const clientId = config.ms_client_id;
-    const clientSecret = config.ms_client_secret;
-    const mailboxEmail = config.ms_mailbox_email;
+    const resendApiKey = config.resend_api_key;
+    const fromEmail = config.resend_from_email || 'support@promptandpause.com';
 
-    if (!tenantId || !clientId || !clientSecret || !mailboxEmail) {
-      return new Response(JSON.stringify({ error: 'Missing email configuration' }), {
+    if (!resendApiKey) {
+      return new Response(JSON.stringify({ error: 'Resend API key not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    // Get Graph API access token
-    const accessToken = await getGraphAccessToken(tenantId, clientId, clientSecret);
 
     // Get pending emails from queue
     const { data: pendingEmails, error: fetchError } = await supabase
@@ -381,37 +289,15 @@ serve(async (req) => {
         };
         const htmlBody = email.body_html || renderTemplate(email.template_name, templateData);
 
-        // Check if we should use Resend (for customer service tickets)
-        const shouldUseResend = email.template_data.ticket_type === 'customer_service';
-        
-        if (shouldUseResend) {
-          // Use Resend for customer service tickets
-          const resendApiKey = Deno.env.get('RESEND_API_KEY');
-          if (!resendApiKey) {
-            throw new Error('Resend API key not configured');
-          }
-          
-          await sendEmailViaResend(
-            resendApiKey,
-            'support@promptandpause.com',
-            email.to_email,
-            email.subject,
-            htmlBody,
-            email.reply_to
-          );
-        } else {
-          // Use Microsoft Graph for internal tickets
-          const accessToken = await getGraphAccessToken(tenantId, clientId, clientSecret);
-          
-          await sendEmail(
-            accessToken,
-            mailboxEmail,
-            email.to_email,
-            email.subject,
-            htmlBody,
-            email.reply_to
-          );
-        }
+        // Send email via Resend
+        await sendEmailViaResend(
+          resendApiKey,
+          fromEmail,
+          email.to_email,
+          email.subject,
+          htmlBody,
+          email.reply_to
+        );
 
         // Update queue item as sent
         await supabase
