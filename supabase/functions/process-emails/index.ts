@@ -139,7 +139,8 @@ async function sendEmail(
 }
 
 function extractTicketNumberFromSubject(subject: string): string | null {
-  const match = subject.match(/\[?(TKT\d+)\]?/i);
+  // Match both T-2026-000001 and TKT- formats
+  const match = subject.match(/\[?(T?-\d{4}-\d+|TKT\d+)\]?/i);
   return match ? match[1].toUpperCase() : null;
 }
 
