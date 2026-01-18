@@ -146,13 +146,39 @@ function extractTicketNumberFromSubject(subject: string): string | null {
 
 function stripHtmlTags(html: string): string {
   return html
-    .replace(/<[^>]*>/g, '')
+    .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cleanEmailReply(body: string): string {
+  // Remove quoted email replies
+  const lines = body.split('\n');
+  const cleanedLines: string[] = [];
+  
+  for (const line of lines) {
+    // Stop at the beginning of quoted email
+    if (line.match(/^On.*wrote:$/) || 
+        line.match(/^-----Original Message-----/) ||
+        line.match(/^From:.*$/) ||
+        line.match(/^>.*$/)) {
+      break;
+    }
+    
+    // Skip lines that look like email headers
+    if (line.match(/^(Subject|To|From|Cc|Bcc|Date|Sent):/)) {
+      continue;
+    }
+    
+    cleanedLines.push(line);
+  }
+  
+  // Join and clean up extra whitespace
+  return cleanedLines.join('\n').trim();
 }
 
 serve(async (req) => {
@@ -279,8 +305,8 @@ serve(async (req) => {
 
       // Log inbound email
       const bodyText = email.body.contentType === 'html' 
-        ? stripHtmlTags(email.body.content)
-        : email.body.content;
+        ? cleanEmailReply(stripHtmlTags(email.body.content))
+        : cleanEmailReply(email.body.content);
 
       let inboundEmail: any;
       
