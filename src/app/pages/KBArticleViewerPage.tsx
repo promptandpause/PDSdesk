@@ -19,6 +19,12 @@ interface Article {
   view_count: number;
 }
 
+interface TOCItem {
+  level: number;
+  title: string;
+  id: string;
+}
+
 export function KBArticleViewerPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -29,6 +35,8 @@ export function KBArticleViewerPage() {
 
   const [loading, setLoading] = useState(true);
   const [article, setArticle] = useState<Article | null>(null);
+  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  const [toc, setToc] = useState<TOCItem[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -55,6 +63,10 @@ export function KBArticleViewerPage() {
 
       if (!error && data) {
         setArticle(data as Article);
+        // Generate table of contents
+        setToc(extractTOC((data as Article).body));
+        // Load related articles
+        void loadRelatedArticles((data as Article).category, (data as Article).id);
       }
       setLoading(false);
     }
@@ -72,6 +84,71 @@ export function KBArticleViewerPage() {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  // Extract table of contents from markdown headers
+  const extractTOC = (content: string): TOCItem[] => {
+    const lines = content.split('\n');
+    const tocItems: TOCItem[] = [];
+    
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('# ')) {
+        tocItems.push({
+          level: 1,
+          title: trimmed.slice(2),
+          id: slugify(trimmed.slice(2)),
+        });
+      } else if (trimmed.startsWith('## ')) {
+        tocItems.push({
+          level: 2,
+          title: trimmed.slice(3),
+          id: slugify(trimmed.slice(3)),
+        });
+      } else if (trimmed.startsWith('### ')) {
+        tocItems.push({
+          level: 3,
+          title: trimmed.slice(4),
+          id: slugify(trimmed.slice(4)),
+        });
+      }
+    });
+    
+    return tocItems;
+  };
+
+  // Create a URL-friendly slug from text
+  const slugify = (text: string): string => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
+  };
+
+  // Load related articles from the same category
+  const loadRelatedArticles = async (category: string | null, currentId: string) => {
+    if (!category) return;
+    
+    const { data } = await supabase
+      .from('knowledge_articles')
+      .select('id, title, slug, category')
+      .eq('category', category)
+      .neq('id', currentId)
+      .eq('status', 'published')
+      .limit(5);
+    
+    if (data) {
+      setRelatedArticles(data as Article[]);
+    }
+  };
+
+  // Scroll to section when TOC item is clicked
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // Apply inline formatting (bold, italic, code, links)
@@ -107,8 +184,10 @@ export function KBArticleViewerPage() {
 
       // H1 Header
       if (trimmedLine.startsWith('# ')) {
+        const title = trimmedLine.slice(2);
+        const headerId = slugify(title);
         elements.push(
-          <h1 key={key++} style={{ 
+          <h1 key={key++} id={headerId} style={{ 
             fontSize: 'var(--itsm-text-2xl)', 
             fontWeight: 600,
             marginTop: 'var(--itsm-space-6)',
@@ -116,8 +195,9 @@ export function KBArticleViewerPage() {
             color: 'var(--itsm-text-primary)',
             borderBottom: '1px solid var(--itsm-border-default)',
             paddingBottom: 'var(--itsm-space-2)',
+            scrollMarginTop: '80px',
           }}>
-            {trimmedLine.slice(2)}
+            {title}
           </h1>
         );
         i++;
@@ -126,15 +206,18 @@ export function KBArticleViewerPage() {
 
       // H2 Header
       if (trimmedLine.startsWith('## ')) {
+        const title = trimmedLine.slice(3);
+        const headerId = slugify(title);
         elements.push(
-          <h2 key={key++} style={{ 
+          <h2 key={key++} id={headerId} style={{ 
             fontSize: 'var(--itsm-text-xl)', 
             fontWeight: 600,
             marginTop: 'var(--itsm-space-5)',
             marginBottom: 'var(--itsm-space-3)',
             color: 'var(--itsm-text-primary)',
+            scrollMarginTop: '80px',
           }}>
-            {trimmedLine.slice(3)}
+            {title}
           </h2>
         );
         i++;
@@ -143,15 +226,18 @@ export function KBArticleViewerPage() {
 
       // H3 Header
       if (trimmedLine.startsWith('### ')) {
+        const title = trimmedLine.slice(4);
+        const headerId = slugify(title);
         elements.push(
-          <h3 key={key++} style={{ 
+          <h3 key={key++} id={headerId} style={{ 
             fontSize: 'var(--itsm-text-lg)', 
             fontWeight: 600,
             marginTop: 'var(--itsm-space-4)',
             marginBottom: 'var(--itsm-space-2)',
             color: 'var(--itsm-text-primary)',
+            scrollMarginTop: '80px',
           }}>
-            {trimmedLine.slice(4)}
+            {title}
           </h3>
         );
         i++;
@@ -350,88 +436,189 @@ export function KBArticleViewerPage() {
         }
       />
 
-      <div style={{ padding: 'var(--itsm-space-6)', maxWidth: 900 }}>
-        <Panel>
-          {/* Article Header */}
-          <div style={{ 
-            borderBottom: '1px solid var(--itsm-border-default)', 
-            paddingBottom: 'var(--itsm-space-4)',
-            marginBottom: 'var(--itsm-space-6)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-3)', marginBottom: 'var(--itsm-space-3)' }}>
-              {article.category && (
-                <Badge variant="info">{article.category}</Badge>
+      <div style={{ padding: 'var(--itsm-space-6)' }}>
+        <div style={{ display: 'flex', gap: 'var(--itsm-space-6)', alignItems: 'flex-start' }}>
+          {/* Main Article Content */}
+          <div style={{ flex: 1 }}>
+            <Panel>
+              {/* Article Header */}
+              <div style={{ 
+                borderBottom: '1px solid var(--itsm-border-default)', 
+                paddingBottom: 'var(--itsm-space-4)',
+                marginBottom: 'var(--itsm-space-6)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--itsm-space-3)', marginBottom: 'var(--itsm-space-3)' }}>
+                  {article.category && (
+                    <Badge variant="info">{article.category}</Badge>
+                  )}
+                  <Badge variant={article.status === 'published' ? 'success' : 'neutral'}>
+                    {article.status}
+                  </Badge>
+                </div>
+                
+                <h1 style={{ 
+                  fontSize: 'var(--itsm-text-2xl)', 
+                  fontWeight: 'var(--itsm-weight-bold)' as any,
+                  color: 'var(--itsm-text-primary)',
+                  marginBottom: 'var(--itsm-space-3)',
+                }}>
+                  {article.title}
+                </h1>
+                
+                <div style={{ 
+                  display: 'flex', 
+                  gap: 'var(--itsm-space-4)', 
+                  fontSize: 'var(--itsm-text-sm)',
+                  color: 'var(--itsm-text-tertiary)',
+                }}>
+                  <span>Updated {formatDate(article.updated_at)}</span>
+                  <span>•</span>
+                  <span>{article.view_count} views</span>
+                </div>
+              </div>
+
+              {/* Article Content */}
+              <div style={{ minHeight: 200 }}>
+                {article.body ? renderContent(article.body) : (
+                  <p style={{ color: 'var(--itsm-text-tertiary)', fontStyle: 'italic' }}>
+                    This article has no content yet.
+                  </p>
+                )}
+              </div>
+
+              {/* Tags */}
+              {article.tags && article.tags.length > 0 && (
+                <div style={{ 
+                  marginTop: 'var(--itsm-space-6)', 
+                  paddingTop: 'var(--itsm-space-4)',
+                  borderTop: '1px solid var(--itsm-border-default)',
+                }}>
+                  <div style={{ 
+                    fontSize: 'var(--itsm-text-xs)', 
+                    color: 'var(--itsm-text-tertiary)',
+                    marginBottom: 'var(--itsm-space-2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}>
+                    Tags
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--itsm-space-2)', flexWrap: 'wrap' }}>
+                    {article.tags.map((tag, idx) => (
+                      <span 
+                        key={idx}
+                        style={{
+                          padding: 'var(--itsm-space-1) var(--itsm-space-2)',
+                          backgroundColor: 'var(--itsm-surface-raised)',
+                          borderRadius: 'var(--itsm-badge-radius)',
+                          fontSize: 'var(--itsm-text-xs)',
+                          color: 'var(--itsm-text-secondary)',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
-              <Badge variant={article.status === 'published' ? 'success' : 'neutral'}>
-                {article.status}
-              </Badge>
-            </div>
-            
-            <h1 style={{ 
-              fontSize: 'var(--itsm-text-2xl)', 
-              fontWeight: 'var(--itsm-weight-bold)' as any,
-              color: 'var(--itsm-text-primary)',
-              marginBottom: 'var(--itsm-space-3)',
-            }}>
-              {article.title}
-            </h1>
-            
-            <div style={{ 
-              display: 'flex', 
-              gap: 'var(--itsm-space-4)', 
-              fontSize: 'var(--itsm-text-sm)',
-              color: 'var(--itsm-text-tertiary)',
-            }}>
-              <span>Updated {formatDate(article.updated_at)}</span>
-              <span>•</span>
-              <span>{article.view_count} views</span>
-            </div>
+            </Panel>
           </div>
 
-          {/* Article Content */}
-          <div style={{ minHeight: 200 }}>
-            {article.body ? renderContent(article.body) : (
-              <p style={{ color: 'var(--itsm-text-tertiary)', fontStyle: 'italic' }}>
-                This article has no content yet.
-              </p>
+          {/* Sidebar */}
+          <div style={{ width: 280, flexShrink: 0 }}>
+            {/* Table of Contents */}
+            {toc.length > 0 && (
+              <Panel style={{ marginBottom: 'var(--itsm-space-4)' }}>
+                <div style={{ 
+                  fontSize: 'var(--itsm-text-sm)', 
+                  fontWeight: 600,
+                  color: 'var(--itsm-text-primary)',
+                  marginBottom: 'var(--itsm-space-3)',
+                  paddingBottom: 'var(--itsm-space-2)',
+                  borderBottom: '1px solid var(--itsm-border-default)',
+                }}>
+                  Contents
+                </div>
+                <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-1)' }}>
+                  {toc.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => scrollToSection(item.id)}
+                      style={{
+                        textAlign: 'left',
+                        padding: 'var(--itsm-space-1) var(--itsm-space-2)',
+                        paddingLeft: `calc(var(--itsm-space-2) + ${(item.level - 1) * 12}px)`,
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: 'var(--itsm-button-radius)',
+                        cursor: 'pointer',
+                        fontSize: item.level === 1 ? 'var(--itsm-text-sm)' : 'var(--itsm-text-xs)',
+                        fontWeight: item.level === 1 ? 500 : 400,
+                        color: 'var(--itsm-text-secondary)',
+                        transition: 'background-color 0.15s, color 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--itsm-surface-raised)';
+                        e.currentTarget.style.color = 'var(--itsm-text-primary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--itsm-text-secondary)';
+                      }}
+                    >
+                      {item.title}
+                    </button>
+                  ))}
+                </nav>
+              </Panel>
+            )}
+
+            {/* Related Articles */}
+            {relatedArticles.length > 0 && (
+              <Panel>
+                <div style={{ 
+                  fontSize: 'var(--itsm-text-sm)', 
+                  fontWeight: 600,
+                  color: 'var(--itsm-text-primary)',
+                  marginBottom: 'var(--itsm-space-3)',
+                  paddingBottom: 'var(--itsm-space-2)',
+                  borderBottom: '1px solid var(--itsm-border-default)',
+                }}>
+                  Related Articles
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-2)' }}>
+                  {relatedArticles.map((related) => (
+                    <button
+                      key={related.id}
+                      onClick={() => navigate(`/kb/${related.id}`)}
+                      style={{
+                        textAlign: 'left',
+                        padding: 'var(--itsm-space-2)',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: 'var(--itsm-button-radius)',
+                        cursor: 'pointer',
+                        fontSize: 'var(--itsm-text-sm)',
+                        color: 'var(--itsm-text-secondary)',
+                        lineHeight: 1.4,
+                        transition: 'background-color 0.15s, color 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--itsm-surface-raised)';
+                        e.currentTarget.style.color = 'var(--itsm-primary-600)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--itsm-text-secondary)';
+                      }}
+                    >
+                      {related.title}
+                    </button>
+                  ))}
+                </div>
+              </Panel>
             )}
           </div>
-
-          {/* Tags */}
-          {article.tags && article.tags.length > 0 && (
-            <div style={{ 
-              marginTop: 'var(--itsm-space-6)', 
-              paddingTop: 'var(--itsm-space-4)',
-              borderTop: '1px solid var(--itsm-border-default)',
-            }}>
-              <div style={{ 
-                fontSize: 'var(--itsm-text-xs)', 
-                color: 'var(--itsm-text-tertiary)',
-                marginBottom: 'var(--itsm-space-2)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}>
-                Tags
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--itsm-space-2)', flexWrap: 'wrap' }}>
-                {article.tags.map((tag, idx) => (
-                  <span 
-                    key={idx}
-                    style={{
-                      padding: 'var(--itsm-space-1) var(--itsm-space-2)',
-                      backgroundColor: 'var(--itsm-surface-raised)',
-                      borderRadius: 'var(--itsm-badge-radius)',
-                      fontSize: 'var(--itsm-text-xs)',
-                      color: 'var(--itsm-text-secondary)',
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </Panel>
+        </div>
       </div>
     </div>
   );
