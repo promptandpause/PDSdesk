@@ -74,100 +74,177 @@ export function KBArticleViewerPage() {
     });
   };
 
-  // Simple markdown-like rendering (basic support)
+  // Apply inline formatting (bold, italic, code, links)
+  const applyInlineFormatting = (text: string): string => {
+    let result = text;
+    // Bold
+    result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // Inline code
+    result = result.replace(/`([^`]+)`/g, '<code style="background:var(--itsm-surface-raised);padding:2px 6px;border-radius:4px;font-size:0.9em;font-family:monospace;">$1</code>');
+    // Links
+    result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--itsm-primary-600);text-decoration:underline;">$1</a>');
+    return result;
+  };
+
+  // Render markdown content line by line for better control
   const renderContent = (content: string) => {
-    // Split by double newlines for paragraphs
-    const paragraphs = content.split(/\n\n+/);
-    
-    return paragraphs.map((para, idx) => {
-      // Check for headers
-      if (para.startsWith('### ')) {
-        return (
-          <h3 key={idx} style={{ 
-            fontSize: 'var(--itsm-text-lg)', 
-            fontWeight: 'var(--itsm-weight-semibold)' as any,
-            marginTop: 'var(--itsm-space-6)',
-            marginBottom: 'var(--itsm-space-3)',
-            color: 'var(--itsm-text-primary)',
-          }}>
-            {para.slice(4)}
-          </h3>
-        );
-      }
-      if (para.startsWith('## ')) {
-        return (
-          <h2 key={idx} style={{ 
-            fontSize: 'var(--itsm-text-xl)', 
-            fontWeight: 'var(--itsm-weight-semibold)' as any,
-            marginTop: 'var(--itsm-space-6)',
-            marginBottom: 'var(--itsm-space-3)',
-            color: 'var(--itsm-text-primary)',
-          }}>
-            {para.slice(3)}
-          </h2>
-        );
-      }
-      if (para.startsWith('# ')) {
-        return (
-          <h1 key={idx} style={{ 
-            fontSize: 'var(--itsm-text-2xl)', 
-            fontWeight: 'var(--itsm-weight-bold)' as any,
-            marginTop: 'var(--itsm-space-6)',
-            marginBottom: 'var(--itsm-space-3)',
-            color: 'var(--itsm-text-primary)',
-          }}>
-            {para.slice(2)}
-          </h1>
-        );
+    const lines = content.split('\n');
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+    let key = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmedLine = line.trim();
+
+      // Skip empty lines
+      if (!trimmedLine) {
+        i++;
+        continue;
       }
 
-      // Check for bullet lists
-      if (para.match(/^[-*]\s/m)) {
-        const items = para.split(/\n/).filter(line => line.trim());
-        return (
-          <ul key={idx} style={{ 
+      // H1 Header
+      if (trimmedLine.startsWith('# ')) {
+        elements.push(
+          <h1 key={key++} style={{ 
+            fontSize: 'var(--itsm-text-2xl)', 
+            fontWeight: 600,
+            marginTop: 'var(--itsm-space-6)',
+            marginBottom: 'var(--itsm-space-4)',
+            color: 'var(--itsm-text-primary)',
+            borderBottom: '1px solid var(--itsm-border-default)',
+            paddingBottom: 'var(--itsm-space-2)',
+          }}>
+            {trimmedLine.slice(2)}
+          </h1>
+        );
+        i++;
+        continue;
+      }
+
+      // H2 Header
+      if (trimmedLine.startsWith('## ')) {
+        elements.push(
+          <h2 key={key++} style={{ 
+            fontSize: 'var(--itsm-text-xl)', 
+            fontWeight: 600,
+            marginTop: 'var(--itsm-space-5)',
+            marginBottom: 'var(--itsm-space-3)',
+            color: 'var(--itsm-text-primary)',
+          }}>
+            {trimmedLine.slice(3)}
+          </h2>
+        );
+        i++;
+        continue;
+      }
+
+      // H3 Header
+      if (trimmedLine.startsWith('### ')) {
+        elements.push(
+          <h3 key={key++} style={{ 
+            fontSize: 'var(--itsm-text-lg)', 
+            fontWeight: 600,
+            marginTop: 'var(--itsm-space-4)',
+            marginBottom: 'var(--itsm-space-2)',
+            color: 'var(--itsm-text-primary)',
+          }}>
+            {trimmedLine.slice(4)}
+          </h3>
+        );
+        i++;
+        continue;
+      }
+
+      // Code block
+      if (trimmedLine.startsWith('```')) {
+        const codeLines: string[] = [];
+        i++; // Skip opening ```
+        while (i < lines.length && !lines[i].trim().startsWith('```')) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        i++; // Skip closing ```
+        elements.push(
+          <pre key={key++} style={{
+            backgroundColor: 'var(--itsm-surface-raised)',
+            padding: 'var(--itsm-space-4)',
+            borderRadius: 'var(--itsm-panel-radius)',
+            overflow: 'auto',
+            marginBottom: 'var(--itsm-space-4)',
+            fontSize: 'var(--itsm-text-sm)',
+            fontFamily: 'monospace',
+            border: '1px solid var(--itsm-border-default)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}>
+            <code>{codeLines.join('\n')}</code>
+          </pre>
+        );
+        continue;
+      }
+
+      // Bullet list (- or *)
+      if (trimmedLine.match(/^[-*]\s/)) {
+        const listItems: string[] = [];
+        while (i < lines.length && lines[i].trim().match(/^[-*]\s/)) {
+          listItems.push(lines[i].trim().replace(/^[-*]\s/, ''));
+          i++;
+        }
+        elements.push(
+          <ul key={key++} style={{ 
             marginBottom: 'var(--itsm-space-4)',
             paddingLeft: 'var(--itsm-space-6)',
+            listStyleType: 'disc',
           }}>
-            {items.map((item, i) => (
-              <li key={i} style={{ 
+            {listItems.map((item, idx) => (
+              <li key={idx} style={{ 
                 marginBottom: 'var(--itsm-space-2)',
                 color: 'var(--itsm-text-secondary)',
-                lineHeight: 'var(--itsm-leading-relaxed)',
-              }}>
-                {item.replace(/^[-*]\s/, '')}
-              </li>
+                lineHeight: '1.6',
+              }}
+              dangerouslySetInnerHTML={{ __html: applyInlineFormatting(item) }}
+              />
             ))}
           </ul>
         );
+        continue;
       }
 
-      // Check for numbered lists
-      if (para.match(/^\d+\.\s/m)) {
-        const items = para.split(/\n/).filter(line => line.trim());
-        return (
-          <ol key={idx} style={{ 
+      // Numbered list
+      if (trimmedLine.match(/^\d+\.\s/)) {
+        const listItems: string[] = [];
+        while (i < lines.length && lines[i].trim().match(/^\d+\.\s/)) {
+          listItems.push(lines[i].trim().replace(/^\d+\.\s/, ''));
+          i++;
+        }
+        elements.push(
+          <ol key={key++} style={{ 
             marginBottom: 'var(--itsm-space-4)',
             paddingLeft: 'var(--itsm-space-6)',
+            listStyleType: 'decimal',
           }}>
-            {items.map((item, i) => (
-              <li key={i} style={{ 
+            {listItems.map((item, idx) => (
+              <li key={idx} style={{ 
                 marginBottom: 'var(--itsm-space-2)',
                 color: 'var(--itsm-text-secondary)',
-                lineHeight: 'var(--itsm-leading-relaxed)',
-              }}>
-                {item.replace(/^\d+\.\s/, '')}
-              </li>
+                lineHeight: '1.6',
+              }}
+              dangerouslySetInnerHTML={{ __html: applyInlineFormatting(item) }}
+              />
             ))}
           </ol>
         );
+        continue;
       }
 
-      // Check for images
-      const imageMatch = para.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      // Image
+      const imageMatch = trimmedLine.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
       if (imageMatch) {
-        return (
-          <div key={idx} style={{ marginBottom: 'var(--itsm-space-4)' }}>
+        elements.push(
+          <div key={key++} style={{ marginBottom: 'var(--itsm-space-4)' }}>
             <img 
               src={imageMatch[2]} 
               alt={imageMatch[1]} 
@@ -179,51 +256,45 @@ export function KBArticleViewerPage() {
             />
           </div>
         );
+        i++;
+        continue;
       }
 
-      // Check for code blocks
-      if (para.startsWith('```')) {
-        const code = para.replace(/^```\w*\n?/, '').replace(/```$/, '');
-        return (
-          <pre key={idx} style={{
-            backgroundColor: 'var(--itsm-surface-raised)',
-            padding: 'var(--itsm-space-4)',
-            borderRadius: 'var(--itsm-panel-radius)',
-            overflow: 'auto',
-            marginBottom: 'var(--itsm-space-4)',
-            fontSize: 'var(--itsm-text-sm)',
-            fontFamily: 'var(--itsm-font-mono)',
-            border: '1px solid var(--itsm-border-default)',
-          }}>
-            <code>{code}</code>
-          </pre>
+      // Regular paragraph - collect consecutive non-special lines
+      const paragraphLines: string[] = [];
+      while (i < lines.length) {
+        const currentLine = lines[i].trim();
+        // Stop if we hit a special line or empty line
+        if (!currentLine || 
+            currentLine.startsWith('#') || 
+            currentLine.startsWith('```') ||
+            currentLine.match(/^[-*]\s/) ||
+            currentLine.match(/^\d+\.\s/) ||
+            currentLine.match(/^!\[/)) {
+          break;
+        }
+        paragraphLines.push(currentLine);
+        i++;
+      }
+
+      if (paragraphLines.length > 0) {
+        const paragraphText = paragraphLines.join(' ');
+        elements.push(
+          <p 
+            key={key++} 
+            style={{ 
+              marginBottom: 'var(--itsm-space-4)',
+              color: 'var(--itsm-text-secondary)',
+              lineHeight: '1.7',
+              fontSize: 'var(--itsm-text-base)',
+            }}
+            dangerouslySetInnerHTML={{ __html: applyInlineFormatting(paragraphText) }}
+          />
         );
       }
+    }
 
-      // Regular paragraph with inline formatting
-      let text = para;
-      // Bold
-      text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-      // Italic
-      text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-      // Inline code
-      text = text.replace(/`([^`]+)`/g, '<code style="background:var(--itsm-surface-raised);padding:2px 6px;border-radius:4px;font-size:0.9em;">$1</code>');
-      // Links
-      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--itsm-primary-600);">$1</a>');
-
-      return (
-        <p 
-          key={idx} 
-          style={{ 
-            marginBottom: 'var(--itsm-space-4)',
-            color: 'var(--itsm-text-secondary)',
-            lineHeight: 'var(--itsm-leading-relaxed)',
-            fontSize: 'var(--itsm-text-base)',
-          }}
-          dangerouslySetInnerHTML={{ __html: text.replace(/\n/g, '<br />') }}
-        />
-      );
-    });
+    return elements;
   };
 
   if (loading) {
