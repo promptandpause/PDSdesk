@@ -116,16 +116,40 @@ async function resendSendEmail(params: {
   }
 }
 
-function requireSecret(req: Request) {
+async function requireSecret(req: Request) {
   const expected = Deno.env.get("ITSM_AUTOMATION_SECRET") ?? "";
   if (!expected) return { ok: false, error: "Missing ITSM_AUTOMATION_SECRET" } as const;
 
-  const provided = req.headers.get("x-itsm-automation-secret") ?? "";
-  if (!provided || provided !== expected) {
-    return { ok: false, error: "Unauthorized" } as const;
+  // Check header first
+  const headerSecret = req.headers.get("x-itsm-automation-secret") ?? "";
+  if (headerSecret === expected) {
+    return { ok: true } as const;
   }
 
-  return { ok: true } as const;
+  // Try to get from request body
+  try {
+    const body = await req.json() as any;
+    if (body?.secret === expected) {
+      return { ok: true } as const;
+    }
+    
+    // Also check if the entire body is just the secret string
+    if (typeof body === "string" && body === expected) {
+      return { ok: true } as const;
+    }
+  } catch (e) {
+    // If body parsing fails, try to read as text
+    try {
+      const text = await req.text();
+      if (text === expected) {
+        return { ok: true } as const;
+      }
+    } catch {
+      // If all fails, return unauthorized
+    }
+  }
+
+  return { ok: false, error: "Unauthorized" } as const;
 }
 
 async function runDirectorySync(params: {
@@ -802,7 +826,8 @@ Deno.serve(async (req: Request) => {
       return json(405, { error: "Method not allowed" });
     }
 
-    const auth = requireSecret(req);
+    // Check automation secret first (bypasses Supabase auth)
+    const auth = await requireSecret(req);
     if (!auth.ok) {
       return json(401, { error: auth.error });
     }
@@ -819,7 +844,9 @@ Deno.serve(async (req: Request) => {
 
     let body: Json = {};
     try {
-      body = (await req.json()) as Json;
+      // Clone the request to avoid body consumption issues
+      const clonedReq = req.clone();
+      body = (await clonedReq.json()) as Json;
     } catch {
       body = {};
     }
