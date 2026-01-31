@@ -446,9 +446,26 @@ export function TicketDetailPage() {
               </Button>
             )}
             {isAgent && (
-              <Button variant="secondary" onClick={() => setShowEscalateModal(true)}>
-                Escalate / Transfer
-              </Button>
+              <>
+                <Button variant="secondary" onClick={() => setShowEscalateModal(true)}>
+                  Escalate / Transfer
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    // Navigate to KB editor with pre-filled data from ticket
+                    const params = new URLSearchParams({
+                      fromTicket: ticket.id,
+                      title: `Solution: ${ticket.title}`,
+                      category: ticket.category || '',
+                    });
+                    navigate(`/kb/new?${params.toString()}`);
+                  }}
+                  title="Create KB article from this ticket"
+                >
+                  Create KB Article
+                </Button>
+              </>
             )}
             <Button 
               variant={isEditing ? 'primary' : 'secondary'} 

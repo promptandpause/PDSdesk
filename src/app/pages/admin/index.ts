@@ -7,3 +7,4 @@ export { UserManagementPage } from './UserManagementPage';
 export { QueueManagementPage } from './QueueManagementPage';
 export { SystemSettingsPage } from './SystemSettingsPage';
 export { ServiceCatalogAdminPage } from './ServiceCatalogAdminPage';
+export { KBCategoriesPage } from './KBCategoriesPage';

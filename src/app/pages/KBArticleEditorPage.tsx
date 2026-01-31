@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
@@ -18,26 +18,82 @@ interface Article {
   updated_at: string;
 }
 
+interface KBCategory {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 export function KBArticleEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const supabase = useMemo(() => getSupabaseClient(), []);
   const { user } = useAuth();
 
   const isNew = !id || id === 'new';
+  
+  // Check if coming from a ticket
+  const fromTicketId = searchParams.get('fromTicket');
+  const prefilledTitle = searchParams.get('title') || '';
+  const prefilledCategory = searchParams.get('category') || '';
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [article, setArticle] = useState<Article | null>(null);
   const [formData, setFormData] = useState({
     slug: '',
-    title: '',
+    title: prefilledTitle,
     body: '',
-    category: '',
+    category: prefilledCategory,
     status: 'draft',
     tags: '',
   });
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<KBCategory[]>([]);
+  const [sourceTicket, setSourceTicket] = useState<{ ticket_number: string; description: string | null } | null>(null);
+
+  // Fetch categories from database
+  useEffect(() => {
+    async function loadCategories() {
+      const { data } = await supabase
+        .from('kb_categories')
+        .select('id, name, is_active')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      if (data) {
+        setCategories(data as KBCategory[]);
+      }
+    }
+    void loadCategories();
+  }, [supabase]);
+
+  // Load ticket data if coming from a ticket
+  useEffect(() => {
+    if (!fromTicketId || !isNew) return;
+
+    async function loadTicketData() {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('ticket_number, description')
+        .eq('id', fromTicketId)
+        .single();
+
+      if (!error && data) {
+        setSourceTicket(data);
+        // Pre-fill the body with ticket description as a starting point
+        if (data.description) {
+          setFormData(prev => ({
+            ...prev,
+            body: `## Problem\n\n${data.description}\n\n## Solution\n\n[Describe the solution here]\n\n## Additional Notes\n\n[Any additional information]`,
+            slug: prev.slug || prefilledTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+          }));
+        }
+      }
+    }
+    void loadTicketData();
+  }, [fromTicketId, isNew, supabase, prefilledTitle]);
 
   useEffect(() => {
     if (isNew) return;
@@ -250,6 +306,23 @@ export function KBArticleEditorPage() {
       />
 
       <div style={{ padding: 'var(--itsm-space-6)', maxWidth: 900 }}>
+        {/* Source ticket indicator */}
+        {sourceTicket && (
+          <div
+            style={{
+              marginBottom: 'var(--itsm-space-4)',
+              padding: 'var(--itsm-space-3)',
+              backgroundColor: 'var(--itsm-primary-50)',
+              border: '1px solid var(--itsm-primary-200)',
+              borderRadius: 'var(--itsm-panel-radius)',
+              fontSize: 'var(--itsm-text-sm)',
+              color: 'var(--itsm-primary-700)',
+            }}
+          >
+            📝 Creating KB article from ticket <strong>{sourceTicket.ticket_number}</strong>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <Panel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-4)' }}>
@@ -278,12 +351,30 @@ export function KBArticleEditorPage() {
                 hint="URL-friendly identifier"
               />
 
-              <Input
-                label="Category"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                placeholder="e.g., Getting Started, Troubleshooting"
-              />
+              <div>
+                <label className="itsm-label" style={{ display: 'block', marginBottom: 'var(--itsm-space-1)' }}>
+                  Category
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  style={{
+                    width: '100%',
+                    height: 36,
+                    padding: '0 var(--itsm-space-3)',
+                    fontSize: 'var(--itsm-text-sm)',
+                    border: '1px solid var(--itsm-border-default)',
+                    borderRadius: 'var(--itsm-input-radius)',
+                    backgroundColor: 'var(--itsm-surface-base)',
+                    color: 'var(--itsm-text-primary)',
+                  }}
+                >
+                  <option value="">Select a category...</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
 
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--itsm-space-2)' }}>

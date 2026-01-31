@@ -110,6 +110,16 @@ export function SettingsPage() {
                     to="/settings/routing-rules"
                   />
                   <SettingsLink
+                    title="Service Catalog"
+                    description="Manage service catalog items and categories"
+                    to="/settings/service-catalog"
+                  />
+                  <SettingsLink
+                    title="KB Categories"
+                    description="Manage knowledge base categories"
+                    to="/settings/kb-categories"
+                  />
+                  <SettingsLink
                     title="System Settings"
                     description="General ITSM settings, working hours, and features"
                     to="/settings/system"

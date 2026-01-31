@@ -25,7 +25,7 @@ const customerNavigation: NavSection[] = [
   {
     items: [
       { label: 'My Tickets', to: '/my-tickets', icon: '▤' },
-      { label: 'Knowledge Base', to: '/kb-public', icon: '◉' },
+      { label: 'Knowledge Base', to: '/kb', icon: '◉' },
     ],
   },
 ];
