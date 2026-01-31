@@ -449,6 +449,18 @@ type TicketCloseCandidate = {
   requester: { email: string | null; full_name: string | null } | { email: string | null; full_name: string | null }[] | null;
 };
 
+type PendingTicketCandidate = {
+  id: string;
+  ticket_type: string;
+  ticket_number: string;
+  title: string;
+  updated_at: string;
+  requester_id: string;
+  requester_email: string | null;
+  requester_name: string | null;
+  requester: { email: string | null; full_name: string | null } | { email: string | null; full_name: string | null }[] | null;
+};
+
 function normalizeProfile<T>(value: T | T[] | null): T | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -599,6 +611,187 @@ async function autoCloseResolvedTickets(params: {
   };
 }
 
+async function autoClosePendingTickets(params: {
+  supabase: ReturnType<typeof createClient>;
+  limit: number;
+  now: Date;
+}) {
+  const supabase = params.supabase;
+  // 5 days without customer response
+  const cutoff = new Date(params.now.getTime() - 5 * 24 * 60 * 60 * 1000);
+
+  // Find tickets in "pending" status where updated_at is older than 5 days
+  // "pending" status means we're waiting for customer response
+  const { data: candidates, error } = await supabase
+    .from("tickets")
+    .select(
+      "id,ticket_type,ticket_number,title,updated_at,requester_id,requester_email,requester_name,requester:profiles!tickets_requester_id_fkey(email,full_name)",
+    )
+    .eq("status", "pending")
+    .lte("updated_at", cutoff.toISOString())
+    .limit(params.limit);
+
+  if (error) throw error;
+
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+  const SUPPORT_FROM_EMAIL = Deno.env.get("SUPPORT_FROM_EMAIL") ?? "support@promptandpause.com";
+  const PDSDESK_APP_URL =
+    Deno.env.get("PDSDESK_APP_URL") ??
+    Deno.env.get("ITSM_APP_URL") ??
+    "https://servicedesk.promptandpause.com";
+
+  let closed = 0;
+  let emailed = 0;
+  let emailSkipped = 0;
+  let emailFailed = 0;
+
+  for (const t of (candidates ?? []) as unknown as PendingTicketCandidate[]) {
+    // Check if there's been any customer comment since the ticket went pending
+    // by looking for non-internal comments from the requester after the last agent action
+    const { data: recentCustomerComments } = await supabase
+      .from("ticket_comments")
+      .select("id,created_at")
+      .eq("ticket_id", t.id)
+      .eq("author_id", t.requester_id)
+      .eq("is_internal", false)
+      .gt("created_at", cutoff.toISOString())
+      .limit(1);
+
+    // If customer has responded recently, skip this ticket
+    if ((recentCustomerComments ?? []).length > 0) {
+      continue;
+    }
+
+    // Close the ticket
+    const upd = await supabase
+      .from("tickets")
+      .update({ status: "closed" })
+      .eq("id", t.id)
+      .eq("status", "pending");
+
+    if (upd.error) {
+      throw upd.error;
+    }
+
+    closed++;
+
+    // Add auto-close comment
+    const autoCloseComment = `This ticket has been automatically closed due to no response from the requester for 5 days. If you still need assistance, please submit a new ticket or reply to reopen this one.`;
+    
+    await supabase.from("ticket_comments").insert({
+      ticket_id: t.id,
+      author_id: t.requester_id, // Use requester_id as a fallback, ideally would be system user
+      body: autoCloseComment,
+      is_internal: false,
+    });
+
+    // Log the event
+    const { error: evErr } = await supabase.from("ticket_events").insert({
+      ticket_id: t.id,
+      actor_id: null,
+      event_type: "ticket_status_changed",
+      payload: {
+        from: "pending",
+        to: "closed",
+        reason: "auto_close_no_response",
+        at: nowIso(),
+        days_inactive: 5,
+      },
+    });
+    if (evErr) throw evErr;
+
+    // Send email notification to requester
+    if (!RESEND_API_KEY) {
+      emailSkipped++;
+      continue;
+    }
+
+    // Prevent duplicate sends
+    const { data: prior } = await supabase
+      .from("ticket_events")
+      .select("id")
+      .eq("ticket_id", t.id)
+      .eq("event_type", "auto_close_email_sent")
+      .limit(1);
+    if ((prior ?? []).length) {
+      emailSkipped++;
+      continue;
+    }
+
+    const requester = normalizeProfile(t.requester);
+    const toEmailRaw =
+      (typeof t.requester_email === "string" && t.requester_email.trim())
+        ? t.requester_email.trim()
+        : requester?.email ?? "";
+
+    const toEmail = toEmailRaw ? extractFirstEmailAddress(toEmailRaw) : "";
+    if (!toEmail) {
+      emailSkipped++;
+      continue;
+    }
+
+    const requesterName =
+      (t.requester_name ?? "").trim() ||
+      (requester?.full_name ?? "").trim() ||
+      toEmail.split("@")[0];
+
+    const subject = `Ticket #${t.ticket_number} has been closed - No response received`;
+    const module = (t.ticket_type ?? "").toLowerCase() === "customer_service" ? "customer-support-queue" : "call-management";
+    const appLink = `${PDSDESK_APP_URL}/#/${module}?ticketId=${encodeURIComponent(t.id)}`;
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #111827;">
+        <p style="margin: 0 0 16px 0;">Hi ${requesterName},</p>
+        <p style="margin: 0 0 16px 0;">Your ticket <strong>#${t.ticket_number}</strong> - "${t.title}" has been automatically closed because we haven't received a response from you in the last 5 days.</p>
+        <p style="margin: 0 0 16px 0;">If you still need assistance with this issue, you can:</p>
+        <ul style="margin: 0 0 16px 0; padding-left: 20px;">
+          <li>Reply to this email to reopen the ticket</li>
+          <li>Submit a new ticket through PDSdesk</li>
+        </ul>
+        <p style="margin: 0 0 16px 0;">
+          <a href="${appLink}" style="display: inline-block; padding: 10px 14px; border-radius: 8px; background: #4f46e5; color: #ffffff; text-decoration: none;">View Ticket</a>
+        </p>
+        <p style="margin: 0; color: #6b7280; font-size: 14px;">Thank you for using PDSdesk.</p>
+      </div>
+    `;
+
+    try {
+      const sendResult = await resendSendEmail({
+        apiKey: RESEND_API_KEY,
+        from: SUPPORT_FROM_EMAIL,
+        to: toEmail,
+        subject,
+        html,
+      });
+
+      const { error: sentErr } = await supabase.from("ticket_events").insert({
+        ticket_id: t.id,
+        actor_id: null,
+        event_type: "auto_close_email_sent",
+        payload: {
+          at: nowIso(),
+          resend_id: sendResult.id ?? null,
+          to: toEmail,
+          reason: "no_response_5_days",
+        },
+      });
+      if (sentErr) throw sentErr;
+
+      emailed++;
+    } catch {
+      emailFailed++;
+    }
+  }
+
+  return {
+    scanned: (candidates ?? []).length,
+    cutoff: cutoff.toISOString(),
+    closed,
+    emailed,
+    emailSkipped,
+    emailFailed,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") {
@@ -646,7 +839,8 @@ Deno.serve(async (req: Request) => {
     const slaBreaches = await ensureSlaBreaches({ supabase, limit });
     const escalationSeeds = await ensureTicketEscalations({ supabase, limit });
     const escalationAdvances = await advanceEscalations({ supabase, limit });
-    const autoClose = await autoCloseResolvedTickets({ supabase, limit, now });
+    const autoCloseResolved = await autoCloseResolvedTickets({ supabase, limit, now });
+    const autoClosePending = await autoClosePendingTickets({ supabase, limit, now });
 
     const directorySync = shouldRunDirectorySync
       ? await runDirectorySync({
@@ -663,7 +857,8 @@ Deno.serve(async (req: Request) => {
       slaBreaches,
       escalationSeeds,
       escalationAdvances,
-      autoClose,
+      autoCloseResolved,
+      autoClosePending,
       directorySync,
     });
   } catch (e) {

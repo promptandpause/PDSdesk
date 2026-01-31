@@ -5,6 +5,7 @@ import { useAuth } from '../../lib/auth/AuthProvider';
 import { PageHeader } from '../layout/PageHeader';
 import { Panel, PanelSection, Button, StatusBadge, PriorityBadge, Badge, SLAIndicator, TicketWatchers, TicketTimeEntries, TicketLinks, TicketApprovals, Input, useToast, SparklesIcon, RefreshCwIcon, PencilIcon, MessageSquareIcon, HistoryIcon } from '../components';
 import { useTicketSLA } from '../hooks/useSLA';
+import { useAICopilot } from '../hooks/useAICopilot';
 
 interface Ticket {
   id: string;
@@ -123,6 +124,13 @@ export function TicketDetailPage() {
   const isGlobalAdmin = roles.includes('global_admin');
   const isServiceDeskAdmin = roles.includes('service_desk_admin');
   const { sla, isResponseMet, isResolved } = useTicketSLA(id ?? null);
+  
+  // AI Copilot
+  const { loading: aiLoading, suggestReply, summarizeTicket, analyzeSentiment } = useAICopilot();
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSentiment, setAiSentiment] = useState<'positive' | 'neutral' | 'negative' | null>(null);
+  const [loadingAiSummary, setLoadingAiSummary] = useState(false);
+  const [loadingAiSuggest, setLoadingAiSuggest] = useState(false);
 
   // Check if ticket can be deleted
   const canDeleteTicket = useCallback(() => {
@@ -246,6 +254,44 @@ export function TicketDetailPage() {
     }
 
     setSubmitting(false);
+  };
+
+  const handleAiSuggestReply = async () => {
+    if (!ticket) return;
+    setLoadingAiSuggest(true);
+    
+    const ticketContent = `Title: ${ticket.title}\nDescription: ${ticket.description || 'No description'}\n\nComments:\n${comments.map(c => c.body).join('\n---\n')}`;
+    const suggested = await suggestReply(ticketContent);
+    
+    if (suggested) {
+      setNewComment(suggested);
+      showToast('success', 'AI Suggestion Ready', 'Review and edit the suggested reply before sending.');
+    } else {
+      showToast('error', 'AI Suggestion Failed', 'Could not generate a suggestion. Please try again.');
+    }
+    
+    setLoadingAiSuggest(false);
+  };
+
+  const handleAiSummarize = async () => {
+    if (!ticket || comments.length === 0) return;
+    setLoadingAiSummary(true);
+    
+    const commentTexts = comments.map(c => `${c.is_internal ? '[Internal] ' : ''}${c.body}`);
+    const summary = await summarizeTicket(commentTexts);
+    
+    if (summary) {
+      setAiSummary(summary);
+    }
+    
+    // Also analyze sentiment of the ticket
+    const allText = `${ticket.title} ${ticket.description || ''} ${comments.filter(c => !c.is_internal).map(c => c.body).join(' ')}`;
+    const sentimentResult = await analyzeSentiment(allText);
+    if (sentimentResult?.sentiment) {
+      setAiSentiment(sentimentResult.sentiment);
+    }
+    
+    setLoadingAiSummary(false);
   };
 
   const handleStartEdit = () => {
@@ -593,6 +639,18 @@ export function TicketDetailPage() {
                     </label>
                   )}
                   <div style={{ display: 'flex', gap: 'var(--itsm-space-2)', marginLeft: 'auto' }}>
+                    {isAgent && (
+                      <Button
+                        variant="ghost"
+                        onClick={handleAiSuggestReply}
+                        disabled={loadingAiSuggest || !ticket}
+                        loading={loadingAiSuggest}
+                        title="AI Suggest Reply"
+                      >
+                        <SparklesIcon style={{ width: 16, height: 16, marginRight: 4 }} />
+                        AI Suggest
+                      </Button>
+                    )}
                     <Button
                       variant="primary"
                       onClick={handleSubmitComment}
@@ -906,6 +964,46 @@ export function TicketDetailPage() {
           <Panel title="Approvals">
             <TicketApprovals ticketId={ticket.id} />
           </Panel>
+
+          {/* AI Insights */}
+          {isAgent && (
+            <Panel title="AI Insights">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--itsm-space-3)' }}>
+                {/* Sentiment Indicator */}
+                {aiSentiment && (
+                  <PanelSection title="Customer Sentiment" noBorder>
+                    <Badge
+                      variant={aiSentiment === 'positive' ? 'success' : aiSentiment === 'negative' ? 'danger' : 'neutral'}
+                      size="sm"
+                    >
+                      {aiSentiment === 'positive' ? '😊 Positive' : aiSentiment === 'negative' ? '😟 Negative' : '😐 Neutral'}
+                    </Badge>
+                  </PanelSection>
+                )}
+                
+                {/* AI Summary */}
+                {aiSummary && (
+                  <PanelSection title="Conversation Summary" noBorder>
+                    <div style={{ fontSize: 'var(--itsm-text-sm)', color: 'var(--itsm-text-secondary)', lineHeight: 1.5 }}>
+                      {aiSummary}
+                    </div>
+                  </PanelSection>
+                )}
+                
+                {/* Generate Summary Button */}
+                <Button
+                  variant="ghost"
+                  onClick={handleAiSummarize}
+                  disabled={loadingAiSummary || comments.length === 0}
+                  loading={loadingAiSummary}
+                  style={{ width: '100%' }}
+                >
+                  <SparklesIcon style={{ width: 16, height: 16, marginRight: 4 }} />
+                  {aiSummary ? 'Refresh AI Summary' : 'Generate AI Summary'}
+                </Button>
+              </div>
+            </Panel>
+          )}
 
           {/* Audit Trail */}
           {isAgent && ticketEvents.length > 0 && (
